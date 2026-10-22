@@ -1,0 +1,68 @@
+# UNTESTED TEMPLATE for IBM Event Streams (Cloud Pak for Integration). Based on the KafkaConnect custom
+# resource documented at https://ibm.github.io/event-automation/es/es_11.7/connecting/setting-up-connectors/
+# Note: IBM marks Event Streams as deprecated (support and security fixes continue; no enhancements).
+# Validate with:  oc apply --dry-run=server -f 02-kafkaconnect-eventstreams.yaml
+#
+# A DEDICATED Connect cluster with ONE replica: RepAgent connects to a single host:port, and only the
+# worker that runs the task has the LTL listener open. More replicas would make the Service send RepAgent
+# to workers without a listener.
+apiVersion: eventstreams.ibm.com/v1beta2
+kind: KafkaConnect
+metadata:
+  name: sybase-cdc
+  namespace: cdc
+  annotations:
+    eventstreams.ibm.com/use-connector-resources: "true"   # manage connectors with KafkaConnector CRs
+spec:
+  replicas: 1
+  bootstrapServers: <kafka-bootstrap-address>:9093          # TLS listener of your Event Streams instance
+  tls:
+    trustedCertificates:
+      - secretName: <es-cluster-ca-cert>
+        certificate: ca.crt
+  authentication:                                            # match your Event Streams security setup
+    type: scram-sha-512
+    username: <kafka-user>
+    passwordSecret:
+      secretName: <kafka-user>
+      password: password
+  # Option A: let the operator build the image from the connector JAR (needs a pushable registry).
+  build:
+    output:
+      type: docker
+      image: <approved-registry>/cdc/sybase-cdc-connect:0.1.0
+      pushSecret: <registry-push-secret>
+    plugins:
+      - name: sybase-cdc
+        artifacts:
+          - type: jar
+            url: <artifact-repository>/sybase-cdc-connector-0.1.0.jar
+            sha512sum: <sha512 of the JAR>                   # sha512sum sybase-cdc-connector-0.1.0.jar
+  # Option B (instead of build): a pre-built image, pinned by digest.
+  # image: <approved-registry>/cdc/sybase-cdc-connect@sha256:<digest>
+  config:
+    group.id: sybase-cdc-connect
+    offset.storage.topic: sybase-cdc-offsets
+    config.storage.topic: sybase-cdc-configs
+    status.storage.topic: sybase-cdc-status
+    config.storage.replication.factor: 3
+    offset.storage.replication.factor: 3
+    status.storage.replication.factor: 3
+    offset.flush.interval.ms: 5000                            # fewer re-sent events after a crash (local value)
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: false
+    value.converter.schemas.enable: false
+    config.providers: file
+    config.providers.file.class: org.apache.kafka.common.config.provider.DirectoryConfigProvider
+  externalConfiguration:                                      # mounts the Secret as files; check your ES version
+    volumes:                                                  # (newer Strimzi-based versions use template volumes)
+      - name: ltl-credentials
+        secret:
+          secretName: sybase-cdc-ltl
+  resources:                                                  # local peak was 1.95 GiB with 10,000-row transactions
+    requests: { cpu: "1", memory: 3Gi }
+    limits: { cpu: "2", memory: 3Gi }
+  jvmOptions:
+    -Xms: 2g
+    -Xmx: 2g

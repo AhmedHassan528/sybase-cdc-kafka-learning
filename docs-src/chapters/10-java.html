@@ -1,0 +1,83 @@
+<h2 id="ch-java" data-keywords="java class object interface record enum generics threads exceptions lambda streams sockets">Java fundamentals for this connector</h2>
+<p>Only the Java features the code actually uses, each tied to where it appears. Line-level explanations are on the <a href="#ch-source">source pages</a>.</p>
+<div class="tbl"><table>
+<thead><tr><th>Concept</th><th>In plain words</th><th>Where to see it</th></tr></thead>
+<tbody>
+<tr><td>Class, object, constructor, field, method</td><td>A class is a blueprint; <code>new</code> creates an object; the constructor initializes fields; methods are behaviour.</td><td><a href="source/TransactionBuffer.html">TransactionBuffer</a></td></tr>
+<tr><td>Package, import</td><td>Namespaces matching folders; imports shorten names.</td><td>every file, line 1</td></tr>
+<tr><td>Access modifiers</td><td><code>public</code> (everyone), none = package-private, <code>private</code> (this class). Used to keep the protocol internals hidden.</td><td><a href="source/LtlValues.html">LtlValues</a> (package-private class)</td></tr>
+<tr><td><code>static</code> vs instance</td><td>Static members belong to the class (shared), instance members to each object.</td><td><a href="source/Oqid.html">Oqid</a> (all static)</td></tr>
+<tr><td><code>final</code></td><td>Field assigned once / class cannot be extended.</td><td>most classes</td></tr>
+<tr><td>Interface, implementation</td><td>A contract of methods; <code>implements</code> provides them; <code>default</code> methods have a body.</td><td><a href="source/LtlListener.html">LtlListener</a></td></tr>
+<tr><td>Inheritance, <code>@Override</code></td><td><code>extends</code> reuses a base class; <code>@Override</code> makes the compiler check the method really overrides.</td><td><a href="source/SybaseCdcSourceTask.html">SybaseCdcSourceTask</a> extends <code>SourceTask</code></td></tr>
+<tr><td>Nested, inner, anonymous classes</td><td>Classes inside classes; inner (non-static) classes can use the outer object's fields; anonymous classes implement an interface inline.</td><td>task's <code>Listener</code>; probe's listener</td></tr>
+<tr><td>Records (Java 16+)</td><td>One-line immutable data classes with accessors.</td><td><a href="source/LtlCommand.html">LtlCommand</a>, <a href="source/CommittedTransaction.html">CommittedTransaction</a></td></tr>
+<tr><td>Enums</td><td>A fixed set of constants.</td><td><code>LtlCommand.Kind</code>, <code>LtlLexer.Type</code></td></tr>
+<tr><td>Switch expressions (Java 14+)</td><td><code>case X -&gt; value</code>, no fall-through, can return a value.</td><td><a href="source/LtlParser.html#b107">LtlParser</a></td></tr>
+<tr><td>Pattern matching <code>instanceof</code> (Java 16+)</td><td>Test and cast in one step.</td><td>task <code>commitRecord</code></td></tr>
+<tr><td>Generics</td><td><code>List&lt;LtlCommand&gt;</code>, <code>Map&lt;String,Object&gt;</code>: collections typed by their content.</td><td>everywhere</td></tr>
+<tr><td>Collections</td><td><code>ArrayList</code>, <code>HashMap</code>, <code>LinkedHashMap</code> (keeps insertion order), <code>TreeMap</code> (sorted), <code>ArrayDeque</code>, <code>ArrayBlockingQueue</code> (thread-safe, bounded).</td><td>task, buffer, tracker</td></tr>
+<tr><td>Optional</td><td>A value or nothing, instead of <code>null</code>.</td><td><code>TransactionBuffer.accept</code></td></tr>
+<tr><td>Lambdas, method references, streams</td><td><code>s -&gt; !s.isEmpty()</code>, <code>String::trim</code>, <code>list.stream().filter(...).toList()</code>.</td><td>config <code>tableIncludes()</code></td></tr>
+<tr><td>Exceptions</td><td><code>throw</code>, <code>try/catch/finally</code>; checked exceptions must be declared (<code>throws IOException</code>). Runtime exceptions signal bugs or bad input.</td><td><a href="source/LtlSession.html">LtlSession</a></td></tr>
+<tr><td>try-with-resources</td><td><code>try (X x = …) { }</code> closes <code>x</code> automatically.</td><td><code>LtlSession.run</code></td></tr>
+<tr><td>Threads, <code>synchronized</code>, <code>volatile</code>, daemon threads</td><td>Concurrent execution; locks; cross-thread visibility; threads that don't keep the JVM alive.</td><td><a href="source/LtlServer.html">LtlServer</a>, <a href="source/AckTracker.html">AckTracker</a></td></tr>
+<tr><td>Sockets</td><td><code>ServerSocket.accept()</code> waits for a client; <code>Socket</code> streams bytes.</td><td>LtlServer, TdsChannel</td></tr>
+<tr><td>Bytes, charsets, byte order</td><td><code>byte</code> is signed in Java (<code>&amp; 0xff</code> makes it 0–255); text decoding needs a charset; integers have a byte order.</td><td><a href="source/TdsTokens.html">TdsTokens</a>, <a href="source/LtlLexer.html">LtlLexer</a></td></tr>
+<tr><td>Logging (SLF4J)</td><td>An API; the worker supplies the implementation (reload4j).</td><td>all classes with <code>log</code></td></tr>
+<tr><td>Java versions / bytecode</td><td>Compiled with <code>--release 17</code> → class files version 61 → needs Java 17+ at runtime.</td><td><code>pom.xml</code></td></tr>
+</tbody></table></div>
+
+<h2 id="ch-source" data-keywords="source code reference classes line by line annotations">Detailed Java source-code reference</h2>
+<p>Every Java file has its own page showing the real source with line numbers next to an explanation of each block (what, why, Java and Kafka API used, effect at runtime, what breaks if changed, how it is tested). The generator <code>docs-src/source/gen-source.js</code> refuses to build a page if any non-blank line is not covered by an explanation. Pages open with a summary of the class's role, threads and known limitations.</p>
+<figure-diagram src="06-class-relationships" n="06" title="Java classes and their relationships">
+<p><b>Purpose:</b> where each class sits and who depends on whom. <b>Packages:</b> <code>connect</code> (Kafka Connect API), <code>cdc</code> (transaction logic, no I/O), <code>ltl</code> (LTL protocol), <code>tds</code> (wire protocol), <code>tools</code> (probe). Dependencies point one way: connect → cdc, connect → ltl → tds. No cycles, so the protocol stack can be tested without Kafka.</p>
+<p><b>Does not show:</b> JDK and Kafka classes.</p>
+</figure-diagram>
+<div class="tbl"><table>
+<thead><tr><th>File</th><th>Lines</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="source/SybaseCdcSourceConnector.html">connect/SybaseCdcSourceConnector</a></td><td class="num">51</td><td>Plugin entry point; validates config; one task</td></tr>
+<tr><td><a href="source/SybaseCdcSourceTask.html">connect/SybaseCdcSourceTask</a></td><td class="num">195</td><td>Starts listener; queue → records; acks → truncation; offsets; dedupe</td></tr>
+<tr><td><a href="source/SybaseCdcConfig.html">connect/SybaseCdcConfig</a></td><td class="num">95</td><td>All settings (ConfigDef); stable offset partition</td></tr>
+<tr><td><a href="source/ChangeEventMapper.html">connect/ChangeEventMapper</a></td><td class="num">73</td><td>Topic, key, JSON value</td></tr>
+<tr><td><a href="source/TransactionBuffer.html">cdc/TransactionBuffer</a></td><td class="num">84</td><td>Group by transaction; publish on COMMIT</td></tr>
+<tr><td><a href="source/AckTracker.html">cdc/AckTracker</a></td><td class="num">68</td><td>Acknowledgement watermark</td></tr>
+<tr><td><a href="source/CommittedTransaction.html">cdc/CommittedTransaction</a></td><td class="num">22</td><td>Value object</td></tr>
+<tr><td><a href="source/Oqid.html">cdc/Oqid</a></td><td class="num">34</td><td>OQID compare, locator, hex</td></tr>
+<tr><td><a href="source/LtlServer.html">ltl/LtlServer</a></td><td class="num">86</td><td>TCP listener</td></tr>
+<tr><td><a href="source/LtlSession.html">ltl/LtlSession</a></td><td class="num">251</td><td>Replication Server impersonation</td></tr>
+<tr><td><a href="source/LtlListener.html">ltl/LtlListener</a></td><td class="num">32</td><td>Callback contract</td></tr>
+<tr><td><a href="source/LtlParser.html">ltl/LtlParser</a></td><td class="num">181</td><td>Commands from tokens</td></tr>
+<tr><td><a href="source/LtlLexer.html">ltl/LtlLexer</a></td><td class="num">123</td><td>Tokens from bytes (LTL 760 encoding)</td></tr>
+<tr><td><a href="source/LtlValues.html">ltl/LtlValues</a></td><td class="num">99</td><td>Type mapping</td></tr>
+<tr><td><a href="source/LtlCommand.html">ltl/LtlCommand</a></td><td class="num">39</td><td>Parsed command</td></tr>
+<tr><td><a href="source/TdsChannel.html">tds/TdsChannel</a></td><td class="num">97</td><td>Packet framing</td></tr>
+<tr><td><a href="source/TdsLogin.html">tds/TdsLogin</a></td><td class="num">73</td><td>Login record</td></tr>
+<tr><td><a href="source/TdsTokens.html">tds/TdsTokens</a></td><td class="num">156</td><td>Response tokens</td></tr>
+<tr><td><a href="source/LtlProbe.html">tools/LtlProbe</a></td><td class="num">86</td><td>Discovery tool (never against production)</td></tr>
+<tr><td><a href="source/LtlParserTest.html">test ltl/LtlParserTest</a></td><td class="num">124</td><td>7 tests on real captures</td></tr>
+<tr><td><a href="source/LtlValuesTest.html">test ltl/LtlValuesTest</a></td><td class="num">23</td><td>2 tests</td></tr>
+<tr><td><a href="source/TransactionBufferTest.html">test cdc/TransactionBufferTest</a></td><td class="num">35</td><td>1 test</td></tr>
+<tr><td><a href="source/AckTrackerTest.html">test cdc/AckTrackerTest</a></td><td class="num">25</td><td>1 test</td></tr>
+</tbody></table></div>
+
+<h2 id="ch-connect-api" data-keywords="kafka connect api sourceconnector sourcetask commitRecord poll start stop taskConfigs offsetStorageReader">Kafka Connect API implementation</h2>
+<p>Signatures verified against <code>connect-api-3.8.0.jar</code> (the compile dependency) and the 3.8.0 worker in <code>cdc-connect</code>.</p>
+<div class="tbl"><table>
+<thead><tr><th>Method</th><th>Called by the framework when</th><th>Required?</th><th>Implementation</th></tr></thead>
+<tbody>
+<tr><td><code>SourceConnector.version()</code></td><td>plugin listing</td><td>yes</td><td>"0.1.0"</td></tr>
+<tr><td><code>SourceConnector.config()</code></td><td>validation, UIs</td><td>yes</td><td><code>SybaseCdcConfig.CONFIG_DEF</code></td></tr>
+<tr><td><code>SourceConnector.start(Map)</code></td><td>connector created / worker restart</td><td>yes</td><td>validate, keep props</td></tr>
+<tr><td><code>SourceConnector.taskClass()</code></td><td>before creating tasks</td><td>yes</td><td><code>SybaseCdcSourceTask.class</code></td></tr>
+<tr><td><code>SourceConnector.taskConfigs(int)</code></td><td>after start and on reconfiguration</td><td>yes</td><td>one config, always</td></tr>
+<tr><td><code>SourceConnector.stop()</code></td><td>delete/stop/rebalance</td><td>yes</td><td>no-op</td></tr>
+<tr><td><code>SourceConnector.exactlyOnceSupport</code>, <code>canDefineTransactionBoundaries</code>, <code>alterOffsets</code>, <code>validate</code></td><td>optional hooks</td><td>no</td><td>not implemented (defaults)</td></tr>
+<tr><td><code>SourceTask.start(Map)</code></td><td>task assigned to a worker</td><td>yes</td><td>read stored offset via <code>context.offsetStorageReader()</code>, start <code>LtlServer</code></td></tr>
+<tr><td><code>SourceTask.poll()</code></td><td>in a loop on the task thread</td><td>yes</td><td>wait ≤ 1 s, return records or <code>null</code></td></tr>
+<tr><td><code>SourceTask.commitRecord(SourceRecord, RecordMetadata)</code></td><td>after the broker acknowledges a record (also for filtered/skipped records with <code>metadata == null</code>)</td><td>no</td><td>drives <code>AckTracker</code></td></tr>
+<tr><td><code>SourceTask.commit()</code></td><td>after an offset flush</td><td>no</td><td>not overridden</td></tr>
+<tr><td><code>SourceTask.stop()</code></td><td>stop/delete/rebalance</td><td>yes</td><td>close listener and sockets</td></tr>
+</tbody></table></div>
+<p><b>How errors propagate:</b> an exception from <code>start()</code> or <code>poll()</code> marks the task FAILED (visible with its stack trace in <code>/status</code>); producer failures with <code>errors.tolerance=none</code> also fail the task. Exceptions on the RepAgent session thread do <em>not</em> fail the task: they close that RepAgent connection, and RepAgent reconnects. <b>Resources:</b> the server socket and session sockets are closed in <code>stop()</code>; queued, unpublished transactions are dropped from memory and re-sent by RepAgent later.</p>

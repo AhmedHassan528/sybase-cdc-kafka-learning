@@ -1,0 +1,2 @@
+elapsed_s,ase_time,blocked,locks,log_free_pages,sec_trunc_page,repagent_state,kafka_new_events,connector_task,connect_errors,sybase_cpu,sybase_mem,connect_cpu,connect_mem,kafka_cpu,kafka_mem
+9,20:27:51,0,0,32633,72818,sleeping,0,RUNNING,0,0.77%,204.2MiB,1.26%,303.7MiB,69.36%,1.307GiB

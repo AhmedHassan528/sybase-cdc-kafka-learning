@@ -1,0 +1,38 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsLogin.java
+@summary
+<p><b>Role:</b> reads the fields the connector needs from RepAgent's TDS 5.0 login record (packet type 0x02). The offsets follow the public TDS 5.0 login layout as implemented by the open-source FreeTDS project, and were confirmed against the real login packet captured from RepAgent (evidence <code>ltl/capture-1-first-session.txt</code>: user <code>rs_user</code> at offset 31, app "Replication Agent", server "CDC_RS", charset <code>iso_1</code>, packet size 2048).</p>
+<p><b>Limits:</b> name fields hold at most 30 bytes, so RepAgent passwords longer than 30 characters are untested. With <code>net password encryption = true</code> the password field is empty (RepAgent sends it later through an RSA challenge the connector does not implement).</p>
+@@ 1
+<p>Package <code>tds</code>.</p>
+@@ 3-5
+<p>JDK imports.</p>
+@@ 7-14
+<p>Class comment: fixed layout, 30-byte fields each followed by a length byte, and the CAPABILITY token appended after the record.</p>
+@@ 15
+<p>Final class with public final fields: a simple read-only data holder.</p>
+@@ 17-24
+<p>Parsed fields. <code>host</code> was empty in RepAgent's login.</p>
+@@ 25-26
+<p>Byte order requested by the client. The <code>lint2</code> field at offset 124 is 3 for little-endian (x86) clients and 2 for big-endian ones. RepAgent on Linux x86_64 sent 3.</p>
+@@ 27-28
+<p>The client's capability token (what TDS features it supports), echoed back in the login reply.</p>
+@@ 30-33
+<p>Fixed offsets: host name at 0, user at 31, password at 62 (each 30 bytes + length byte).</p>
+@@ 34
+<p>Byte order from <code>lint2</code>.</p>
+@@ 35-38
+<p>Application name (140), server name the client wanted (171), client library name (462, "CT-Library"), character set (525).</p>
+@@ 39-42
+<p>Requested packet size as text (offset 557, e.g. "2048"); 512 if not a number. This value is confirmed back to RepAgent in the login reply; see <a href="LtlSession.html#b128">LtlSession lines 128–135</a>.</p>
+@@ 43-44
+<p>Locate the capability token; end of constructor.</p>
+@@ 46-48
+<p>Static factory.</p>
+@@ 50-54
+<p>Read one name field: the length byte sits right after the field; never trust it beyond the field size. Fields outside a short packet read as empty.</p>
+@@ 56-65
+<p>Find the capability token (0xE2) after offset 400 by checking that its 2-byte length (in either byte order) reaches exactly the end of the packet, so the layout does not have to be known precisely.</p>
+@@ 67-72
+<p>Readable summary for the "TDS login: …" log line. The password is deliberately not included.</p>
+@@ 73
+<p>End of class.</p>

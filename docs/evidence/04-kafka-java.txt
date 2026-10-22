@@ -1,0 +1,13 @@
+openjdk version "21.0.4" 2024-07-16 LTS
+OpenJDK Runtime Environment Temurin-21.0.4+7 (build 21.0.4+7-LTS)
+OpenJDK 64-Bit Server VM Temurin-21.0.4+7 (build 21.0.4+7-LTS, mixed mode, sharing)
+connect-api-3.8.0.jar
+connect-runtime-3.8.0.jar
+jackson-databind-2.16.2.jar
+kafka-clients-3.8.0.jar
+kafka_2.13-3.8.0.jar
+reload4j-1.2.25.jar
+slf4j-api-1.7.36.jar
+slf4j-reload4j-1.7.36.jar
+NAME="Alpine Linux"
+ID=alpine

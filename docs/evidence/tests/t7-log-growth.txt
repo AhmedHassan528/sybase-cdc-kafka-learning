@@ -1,0 +1,20 @@
+baseline: 20:56:17 free_log_pages=31320 (4.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 0 (+10x10000 rows): 20:56:21 free_log_pages=30671 (6.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 1 (+10x10000 rows): 20:56:25 free_log_pages=30016 (8.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 2 (+10x10000 rows): 20:56:29 free_log_pages=29361 (10.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 3 (+10x10000 rows): 20:56:34 free_log_pages=28705 (12.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 4 (+10x10000 rows): 20:56:38 free_log_pages=28051 (14.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 5 (+10x10000 rows): 20:56:42 free_log_pages=27396 (16.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 6 (+10x10000 rows): 20:56:46 free_log_pages=26740 (18.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 7 (+10x10000 rows): 20:56:51 free_log_pages=26085 (20.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 8 (+10x10000 rows): 20:56:55 free_log_pages=25430 (22.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after step 9 (+10x10000 rows): 20:57:00 free_log_pages=24776 (24.4% used) alerts=0 blocked_or_suspended=0 sec_trunc_page=86398
+after +50000 rows: 20:57:31 free_log_pages=24451 (25.4% used) alerts=1 blocked_or_suspended=0 sec_trunc_page=86398
++8s 20:57:58 free_log_pages=24451 (25.4% used) sec_trunc_page=87716 kafka_new=8251
++23s 20:58:13 free_log_pages=24451 (25.4% used) sec_trunc_page=88631 kafka_new=138584
++39s 20:58:29 free_log_pages=24451 (25.4% used) sec_trunc_page=89814 kafka_new=317114
++55s 20:58:44 free_log_pages=24451 (25.4% used) sec_trunc_page=90933 kafka_new=490000
++69s 20:58:59 free_log_pages=29033 (11.4% used) sec_trunc_page=92247 kafka_new=680000
++85s 20:59:14 free_log_pages=29033 (11.4% used) sec_trunc_page=93431 kafka_new=870213
++99s 20:59:28 free_log_pages=29033 (11.4% used) sec_trunc_page=94479 kafka_new=1050000
+after drain: 20:59:54 free_log_pages=32633 (0.4% used) sec_trunc_page=94612

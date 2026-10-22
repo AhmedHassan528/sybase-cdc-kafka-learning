@@ -1,0 +1,57 @@
+<h2 id="ch-inventory" data-keywords="inventory components forensic files verified">Forensic project inventory</h2>
+<p>Every component the solution depends on, with its verified version and the evidence file that proves it. Evidence files live in <code>docs/evidence/</code> and were captured from the running environment on 2026-10-20 (UTC).</p>
+<div class="tbl"><table>
+<thead><tr><th>Component</th><th>Path / reference</th><th>Version (verified)</th><th>Purpose</th><th>Inputs → outputs</th><th>Runs in</th><th>Evidence</th><th>Known limitations</th></tr></thead>
+<tbody>
+<tr><td>Connector JAR</td><td><code>plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code></td><td>0.1.0, SHA-256 <code>7e1e5bc225e0…f61b</code>, 65,857 bytes, 51 entries</td><td>Kafka Connect source plugin</td><td>RepAgent LTL → Kafka records</td><td>cdc-connect</td><td><code>06-connect-rest.txt</code>, <code>10-custom-image-plugin-discovery.txt</code></td><td>See <a href="#ch-security">assessment</a></td></tr>
+<tr><td>Connector source</td><td><code>sybase-cdc-connector/src/main</code></td><td>19 classes, 1,845 lines (tests: 4 classes, 207 lines)</td><td>Implementation</td><td>—</td><td>build</td><td><a href="#ch-source">source reference</a></td><td>No Git history</td></tr>
+<tr><td>Unit tests + fixtures</td><td><code>…/src/test</code>, <code>…/src/test/resources/ltl760/*.bin</code></td><td>4 classes, 11 tests, 8 real captures</td><td>Regression of protocol decoding</td><td>bytes → assertions</td><td>build</td><td><code>tests/unit-tests.txt</code></td><td>No integration test in Maven (end-to-end tests were manual scripts)</td></tr>
+<tr><td>Build definition</td><td><code>sybase-cdc-connector/pom.xml</code></td><td>Java release 17; connect-api 3.8.0 (provided); slf4j-api 1.7.36 (provided); JUnit 5.10.2; shade 3.5.3; surefire 3.2.5</td><td>Compile, test, package</td><td>sources → JAR</td><td>maven container</td><td><code>05-maven.txt</code></td><td>maven-compiler/jar plugin versions not pinned</td></tr>
+<tr><td>Build scripts</td><td><code>build.sh</code>, <code>deploy-local.sh</code></td><td>—</td><td>Build in Docker; redeploy locally</td><td>—</td><td>host (Git Bash)</td><td>this chapter</td><td>Use <code>pwd -W</code> (Git Bash on Windows)</td></tr>
+<tr><td>ASE server</td><td>image <code>datagrip/sybase:latest</code> @ <code>sha256:72f1e825…7d867f</code></td><td>ASE 16.0 SP02 PL02 EBF 25320 (built 2015-11-21), Developer Edition (<code>DE</code>, licence type <code>DT</code>), server <code>MYSYBASE</code>, charset <code>iso_1</code>, sort order <code>bin_iso_1</code>, 16 KB logical pages</td><td>Source database</td><td>SQL → log</td><td>cdc-sybase</td><td><code>02-images.txt</code>, <code>08-ase-facts.txt</code></td><td>Needs kernel workaround (<a href="#hist-snap">history</a>); not SP04</td></tr>
+<tr><td>ASE startup + init</td><td><code>sybase/start.sh</code>, <code>00_database.sql</code>, <code>01_setup.sql</code>, <code>02_repagent.sql</code>, <code>03_log_threshold.sql</code></td><td>—</td><td>Start ASE, create DB, table, RepAgent config, alert</td><td>—</td><td>cdc-sybase</td><td>container log</td><td>Some settings were applied manually (see <a href="#manual-steps">manual steps</a>)</td></tr>
+<tr><td>Kernel shim</td><td><code>sybase/rie_shim.c</code> → <code>rie_shim.so</code></td><td>built with <code>gcc:13</code> @ <code>sha256:b5903657…</code></td><td>Lets the 2015 ASE binary run on Linux ≥ 5.8</td><td>—</td><td>cdc-sybase (LD_PRELOAD)</td><td><code>logs/ase-crash-snap-validate.txt</code></td><td>Needs <code>seccomp=unconfined</code>; local only</td></tr>
+<tr><td>Interfaces entry</td><td><code>CDC_RS → connect:11752</code> in <code>/opt/sybase/interfaces</code></td><td>—</td><td>Where RepAgent connects</td><td>—</td><td>cdc-sybase</td><td><code>09-ase-interfaces.txt</code></td><td>Appended by <code>start.sh</code></td></tr>
+<tr><td>Kafka broker</td><td>image <code>apache/kafka:3.8.0</code> @ <code>sha256:c89f315c…57069</code></td><td>Kafka 3.8.0 (Scala 2.13), KRaft combined broker+controller, single node, Alpine Linux, Temurin JRE 21.0.4</td><td>Event storage</td><td>records</td><td>cdc-kafka</td><td><code>02-images.txt</code>, <code>04-kafka-java.txt</code></td><td>Replication factor 1 (local only)</td></tr>
+<tr><td>Kafka Connect worker</td><td>same image, <code>connect-distributed.sh</code> + <code>connect-distributed.properties</code></td><td>Connect 3.8.0, distributed mode, group <code>sybase-cdc-connect</code></td><td>Runs the connector</td><td>config → task</td><td>cdc-connect</td><td><code>06-connect-rest.txt</code></td><td>One worker</td></tr>
+<tr><td>Connector instance</td><td><code>connectors/sybase-cdc-phoenix.json</code></td><td>—</td><td>Registered configuration</td><td>REST POST</td><td>cdc-connect</td><td><code>06-connect-rest.txt</code></td><td>Password in plain text in REST output</td></tr>
+<tr><td>Kafka UI</td><td><code>provectuslabs/kafka-ui:latest</code> @ <code>sha256:8f2ff02d…31818</code></td><td>image created 2024-04-10; application version <b>unknown</b> (find it on the UI's "About" page)</td><td>Inspection only</td><td>—</td><td>cdc-kafka-ui</td><td><code>02-images.txt</code></td><td>Not needed by the pipeline</td></tr>
+<tr><td>Build image</td><td><code>maven:3.9-eclipse-temurin-17</code> @ <code>sha256:1a352420…</code></td><td>Maven 3.9.16, Temurin JDK 17.0.20.1</td><td>Build without local JDK</td><td>—</td><td>temporary container</td><td><code>05-maven.txt</code></td><td>Tag moves; pin the digest in CI</td></tr>
+<tr><td>Custom Connect image</td><td><code>deploy/docker/Dockerfile.connect</code> → <code>sybase-cdc-connect:0.1.0</code> (<code>sha256:ecc81737…</code>)</td><td>apache/kafka:3.8.0 + JAR; runs as <code>appuser</code> (uid 1000)</td><td>Ship the connector as an image</td><td>—</td><td>registry / OpenShift</td><td><code>10-custom-image-plugin-discovery.txt</code></td><td>Not used by docker-compose (bind mount used locally)</td></tr>
+<tr><td>Image archive</td><td><code>deliverables/images/sybase-cdc-connect-0.1.0.tar.gz</code></td><td>205,639,097 bytes, SHA-256 <code>e46c77a4…fe3e8b</code></td><td>Offline transfer of the image</td><td>—</td><td>file</td><td><code>.sha256</code> file</td><td>Contains Apache Kafka (Apache-2.0); does not contain ASE</td></tr>
+<tr><td>OpenShift manifests</td><td><code>deploy/openshift/0[1-5]-*.yaml</code></td><td>eventstreams.ibm.com/v1beta2, core v1, networking.k8s.io/v1</td><td>Production deployment template</td><td>—</td><td>OpenShift</td><td><code>11-openshift-yaml-syntax.txt</code></td><td><b>Never applied to a cluster</b></td></tr>
+<tr><td>Helper scripts</td><td><code>captures/*.sh</code>, <code>captures/*.sql</code></td><td>—</td><td>Tests, monitoring, analysis</td><td>—</td><td>host</td><td>test chapter</td><td>Hard-coded local paths/credentials</td></tr>
+<tr><td>Docs tooling</td><td><code>docs-src/</code>, images <code>rlespinasse/drawio-export:v4.38.0</code>, <code>mikefarah/yq:4.44.3</code>, Node 24.6.0</td><td>—</td><td>Build this handbook</td><td>—</td><td>host / temporary containers</td><td><code>docs/PROGRESS.md</code></td><td>Not needed at runtime</td></tr>
+</tbody></table></div>
+
+<h2 id="ch-versions" data-keywords="versions matrix compatibility image digest java kafka ase">Complete version and compatibility matrix</h2>
+<h3 id="version-matrix">Final working environment (verified)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Layer</th><th>Local (verified)</th><th>Production (reported / proposed)</th><th>How to read the version yourself</th></tr></thead>
+<tbody>
+<tr><td>Host OS</td><td>Windows 11 Home 10.0.22631, Docker Desktop with WSL2 kernel 6.18.33.2</td><td>n/a</td><td><code>docker info</code>, <code>uname -r</code> in a container</td></tr>
+<tr><td>Docker engine / Compose</td><td>29.6.1 / v5.3.0</td><td>n/a (OpenShift uses CRI-O)</td><td><code>docker version</code>, <code>docker compose version</code></td></tr>
+<tr><td>SAP ASE</td><td>16.0 SP02 PL02 EBF 25320, Developer Edition</td><td><b>16.0 SP04 PL07 HF1 EBF 31179</b>, SLES 12.4 (reported by the bank)</td><td><code>select @@version</code>, <code>sp_lmconfig</code></td></tr>
+<tr><td>LTL version</td><td>760 (proposed by RepAgent, accepted)</td><td><b>unknown</b>: capture <code>connect source</code> on SP04</td><td>connector log line "connect source … proposed LTL …"</td></tr>
+<tr><td>Kafka broker</td><td>3.8.0 KRaft</td><td>Event Streams (version <b>unknown</b>) or IBM Confluent Platform</td><td><code>kafka-broker-api-versions.sh</code>, operator CR status</td></tr>
+<tr><td>Kafka Connect</td><td>3.8.0</td><td>Version shipped by the operator (<b>unknown</b>)</td><td><code>GET /</code> on the Connect REST API</td></tr>
+<tr><td>Java runtime (Connect)</td><td>Temurin 21.0.4</td><td>Operator image JRE (<b>unknown</b>; must be ≥ 17)</td><td><code>java -version</code> in the pod</td></tr>
+<tr><td>Java compile target</td><td>release 17 (class file major version 61, checked on Oqid.class)</td><td>same</td><td><code>javap -v</code> on a class: "major version: 61"</td></tr>
+<tr><td>connect-api (compile)</td><td>3.8.0</td><td>must be ≤ runtime Connect version</td><td><code>pom.xml</code></td></tr>
+<tr><td>Maven / JDK (build)</td><td>3.9.16 / Temurin 17.0.20.1</td><td>CI image (pin by digest)</td><td><code>mvn -v</code></td></tr>
+<tr><td>OpenShift / Kubernetes</td><td>not used</td><td><b>unknown</b> (Cloud Pak for Integration)</td><td><code>oc version</code></td></tr>
+</tbody></table></div>
+
+<h3 id="compat-matrix">Compatibility matrix</h3>
+<div class="tbl"><table>
+<thead><tr><th>Combination</th><th>Status</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>ASE 16.0 SP02 PL02 + LTL 760 + Connect 3.8.0 + Java 21</td><td><span class="pill pass">verified</span></td><td>All tests in this handbook</td></tr>
+<tr><td>Connector JAR on Connect 3.x (≥ 3.0) with Java 17+</td><td><span class="pill info">plausible, untested</span></td><td>Only stable APIs are used (<code>SourceConnector</code>, <code>SourceTask</code>, two-argument <code>commitRecord</code> since 2.4). The offset-safety argument relies on Connect committing only an acknowledged prefix of records (behaviour since 3.0).</td></tr>
+<tr><td>Connector on Java 11 or older</td><td><span class="pill fail">incompatible</span></td><td>Compiled for release 17; uses records, switch expressions, <code>HexFormat</code>.</td></tr>
+<tr><td>ASE 16.0 SP04 PL07 HF1 (production)</td><td><span class="pill warn">unknown, must be tested</span></td><td>LTL encoding learned on SP02 only. SP04 may propose a different LTL version or add markers. Follow the <a href="#ch-migration">migration procedure</a>.</td></tr>
+<tr><td>ASE 15.x (LTL &lt; 760)</td><td><span class="pill fail">refused by design</span></td><td>The task rejects LTL &lt; 760.</td></tr>
+<tr><td>IBM Event Streams KafkaConnect (eventstreams.ibm.com/v1beta2)</td><td><span class="pill info">documented by IBM, untested here</span></td><td>IBM documents custom connectors via <code>spec.build.plugins</code> or a custom image.</td></tr>
+<tr><td>Confluent for Kubernetes <code>Connect</code> CR</td><td><span class="pill info">documented by Confluent, untested here</span></td><td>Plugins via <code>spec.build.type: onDemand</code> or a custom image; schema varies between CFK versions.</td></tr>
+<tr><td>Running the ASE container with Docker's default seccomp profile on kernel ≥ 5.8</td><td><span class="pill fail">fails</span></td><td>Shim cannot set READ_IMPLIES_EXEC; ASE crashes at boot.</td></tr>
+</tbody></table></div>

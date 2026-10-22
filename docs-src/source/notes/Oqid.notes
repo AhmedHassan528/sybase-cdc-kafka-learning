@@ -1,0 +1,26 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/Oqid.java
+@summary
+<p><b>Role:</b> small static helpers for the <a href="../index.html#g-oqid">origin queue ID (OQID)</a>, the 32-byte position RepAgent attaches to every LTL command. Everything that decides "is this before or after that?" in the connector goes through <code>compare()</code>; everything sent back to RepAgent goes through <code>locator()</code>.</p>
+<p><b>Used by:</b> <code>SybaseCdcSourceTask</code> (dedupe, offsets, truncation), <code>ChangeEventMapper</code>, <code>LtlProbe</code>. <b>Version-sensitive:</b> yes, the 36-byte locator length and the OQID byte layout come from the SAP LTL documentation (RS 15.0.1 Design Guide) and were confirmed by capture on ASE 16.0 SP02; re-check on SP04.</p>
+@@ 1
+<p>Package <code>cdc</code> (see <a href="CommittedTransaction.html#b1">CommittedTransaction</a> for what a package line does).</p>
+@@ 3-4
+<p>Imports two JDK utilities: <code>Arrays</code> (array helpers such as <code>compareUnsigned</code> and <code>copyOf</code>) and <code>HexFormat</code> (Java 17+, converts bytes to and from hexadecimal text). Using JDK classes keeps the connector free of third-party runtime dependencies.</p>
+@@ 6-10
+<p>Class comment. It records the protocol fact this class encodes: RepAgent creates a 32-byte, strictly increasing ID per log record, and expects a 36-byte value back from <code>get truncation</code> (the last 4 bytes belong to Replication Server and are ignored by RepAgent).</p>
+@@ 11
+<p><code>public final class</code>: visible to all packages, and <code>final</code> means no subclass can exist. Combined with the private constructor below, this is the standard Java "utility class" pattern: only static methods, never instantiated.</p>
+@@ 13
+<p><code>public static final int LOCATOR_LEN = 36</code> is a compile-time constant. <b>Why 36:</b> the SAP LTL reference states that <code>get truncation</code> returns a single row with one 36-byte column. <b>If changed:</b> RepAgent would receive a value of the wrong length; this was never tested and could stop replication. Do not change it without a capture proving another length.</p>
+@@ 15
+<p>Private constructor: prevents <code>new Oqid()</code>. Without it Java would generate a public no-argument constructor.</p>
+@@ 17-20
+<p><b>What:</b> compares two OQIDs byte by byte as <em>unsigned</em> numbers (0–255), returning negative, zero or positive like any Java comparator. <b>Why unsigned:</b> Java's <code>byte</code> is signed (-128..127). Byte <code>0x9f</code> would compare as negative and sort before <code>0x10</code>, breaking log order. <code>Arrays.compareUnsigned</code> (Java 9+) fixes this. <b>Why it matters:</b> the duplicate filter in the task skips any transaction whose commit OQID is not greater than the last one queued. A wrong comparison would silently drop or duplicate transactions. <b>Assumption:</b> OQIDs increase in log order (stated by SAP, observed in every capture). After a database load/restore the generation number in bytes 0–1 changes; see the version chapter.</p>
+@@ 22-25
+<p><b>What:</b> builds the answer to RepAgent's <code>get truncation</code>: the OQID copied into a 36-byte array (padded with zeros), or 36 zero bytes when nothing has been acknowledged yet. <code>Arrays.copyOf(src, 36)</code> creates a new array, copying the 32 bytes and zero-filling the rest. <b>Verified:</b> zeros on first start are accepted (tests 1–7 all began that way). An earlier experiment that returned a zero-length value was reverted; see the <a href="../index.html#hist-4047">4047 incident</a>. <b>If changed:</b> returning an OQID that is not yet in Kafka would let ASE free log that has not been delivered (data loss on a crash).</p>
+@@ 27-29
+<p>Bytes → lowercase hex text (e.g. <code>000000000000144a...</code>), or <code>null</code> for <code>null</code>. Used for logs, Connect offsets (JSON cannot hold raw bytes) and the event's <code>source</code> fields. The ternary operator <code>cond ? a : b</code> avoids a <code>NullPointerException</code>.</p>
+@@ 31-33
+<p>Hex text → bytes, the reverse of <code>hex()</code>. Returns <code>null</code> for <code>null</code> or an empty string, which is how the task reads "no stored offset" (the first records of the very first transaction carry an empty offset; see <code>SybaseCdcSourceTask.poll()</code>). <code>parseHex</code> throws <code>IllegalArgumentException</code> on invalid text; a corrupted offset therefore fails the task at start instead of starting from a wrong position.</p>
+@@ 34
+<p>End of class.</p>

@@ -1,0 +1,96 @@
+<h2 id="ch-repagent" data-keywords="cdc transaction log repagent ltl tds oqid truncation point replication server push protocol">Transaction logs, RepAgent and the replication protocol</h2>
+
+<h3 id="cdc-basics">Change data capture from first principles</h3>
+<p><b>Definition:</b> change data capture (CDC) means producing a stream of every row-level change (insert, update, delete) made to a database, in commit order. <b>Three ways to do it:</b></p>
+<div class="tbl"><table>
+<thead><tr><th>Approach</th><th>How</th><th>Cost to the source</th><th>Catches deletes?</th><th>Used here?</th></tr></thead>
+<tbody>
+<tr><td>Polling</td><td>Repeatedly query <code>where modified_at &gt; :last</code></td><td>Extra queries; needs a timestamp column</td><td>No (rows are gone)</td><td>No (forbidden by requirements)</td></tr>
+<tr><td>Triggers</td><td>A trigger on each table writes changes to a side table</td><td>Every application transaction does extra writes</td><td>Yes</td><td>No (forbidden)</td></tr>
+<tr><td><b>Log-based</b></td><td>Read the transaction log the database writes anyway</td><td>Reading the log; the log is held until read</td><td>Yes, with before images</td><td><b>Yes</b></td></tr>
+</tbody></table></div>
+<p><b>How a transaction log works:</b> before ASE changes a data page it appends a record describing the change to the log (write-ahead logging). A <code>commit</code> is durable once its log record is on disk. The log is therefore a complete, ordered history of changes. Log space is reused only after it is <em>truncated</em>, and ASE may truncate only up to the oldest point anybody still needs: the oldest open transaction, the last <code>dump tran</code> (if not truncating on checkpoint), and the <b>secondary truncation point</b> of replication.</p>
+
+<h3 id="concepts-not-to-conflate">Concepts that must not be confused</h3>
+<div class="tbl"><table>
+<thead><tr><th>Concept</th><th>What it is</th><th>In this project</th></tr></thead>
+<tbody>
+<tr><td>Transaction logging</td><td>ASE always logs every change; not optional.</td><td>Always on.</td></tr>
+<tr><td>Marking a table for replication</td><td><code>sp_setreptable &lt;t&gt;, true</code>: ASE logs what replication needs and RepAgent forwards the table.</td><td><code>payment</code> and the discovery tables.</td></tr>
+<tr><td>RepAgent thread</td><td>A thread <em>inside</em> ASE that scans the log of one database and sends it to a Replication Server.</td><td>Enabled and running for <code>phoenix_test</code>.</td></tr>
+<tr><td>Secondary truncation point</td><td>A log position stored in ASE (<code>dbcc gettrunc</code>, <code>master..syslogshold</code> as <code>$replication_truncation_point</code>) below which the log may not be truncated.</td><td>Moved by RepAgent to the connector's acknowledged OQID.</td></tr>
+<tr><td>Replication Server</td><td>SAP's separate server product that receives LTL, stores it in stable queues and applies it to other databases.</td><td><b>Not installed.</b> Its role is played by the connector.</td></tr>
+<tr><td>Replication definitions / subscriptions</td><td>Replication Server objects describing tables and who receives them.</td><td><b>Not used.</b></td></tr>
+<tr><td>LTL command</td><td>One <code>distribute …</code> message from RepAgent.</td><td>Parsed into <code>LtlCommand</code>.</td></tr>
+<tr><td>CDC event</td><td>One row change as JSON (<code>op</code>, <code>before</code>, <code>after</code>, <code>source</code>).</td><td>Built by <code>ChangeEventMapper</code>.</td></tr>
+<tr><td>Kafka source record</td><td>The Connect object holding topic, key, value and source offset.</td><td><code>TrackedRecord</code>.</td></tr>
+<tr><td>Kafka Connect source offset</td><td>The position Connect stores for a source (here <code>{"commit_oqid": …}</code>) to resume after restarts.</td><td>Stored in <code>_connect-offsets</code>.</td></tr>
+</tbody></table></div>
+
+<h3 id="push">Who pushes what to whom</h3>
+<ol>
+<li>RepAgent reads the log and opens a TCP connection to the host:port of the server named in its configuration (<code>CDC_RS</code>), as found in the interfaces file.</li>
+<li>It logs in with the TDS protocol through Sybase Client-Library, exactly as it would to Replication Server.</li>
+<li>It sends LTL as TDS <em>language</em> messages and waits for one reply per message (flow control).</li>
+<li>Every few seconds it asks <code>get truncation</code>; the answer tells it which log position the receiver has stored safely.</li>
+<li>The connector never polls ASE and never opens a connection to it. If the connector is down, RepAgent retries; the log keeps everything.</li>
+</ol>
+
+<figure-diagram src="16-ltl-handshake" n="16" title="RepAgent ↔ connector session as captured on the wire">
+<p><b>Purpose:</b> the exact conversation the connector must reproduce. Every message here was observed in captures (evidence <code>ltl/capture-1-first-session.txt</code>, <code>captures/ltl-capture-*.log</code>).</p>
+<p><b>Reading:</b> solid = RepAgent request, dashed = connector reply, brown = acknowledgement path. Three details were learned the hard way: the login reply must confirm the packet size (ENVCHANGE), <code>connect source</code> gets two result sets, and each LTL message gets exactly one DONE (<a href="#hist-4047">history 6</a>).</p>
+<p><b>Does not show:</b> the attention/cancel packet RepAgent sends when it aborts, and reconnect timing.</p>
+</figure-diagram>
+
+<h3 id="tds">TDS, the envelope</h3>
+<p>TDS (Tabular Data Stream) is Sybase's binary protocol between clients and servers. A message consists of packets with an 8-byte header (type, status with an end-of-message bit, big-endian length, sequence number); the payload is either raw text (packet type 0x01, "language") or a stream of <em>tokens</em> (0x0F). Responses are token streams: LOGINACK, CAPABILITY, ENVCHANGE, ROWFMT + ROW (a result set), EED (error message), DONE (end of result). The connector implements only what RepAgent uses (<a href="source/TdsChannel.html">TdsChannel</a>, <a href="source/TdsTokens.html">TdsTokens</a>, <a href="source/TdsLogin.html">TdsLogin</a>). The layouts follow the open-source FreeTDS documentation of TDS 5.0 and were confirmed against captured packets.</p>
+
+<h3 id="ltl-encoding">LTL 760 encoding (captured, not documented by SAP)</h3>
+<p>An LTL message is one or more commands:</p>
+<pre><code>distribute 1 ~*620261020 19:08:07:083,4 0x00000000000015160001000700040001000700040000b4e9013b570d00000000,6 0x000000000000151600044d5953594241534570686f656e69785f74657374 begin transaction ~"%_ins npw ~"#sa osid 20
+distribute 4 0x00000000000015160001000700060001000700040000b4e9013b570d00000000,6 0x000000000000151600044d5953594241534570686f656e69785f74657374 applied owner =~"$dbo ~"(payment.~!*rs_insert yielding after ~G+payment_id=~0"1,~$+account_no=~")ACC-0001,~$'amount=~%&amp;100.5,~$)currency=~"$EGP,~$+created_at=~*620261020 19:08:28:630
+distribute 1 ~*620261020 19:08:07:083,4 0x00000000000015160001000700070001000700040000b4e9013b570d00000000,6 0x000000000000151600044d5953594241534570686f656e69785f74657374 commit transaction</code></pre>
+<p class="small">Exact bytes from <code>captures/ltl-capture-1.log</code> (the insert of row <code>ACC-0001</code>). On the wire the three commands follow each other in one message; a line break was inserted before each <code>distribute</code> for readability. Note the transaction id embeds the server and database name in hex (<code>4d595359424153…</code> = "MYSYBASEphoenix_test").</p>
+<p><b>Command tags</b> (<code>number value</code>, comma-separated): 1 = origin time, 4 = origin queue ID (OQID, 32 bytes), 6 = transaction id. Row commands carry only 4 and 6.</p>
+<p><b>Encoded values</b> are <code>~</code> + one marker character + length digits + the raw bytes. Length digits are base 64, with <code>!</code> (0x21) as 0: <code>(</code> = 7, <code>"!</code> = 1×64+0 = 64, <code>"/)</code> = 1×4096 + 14×64 + 8 = 5,000.</p>
+<div class="tbl"><table>
+<thead><tr><th>Marker</th><th>ASE type</th><th>Captured example</th><th>Published as</th></tr></thead>
+<tbody>
+<tr><td><code>"</code> <code>#</code> <code>9</code></td><td>char, varchar (1 / 2 / 3 length digits)</td><td><code>~"$abc</code>, <code>~#";AAAA…</code> (90), <code>~9"/)EEE…</code> (5,000)</td><td>string</td></tr>
+<tr><td><code>,</code> <code>-</code> <code>:</code></td><td>binary, varbinary (1 / 2 / 3)</td><td><code>~,%</code> + 4 raw bytes; <code>~-"#</code> (66 bytes); <code>~:"/)</code> (5,000)</td><td>bytes (base64 in JSON)</td></tr>
+<tr><td><code>6</code> <code>7</code> <code>&lt;</code></td><td>unichar, univarchar, UTF-16BE (1 / 2 / 3)</td><td><code>~6'</code>\0u\0n\0i; <code>~7"1</code> (80 bytes); <code>~&lt;""I</code> (4,200)</td><td>string</td></tr>
+<tr><td><code>%</code>, <code>0</code></td><td>numeric / decimal (<code>0</code> seen on an identity numeric)</td><td><code>~%+12345.6789</code>, <code>~0"1</code></td><td>string, exact</td></tr>
+<tr><td><code>(</code> <code>)</code></td><td>money, smallmoney</td><td><code>~(+$1234.5678</code>, <code>~)*$-12.3400</code></td><td>string, <code>$</code> removed</td></tr>
+<tr><td><code>&amp;</code> <code>'</code></td><td>float, real</td><td><code>~&amp;13.14159265358979</code>, <code>~'$2.5</code></td><td>number (double)</td></tr>
+<tr><td><code>*</code> <code>+</code> <code>E</code></td><td>datetime, smalldatetime, bigdatetime</td><td><code>~*620261020 13:45:56:123</code>, <code>~E920261020 13:45:56.123456</code></td><td>ISO-8601 string</td></tr>
+<tr><td><code>=</code> <code>&gt;</code></td><td>date, time</td><td><code>~=)20261020</code>, <code>~&gt;-13:45:56:000</code></td><td>ISO-8601 string</td></tr>
+<tr><td><code>!</code></td><td>identifier (function name)</td><td><code>~!*rs_insert</code></td><td>—</td></tr>
+<tr><td>(bare)</td><td>int types, bit, NULL, hex tags</td><td><code>255 </code>, <code>NULL </code>, <code>0x…</code></td><td>number / null</td></tr>
+</tbody></table></div>
+<p><b>Column names</b> in <code>yielding before|after</code> lists: <code>~</code> + flag + 1 length digit + name, then <code>=</code>. Flag <code>G</code> = primary-key column, <code>$</code> = other column. <b>Updates:</b> before image has all columns, after image only changed ones. <b>Not observed / unsupported:</b> 4-digit lengths (LOBs via <code>rs_writetext</code>), <code>rs_truncate</code>, replicated procedures, DDL replication (only markers), <code>unitext</code>, <code>bigtime</code>, unsigned types beyond <code>bigint</code>.</p>
+
+<h3 id="oqid">Origin queue ID and the truncation point</h3>
+<p>The OQID is a 32-byte value RepAgent generates per log record, strictly increasing in log order. SAP's Design Guide describes its layout for ASE: database generation (2 bytes), log page timestamp (6), current row id (page 4 + row 2), row id of the oldest open transaction's begin record (6), that record's datetime (8), RepAgent extension (2), unused (2). Because it includes the oldest open transaction, handing an OQID back to RepAgent lets it restart from the begin record of any transaction still open at that point, so no row is skipped. <code>get truncation</code> returns it padded to 36 bytes. The connector returns the commit OQID of the newest transaction that is completely in Kafka (<a href="#fig-17">Figure 17</a>); before anything is acknowledged it returns 36 zero bytes, which RepAgent treats as "start from the database's own truncation point".</p>
+
+<h3 id="ra-config">RepAgent configuration reference (as configured locally)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Parameter</th><th>Local value</th><th>Meaning / relevance</th></tr></thead>
+<tbody>
+<tr><td><code>rs servername</code> / <code>rs username</code> / <code>rs password</code></td><td><code>CDC_RS</code> / <code>rs_user</code> / (hidden)</td><td>Interfaces entry to connect to and credentials. Must match connector config.</td></tr>
+<tr><td><code>net password encryption</code></td><td><code>false</code> (default <code>true</code>)</td><td>Required: the connector cannot decrypt.</td></tr>
+<tr><td><code>retry timeout</code></td><td>10 (default 60, set manually)</td><td>Seconds between reconnect attempts.</td></tr>
+<tr><td><code>scan batch size</code>, <code>scan timeout</code></td><td>1000, 15</td><td>Records per scan batch; seconds RepAgent sleeps when idle (it asks <code>get truncation</code> about this often).</td></tr>
+<tr><td><code>batch ltl</code>, <code>ltl batch size</code>, <code>send buffer size</code></td><td><code>true</code>, 16384, 2k</td><td>Batching of LTL; the 2k buffer is why the login asks for 2,048-byte packets.</td></tr>
+<tr><td><code>short ltl keywords</code>, <code>send structured oqids</code>, <code>stream replication</code>, <code>multithread rep agent</code></td><td>all <code>false</code></td><td>Defaults; the parser was only tested with these. <b>Keep them false</b> on production unless re-tested.</td></tr>
+<tr><td><code>auto start</code></td><td><code>true</code> after first start</td><td>RepAgent starts with ASE.</td></tr>
+<tr><td><code>trace flags</code>, <code>trace log file</code></td><td>9202, <code>/tmp/repagent_trace.log</code></td><td>Diagnostics; 9202 logs each truncation point received.</td></tr>
+</tbody></table></div>
+<p>List all options with <code>sp_config_rep_agent phoenix_test</code>; status with <code>sp_help_rep_agent phoenix_test, 'process'</code> (state <code>sleeping</code> = caught up, <code>scanning</code> = sending, retry count > 0 = cannot connect); truncation point with <code>dbcc gettrunc</code> inside the database.</p>
+
+<h3 id="ra-failure">Failure behaviour (verified)</h3>
+<ul>
+<li><b>Connector down:</b> RepAgent logs a communications error and retries every <code>retry timeout</code>; the log holds all changes (test 4a, test 7).</li>
+<li><b>Login refused / connect source refused:</b> RepAgent stops its thread ("terminated abnormally"); an administrator must fix the cause and run <code>sp_start_rep_agent</code>.</li>
+<li><b>Reply out of step:</b> fatal CT-Lib error 4047 and thread abort (<a href="#hist-4047">history 6</a>).</li>
+<li><b>ASE crash:</b> after recovery RepAgent auto-starts and re-sends from the truncation point (test 5).</li>
+</ul>

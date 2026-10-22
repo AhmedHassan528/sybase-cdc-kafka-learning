@@ -1,0 +1,26 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java
+@summary
+<p><b>Role:</b> decides what a Kafka record looks like: the topic name, the key (primary key columns) and the value (operation, before/after images, source position). The format is deliberately close to the widely used Debezium envelope (<code>op</code>, <code>before</code>, <code>after</code>, <code>source</code>, <code>ts_ms</code>) so consumers find it familiar, but it is <b>not</b> Debezium-compatible in field names or types.</p>
+<p><b>Known limitations</b> (documented, not fixed): (1) the topic name ignores the table owner, so <code>dbo.payment</code> and <code>other.payment</code> would share a topic; (2) <code>txn_rows</code> counts all rows of the transaction, including rows of tables excluded by <code>table.include.list</code>; (3) the output is schemaless JSON, so Avro/Schema Registry is not supported yet.</p>
+@@ 1
+<p>Package <code>connect</code>: classes that touch the Kafka Connect API.</p>
+@@ 3-8
+<p>Imports from the connector's own packages and the JDK. <code>LinkedHashMap</code> keeps insertion order, so JSON fields always appear in the same order (easier for humans and diff tools).</p>
+@@ 10-21
+<p>Comment showing the exact event shape, with a real key from the tests.</p>
+@@ 22
+<p>Package-private class (no <code>public</code>): only the task in the same package uses it.</p>
+@@ 24-32
+<p>Fields and constructor: server name, database name and topic prefix from the connector configuration.</p>
+@@ 34-36
+<p><b>Topic name</b> = <code>prefix.database.table</code>, e.g. <code>sybase.phoenix_test.payment</code>. Topics are created automatically by the broker in the local setup (<code>auto.create.topics.enable</code> default true); in production, topics should be pre-created with the right partitions, replication factor and retention.</p>
+@@ 38-44
+<p><b>Key:</b> a map of the primary-key columns (flag <code>G</code> in LTL) taken from the after image, or the before image for deletes. Tables without a primary key get a <code>null</code> key, so their events are spread round-robin across partitions and lose per-row ordering when a topic has more than one partition. A primary key on every captured table is a prerequisite for ordering guarantees.</p>
+@@ 46-58
+<p><b>The <code>source</code> block:</b> where the change came from and its exact log position. <code>oqid</code> is unique per row change and increases in log order, which makes it the de-duplication key for consumers. <code>commit_oqid</code> is shared by all rows of a transaction. <code>seq</code> is the row's index inside the published rows of the transaction; <code>txn_rows</code> is the transaction's total row count. Numbers are cast to <code>long</code> because the schemaless JsonConverter needs standard Java types.</p>
+@@ 60-66
+<p><b>Operation code:</b> <code>c</code> create, <code>u</code> update, <code>d</code> delete. A <em>switch expression</em> returns a value; <code>default</code> throws, because only row changes may reach this method. A throw here fails the task, which is the correct reaction to an internal bug.</p>
+@@ 67-71
+<p>Before/after images, the source block, and <code>ts_ms</code>: the time the event was built in the connector (milliseconds since 1970, UTC). Comparing <code>ts_ms</code> with <code>source.commit_time</code> gives the capture latency, but <code>commit_time</code> is ASE local time without a time zone; make sure both clocks are in the same zone before comparing.</p>
+@@ 72-73
+<p>Return and end of class.</p>

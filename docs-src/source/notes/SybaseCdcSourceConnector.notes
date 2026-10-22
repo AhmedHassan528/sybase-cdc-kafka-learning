@@ -1,0 +1,32 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java
+@summary
+<p><b>Role:</b> the class Kafka Connect instantiates when you create a connector. In Kafka Connect a <em>Connector</em> does not move data itself; it validates configuration and decides how many <em>Tasks</em> to run and with which configuration. The worker finds this class through <code>META-INF/services/org.apache.kafka.connect.source.SourceConnector</code> (Java's ServiceLoader mechanism) when it scans <code>plugin.path</code>.</p>
+<p><b>API version:</b> <code>org.apache.kafka.connect.source.SourceConnector</code> from connect-api 3.8.0. All methods overridden here exist with the same signatures since Kafka 2.x. Optional newer hooks (<code>exactlyOnceSupport()</code>, <code>canDefineTransactionBoundaries()</code>, <code>alterOffsets()</code>) are <b>not</b> implemented.</p>
+@@ 1
+<p>Package <code>connect</code>.</p>
+@@ 3-5
+<p>Kafka Connect API types: <code>ConfigDef</code> (returned by <code>config()</code>), <code>Task</code> (the type of <code>taskClass()</code>) and <code>SourceConnector</code> (the base class).</p>
+@@ 7-8
+<p>JDK collections.</p>
+@@ 10-15
+<p>Class comment: the architectural decision (impersonate a Replication Server) and why there is exactly one task.</p>
+@@ 16
+<p><code>public class</code> extending the abstract <code>SourceConnector</code>. It must be public and have a public no-argument constructor (Java supplies one implicitly), because the worker creates it by reflection.</p>
+@@ 18
+<p>Version string reported by <code>GET /connector-plugins</code> (evidence file <code>06-connect-rest.txt</code>). Package-private <code>static final</code> so the task can reuse it. Keep it equal to the Maven <code>version</code> when releasing.</p>
+@@ 20
+<p>The raw configuration, kept to hand to the task.</p>
+@@ 22-26
+<p><b><code>start(props)</code></b>, called by the worker when the connector is created or the worker restarts. Constructing <code>SybaseCdcConfig</code> validates the properties; an invalid configuration throws and the connector goes to state FAILED with the error text in <code>GET /connectors/{name}/status</code>. The object is thrown away; only validation matters here. <code>@Override</code> asks the compiler to check that the method really overrides a superclass method.</p>
+@@ 28-31
+<p><b><code>taskClass()</code></b>: which class the worker should instantiate for tasks. <code>Class&lt;? extends Task&gt;</code> is a generic wildcard meaning "the class object of some subtype of Task".</p>
+@@ 33-36
+<p><b><code>taskConfigs(maxTasks)</code></b>: returns one configuration map per task. It always returns a single-element list, whatever <code>tasks.max</code> says, because one RepAgent opens one connection to one host:port. Running two tasks would make two listeners compete for the same port on one worker. <code>List.of</code> creates an immutable list.</p>
+@@ 38-40
+<p><b><code>stop()</code></b>: nothing to release here; the task owns all resources.</p>
+@@ 42-45
+<p><b><code>config()</code></b>: returns the definition used by the REST validate endpoint and UIs.</p>
+@@ 47-50
+<p><b><code>version()</code></b>: plugin version string.</p>
+@@ 51
+<p>End of class.</p>

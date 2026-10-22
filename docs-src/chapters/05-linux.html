@@ -1,0 +1,45 @@
+<h2 id="ch-linux" data-keywords="linux shell bash command line ports processes exit code git bash">Linux and command-line prerequisites</h2>
+<p>Everything in this project is driven from a terminal. On Windows the commands were run in <b>Git Bash</b> (a Bash shell shipped with Git for Windows); on Linux or macOS use the normal terminal. This chapter explains the few ideas you need to read every command in the handbook.</p>
+
+<h3 id="cli-files">Files, directories and paths</h3>
+<p>A <em>path</em> names a file. An <em>absolute</em> path starts at the root (<code>/opt/sybase/interfaces</code> inside a Linux container, <code>C:/Users/you/project</code> on Windows); a <em>relative</em> path starts at the current directory (<code>sybase/start.sh</code> means "the file <code>start.sh</code> in the folder <code>sybase</code> below where I am"). <code>pwd</code> prints the current directory, <code>cd</code> changes it, <code>ls -la</code> lists files with sizes and permissions.</p>
+<p><b>Windows detail used in this project:</b> Git Bash shows paths as <code>/c/Users/...</code>, but Docker Desktop needs <code>C:/Users/...</code> for bind mounts. <code>pwd -W</code> prints the Windows form, which is why <code>build.sh</code> uses it. The variable <code>MSYS_NO_PATHCONV=1</code> stops Git Bash from rewriting arguments that look like paths (<code>/opt/...</code>) before they reach <code>docker exec</code>; without it, a container path like <code>/tmp/x</code> is silently turned into a Windows path. It must <em>not</em> be exported globally when running Windows programs such as <code>node</code> with <code>/c/...</code> paths (seen while building these docs).</p>
+
+<h3 id="cli-perms">Permissions and users</h3>
+<p>Linux files have an owner and read/write/execute bits for owner, group and others (<code>-rwxr-xr-x</code>). Scripts must be executable (<code>chmod +x build.sh</code>) or run with an interpreter (<code>bash build.sh</code>). Containers also run as a user: the Kafka image runs as <code>appuser</code> (uid 1000), so files it reads must be readable by that user; OpenShift goes further and runs containers with a random uid.</p>
+
+<h3 id="cli-env">Environment variables</h3>
+<p>Named values a process inherits, e.g. <code>SYBASE=/opt/sybase</code>. <code>VAR=value command</code> sets one only for that command (used in <code>start.sh</code>: <code>MALLOC_ARENA_MAX=1 LD_PRELOAD=… sh RUN_MYSYBASE</code>); <code>export VAR=value</code> sets it for the rest of the session; <code>${VAR:-default}</code> substitutes a default when empty. Docker passes them with <code>environment:</code> in Compose; OpenShift with ConfigMaps and Secrets.</p>
+
+<h3 id="cli-proc">Processes, services, ports and DNS</h3>
+<ul>
+<li>A <em>process</em> is a running program (<code>ps aux</code>, <code>pgrep -f dataserver</code>). ASE's process is called <code>dataserver</code>; Kafka and Connect are <code>java</code> processes.</li>
+<li>A <em>port</em> is a numbered door on a network address. A server <em>listens</em> on a port; a client <em>connects</em> to host:port. Ports here: ASE 5000, Kafka 9092 (inside Docker) and 29092 (from the host), Connect REST 8083, the connector's LTL listener 11752, Kafka UI 8080.</li>
+<li><em>DNS / hostnames</em> map names to IP addresses. Inside the Docker network the service names (<code>kafka</code>, <code>connect</code>, <code>sybase</code>) resolve to container IPs; on your PC only <code>localhost</code> plus published ports work.</li>
+</ul>
+
+<h3 id="cli-exit">Commands, arguments, pipes, logs and exit codes</h3>
+<p>A command is a program name plus arguments: in <code>docker logs cdc-connect --since 5m</code>, <code>docker</code> is the program, <code>logs</code> a sub-command, <code>cdc-connect</code> an argument and <code>--since 5m</code> an option. A <em>pipe</em> <code>|</code> feeds one command's output into the next: <code>docker logs cdc-connect 2&gt;&amp;1 | grep "RepAgent connected"</code> (<code>2&gt;&amp;1</code> merges error output, where Java logs often go). Every command ends with an <em>exit code</em>: 0 means success, anything else failure; <code>echo $?</code> shows it, and <code>set -euo pipefail</code> in scripts stops at the first failure. Many commands in this handbook end with a verification line whose output you should compare with the "Expected" block.</p>
+
+<h3 id="cli-host-vs-ctr">Host command or container command?</h3>
+<p>Each container has its own file system, processes and tools. <code>isql</code> exists only in the ASE container; <code>kafka-topics.sh</code> only in the Kafka containers; <code>mvn</code> only in the Maven build container. To run something inside a container:</p>
+<pre data-lang="bash"><code>docker exec cdc-sybase bash -c 'source /opt/sybase/SYBASE.sh; isql -Usa -P"$SA_PW" -SMYSYBASE -w250'
+docker exec -it cdc-connect bash          # interactive shell; type exit to leave
+docker exec cdc-connect sh -c 'ps aux'     # list the processes inside the container</code></pre>
+<p><span class="where host">HOST</span> <code>docker exec …</code> is typed on the host; the part in quotes runs <span class="where ctr">CONTAINER</span> inside. <code>source /opt/sybase/SYBASE.sh</code> loads the ASE environment variables (paths to <code>isql</code>, libraries). The helper <code>captures/isql.sh</code> wraps this: <code>printf "select @@version\ngo\n" | captures/isql.sh</code>.</p>
+
+<h3 id="cli-commands">Commands used in this project</h3>
+<div class="tbl"><table>
+<thead><tr><th>Command</th><th>Where</th><th>What it does here</th></tr></thead>
+<tbody>
+<tr><td><code>docker compose up -d</code> / <code>stop</code> / <code>ps</code></td><td>host</td><td>Start (detached), stop, list the four services of <code>docker-compose.yml</code></td></tr>
+<tr><td><code>docker logs &lt;c&gt; [--since 5m]</code></td><td>host</td><td>Container console output (ASE startup, Connect worker log)</td></tr>
+<tr><td><code>docker exec &lt;c&gt; &lt;cmd&gt;</code></td><td>host</td><td>Run a command in a running container</td></tr>
+<tr><td><code>docker run --rm …</code></td><td>host</td><td>One-off container (Maven build, gcc, drawio export), removed afterwards</td></tr>
+<tr><td><code>isql -Usa -P… -SMYSYBASE -w250</code></td><td>ASE container</td><td>ASE command-line SQL client; <code>-S</code> server name from the interfaces file, <code>-w</code> output width, <code>-i file</code> run a script</td></tr>
+<tr><td><code>curl -s localhost:8083/…</code></td><td>host</td><td>Call the Kafka Connect REST API (<code>-s</code> silent, <code>-X POST</code>, <code>-H</code> header, <code>--data @file</code>)</td></tr>
+<tr><td><code>kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic … --from-beginning</code></td><td>Kafka container</td><td>Print records of a topic</td></tr>
+<tr><td><code>kafka-get-offsets.sh --topic …</code></td><td>Kafka container</td><td>End offset per partition = number of records written</td></tr>
+<tr><td><code>sha256sum file</code></td><td>host</td><td>Fingerprint of a file (verify the JAR and the image archive)</td></tr>
+<tr><td><code>grep</code>, <code>awk</code>, <code>sed</code>, <code>od -c</code></td><td>both</td><td>Search text, compute columns, edit text, show raw bytes (LTL dumps)</td></tr>
+</tbody></table></div>

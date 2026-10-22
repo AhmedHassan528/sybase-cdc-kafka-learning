@@ -1,0 +1,46 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java
+@summary
+<p><b>Role:</b> implements the rule "publish only on COMMIT, discard on ROLLBACK". RepAgent sends log records in log order, and the log interleaves many concurrent transactions. The buffer keeps a list of row changes per transaction id and releases the list as a <a href="CommittedTransaction.html">CommittedTransaction</a> when that transaction's COMMIT arrives.</p>
+<p><b>Thread:</b> only the RepAgent session thread uses it (not thread-safe by design). <b>Memory:</b> all rows of an open transaction are held in memory; a very large transaction (the 200,000-row test 6b) is held completely. <b>Tests:</b> <code>TransactionBufferTest</code>, scenarios 2, 3, 6b.</p>
+@@ 1
+<p>Package <code>cdc</code>.</p>
+@@ 3-5
+<p>Imports the parsed command type and SLF4J logging. SLF4J (Simple Logging Facade for Java) is an API only; the actual logging library is supplied by the Kafka Connect worker (reload4j in Kafka 3.8). That is why <code>slf4j-api</code> is a <code>provided</code> dependency in the POM.</p>
+@@ 7-12
+<p>JDK collections and <code>Optional</code> (a container that either holds a value or is empty, used instead of returning <code>null</code>).</p>
+@@ 14-20
+<p>Class comment: why grouping is needed, and the thread-safety contract.</p>
+@@ 21
+<p>Final class.</p>
+@@ 23
+<p>A logger named after the class. <code>static final</code>: one logger shared by all instances, created once when the class loads. Log lines appear in the Connect worker log tagged with the connector and task name.</p>
+@@ 25-29
+<p>Private nested class for one open transaction: its row changes (in arrival order), the user from the BEGIN record, and a flag so the "large transaction" warning is logged only once per transaction.</p>
+@@ 31-33
+<p>State: open transactions keyed by transaction id (hex string), the warning threshold, and the last commit OQID seen (used by the probe tool only).</p>
+@@ 35-37
+<p>Constructor. The threshold comes from <code>large.transaction.warn.rows</code> (default 100,000).</p>
+@@ 39-41
+<p><b>Main method.</b> Takes one command and returns either an empty <code>Optional</code> or the finished transaction. The transaction id is converted to hex so it can be a map key (Java arrays use identity equality, so <code>byte[]</code> keys would never match). Commands without a transaction id (e.g. <code>purge open_xact</code>) get the key <code>""</code>.</p>
+@@ 42
+<p>A <em>switch expression with arrow labels</em> (Java 14+): no fall-through between cases. The compiler checks that the enum's cases used here are valid.</p>
+@@ 43-47
+<p><b>BEGIN:</b> start a fresh, empty buffer for this transaction and remember the user. If a buffer already existed for the same id (not expected), it is replaced.</p>
+@@ 48-56
+<p><b>Row change:</b> append to the transaction's buffer. <code>computeIfAbsent</code> creates the buffer if no BEGIN was seen. That happens legitimately when RepAgent restarts scanning from a truncation point that lies inside a transaction's span. Only the user name is lost in that case, never the rows. Once the buffer reaches the threshold, one warning is logged (the transaction stays in memory either way).</p>
+@@ 57-62
+<p><b>COMMIT:</b> remove the buffer and return everything as a <code>CommittedTransaction</code>, with the COMMIT record's OQID as the transaction's log position and its origin time as the commit time. A COMMIT with no buffered rows returns a transaction with an empty list; the task still registers it so the truncation point can advance (see <a href="AckTracker.html">AckTracker</a>). ASE's own system transactions (e.g. <code>rs_logexec</code>, <code>_dmpxact</code>) arrive this way.</p>
+@@ 63-66
+<p><b>ROLLBACK:</b> drop the buffer; nothing is ever published. RepAgent may send a rollback twice for the same id (seen in capture <code>types-rollback.bin</code>); the second is a harmless no-op. <b>Evidence:</b> scenario 2 (0 events). <b>Not handled:</b> partial rollbacks to a savepoint (<code>rollback to oqid</code> forms); they were not observed and are listed as untested.</p>
+@@ 67
+<p><b>OTHER:</b> logged at DEBUG and ignored.</p>
+@@ 68-70
+<p>End of switch; every non-COMMIT command returns "nothing finished yet".</p>
+@@ 72-74
+<p>Number of open transactions (for diagnostics and tests).</p>
+@@ 76-78
+<p>Last commit OQID; used only by the discovery probe.</p>
+@@ 80-83
+<p><b>Clear</b> all open transactions. Called when RepAgent connects or disconnects: after a reconnect RepAgent re-sends from the truncation point, including the BEGIN and rows of transactions that were open, so keeping half-filled buffers would duplicate rows inside one transaction.</p>
+@@ 84
+<p>End of class.</p>

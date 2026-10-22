@@ -1,0 +1,56 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlLexer.java
+@summary
+<p><b>Role:</b> splits one raw LTL 760 message (bytes) into tokens. A <em>lexer</em> (tokenizer) is the first stage of every parser: it turns a stream of characters into meaningful pieces (words, symbols, values) so the parser can reason about structure.</p>
+<p><b>Why bytes, not text:</b> LTL 760 length prefixes count <em>bytes</em>. With a multi-byte character set (UTF-8, or UTF-16 for <code>univarchar</code>), decoding first would make the lengths wrong. The lexer therefore works on <code>byte[]</code> and decoding happens later per value.</p>
+<p><b>Source of truth for the encoding:</b> captures of the real RepAgent (ASE 16.0 SP02 PL02), not SAP documentation (which stops at LTL 700). The marker table is in the <a href="../index.html#ch-repagent">RepAgent chapter</a>. <b>Known gaps:</b> 4-digit lengths (values of 256 KB or more, i.e. <code>text</code>/<code>image</code> LOBs sent via <code>rs_writetext</code>) are not supported; the line 9 comment refers to a <code>GUIDE.md</code> that does not exist (this handbook replaces it).</p>
+<p><b>Tests:</b> all <code>LtlParserTest</code> cases run through this lexer with real captured messages.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-6
+<p>JDK imports. <code>Arrays.copyOfRange</code> extracts token bytes.</p>
+@@ 8-23
+<p>Class comment: the four token types and the length encoding. Length digits are base-64 numbers whose digit 0 is the character <code>!</code> (0x21): <code>(</code> = 0x28 − 0x21 = 7, and the two-digit <code>"!</code> = 1×64 + 0 = 64. (Line 9 refers to <code>GUIDE.md</code>; that file does not exist.)</p>
+@@ 24
+<p>Final utility class.</p>
+@@ 26
+<p>Token types: <code>BARE</code> keywords and plain values (<code>distribute</code>, <code>255</code>, <code>NULL</code>, <code>0x…</code>), <code>SYM</code> punctuation (<code>, = .</code>), <code>VALUE</code> length-prefixed literals, <code>NAME</code> column names in yielding lists.</p>
+@@ 28-29
+<p>A token record: type, marker (datatype marker for VALUE, column flag for NAME, the symbol for SYM), the raw bytes, and the byte position in the message (used to cut the raw text of each command).</p>
+@@ 31-33
+<p>Decode the token's bytes with a given charset.</p>
+@@ 35-37
+<p>Case-insensitive keyword test. ISO-8859-1 maps each byte to one character, so it is safe for ASCII keywords whatever the database charset.</p>
+@@ 39-41
+<p>Symbol test.</p>
+@@ 43-47
+<p>Readable form for error messages, truncated to 40 characters (so a parse error never dumps a whole customer row into the log).</p>
+@@ 48
+<p>End of the record.</p>
+@@ 50
+<p>Private constructor: utility class.</p>
+@@ 52-62
+<p><b>How many length digits follow a marker.</b> Learned from captures: <code>char</code>/<code>varchar</code> use <code>"</code>, <code>#</code>, <code>9</code> for 1, 2 and 3 digits (up to 63, 4,095 and 262,143 bytes); <code>binary</code> uses <code>,</code> <code>-</code> <code>:</code>; <code>unichar</code> uses <code>6</code> <code>7</code> <code>&lt;</code>. All other types (numbers, dates) always use one digit. <b>Evidence:</b> 63 vs 64 characters (<code>~"`</code> vs <code>~#"!</code>), 5,000 characters (<code>~9"/)</code>), 5,000 binary bytes (<code>~:"/)</code>), 4,200 unicode bytes (<code>~&lt;""I</code>). <b>If ASE SP04 sends another marker</b>, the token length would be misread and parsing fails loudly (the session drops the connection, nothing is acknowledged); add the marker here and a fixture test.</p>
+@@ 64-69
+<p>Tokenizer state: output list, position, length and a flag telling whether we are inside a <code>yielding</code> clause, where column names occur.</p>
+@@ 70-71
+<p>Read one unsigned byte (<code>&amp; 0xff</code> converts Java's signed byte to 0–255). Skip whitespace and NUL bytes.</p>
+@@ 72-75
+<p>Punctuation becomes a <code>SYM</code> token.</p>
+@@ 76-78
+<p>A <code>~</code> starts an encoded token; the next byte is the marker (or column flag). A message ending right after <code>~</code> is malformed: throw.</p>
+@@ 79-88
+<p><b>Column names.</b> Inside a yielding list, after <code>before</code>, <code>after</code> or a comma, the token is <code>~&lt;flag&gt;&lt;1 length digit&gt;&lt;name&gt;</code> followed by <code>=</code>. Flags seen: <code>G</code> (primary-key column) and <code>$</code> (other columns). The check <code>b[end] == '='</code> guards against misreading a value as a name; if it fails, the token is read as a value instead. Names are limited to 63 bytes by the one-digit length (ASE identifiers can be longer; not tested).</p>
+@@ 89-96
+<p><b>Values.</b> Read 1–3 base-64 length digits; each digit must be 0–63 or the message is rejected.</p>
+@@ 97-100
+<p>Copy exactly <code>len</code> bytes as the value. Because the length is explicit, values may contain any byte, including spaces, quotes, <code>~</code>, newlines or the word <code>distribute</code>, without escaping (verified with <code>it's ~ "quoted" ~"x</code>).</p>
+@@ 101-107
+<p><b>Bare tokens</b> run until whitespace or <code>, = ~</code>. A dot ends the token unless it sits between two digits (so <code>3.5</code> stays one token while <code>payment.rs_insert</code> splits).</p>
+@@ 108-111
+<p>Track the <code>yielding</code> state: on until the next <code>distribute</code>.</p>
+@@ 112-115
+<p>End of loop; return the tokens.</p>
+@@ 117-122
+<p>Name-position rule used above. Outside yielding lists, commas separate command tags (<code>1 ~*6…,4 0x…</code>) and must not be read as names.</p>
+@@ 123
+<p>End of class.</p>

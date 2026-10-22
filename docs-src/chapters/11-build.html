@@ -1,0 +1,91 @@
+<h2 id="ch-build" data-keywords="maven pom jar shade build dependencies provided scope plugin packaging checksum tutorial from scratch">Maven build and JAR packaging</h2>
+<p><b>Maven</b> is Java's standard build tool: it reads <code>pom.xml</code>, downloads declared dependencies from Maven Central, compiles, runs tests and packages a JAR (a zip of compiled classes). This project runs Maven <em>inside a container</em> (<code>maven:3.9-eclipse-temurin-17</code>), so no Java or Maven is installed on the host.</p>
+
+<figure-diagram src="10-build-packaging" n="10" title="From source code to a Kafka Connect plugin">
+<p><b>Purpose:</b> every transformation between the source files and the class the worker finally loads. <b>Key facts:</b> the compile target is Java 17; Kafka Connect API and SLF4J are <em>provided</em> by the worker, so they are deliberately <b>not</b> inside the JAR (bundling them can cause class-loading conflicts); the connector has no other runtime dependency, so the shade step produces a JAR byte-identical to the plain one (same SHA-256).</p>
+<p><b>Does not show:</b> the Maven download cache (Docker volume <code>cdc-m2-cache</code>).</p>
+</figure-diagram>
+
+<h3 id="pom">pom.xml, explained</h3>
+<div class="tbl"><table><tbody>
+<tr><td>1–5</td><td>XML header and POM model version 4.0.0 (the only one Maven uses).</td></tr>
+<tr><td>7–10</td><td>Coordinates: <code>groupId</code> <code>com.phoenix.cdc</code>, <code>artifactId</code> <code>sybase-cdc-connector</code>, <code>version</code> 0.1.0 → JAR name <code>sybase-cdc-connector-0.1.0.jar</code>. Keep the version equal to <code>SybaseCdcSourceConnector.VERSION</code>.</td></tr>
+<tr><td>12–16</td><td><code>maven.compiler.release=17</code>: compile against the Java 17 API and emit class version 61 (prevents accidental use of newer APIs). UTF-8 sources. <code>kafka.version</code> property reused below.</td></tr>
+<tr><td>20–25</td><td><code>connect-api</code> 3.8.0, <b>scope <code>provided</code></b>: available at compile time, not packaged; the worker supplies it at runtime. Its transitive dependency <code>kafka-clients</code> (with <code>RecordMetadata</code>, <code>ConfigDef</code>) comes along the same way.</td></tr>
+<tr><td>26–31</td><td><code>slf4j-api</code> 1.7.36, provided (the worker ships the same version, verified in <code>04-kafka-java.txt</code>).</td></tr>
+<tr><td>32–37</td><td>JUnit 5.10.2, scope <code>test</code>: only on the test classpath.</td></tr>
+<tr><td>42–45</td><td>Surefire 3.2.5: runs the JUnit 5 tests during <code>mvn package</code>.</td></tr>
+<tr><td>46–60</td><td>Shade 3.5.3 bound to <code>package</code>: merges runtime dependencies into one JAR. With none today it is a no-op; it is kept so that a future dependency is bundled automatically. <code>createDependencyReducedPom=false</code> avoids writing a modified POM next to the project.</td></tr>
+</tbody></table></div>
+<p><b>Not pinned:</b> <code>maven-compiler-plugin</code> and <code>maven-jar-plugin</code> versions come from Maven 3.9.16's defaults. For reproducible CI builds, pin them and the Maven image digest.</p>
+
+<h3 id="build-commands">Build commands</h3>
+<ol class="steps">
+<li><b>Build, test, copy to the plugin folder</b> (what <code>build.sh</code> does):
+<pre data-lang="bash"><code>./sybase-cdc-connector/build.sh            # add -DskipTests to skip tests (not recommended)</code></pre>
+Inside, it runs <code>docker run --rm -v "$SRC:/src" -v cdc-m2-cache:/root/.m2 -w /src maven:3.9-eclipse-temurin-17 mvn -B -q package</code>: <code>--rm</code> deletes the container afterwards, the first <code>-v</code> mounts the project, the second keeps downloaded dependencies between builds, <code>-B</code> batch mode, <code>-q</code> quiet (only errors). Then it copies <code>target/sybase-cdc-connector-0.1.0.jar</code> to <code>plugins/sybase-cdc/</code>.
+<br><b>Expected:</b> a listing of <code>plugins/sybase-cdc</code> with a ~66 KB JAR and no <code>ERROR</code> lines. A test failure prints <code>[ERROR] Tests run: …, Failures: 1</code> and stops.</li>
+<li><b>Run only the tests, verbosely:</b>
+<pre data-lang="bash"><code>docker run --rm -v "$(pwd -W)/sybase-cdc-connector:/src" -v cdc-m2-cache:/root/.m2 -w /src maven:3.9-eclipse-temurin-17 mvn -B test</code></pre>
+<b>Expected</b> (evidence <code>tests/unit-tests.txt</code>): <code>Tests run: 11, Failures: 0, Errors: 0, Skipped: 0</code> and <code>BUILD SUCCESS</code>.</li>
+<li><b>Clean build</b> (removes <code>target/</code> first): add <code>clean</code> before <code>package</code>: <code>… mvn -B clean package</code>.</li>
+<li><b>Inspect and fingerprint the artifact:</b>
+<pre data-lang="bash"><code>unzip -l plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar      # 51 entries, 33 classes
+unzip -p plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar META-INF/services/org.apache.kafka.connect.source.SourceConnector
+sha256sum plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code></pre>
+<b>Expected:</b> the services file contains <code>com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector</code>; SHA-256 <code>7e1e5bc225e035a79c925612c22ca2fb3cc34172e1c9a8a301566f0726b3f61b</code> for the tested build. A different hash after rebuilding is normal (timestamps in the JAR) unless you pin the build environment; record it in the release.</li>
+<li><b>Install and reload:</b> <code>./sybase-cdc-connector/deploy-local.sh</code> = build + <code>docker restart cdc-connect</code> + wait until the task is RUNNING. The worker scans the plugin path only at start-up, so a restart is required after replacing the JAR.</li>
+</ol>
+<h3 id="plugin-layout">Plugin layout and class loading</h3>
+<p>Kafka Connect gives each sub-folder of <code>plugin.path</code> its own class loader, so plugins cannot see each other's libraries and their libraries do not clash with the worker's. Layout used: <code>/opt/connectors/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code>. If the connector ever needs a third-party library (for example an Avro serializer), either shade it into the JAR or put its JAR in the same folder; never put it on the worker's own classpath. Discovery works through the <code>META-INF/services</code> file (Java <code>ServiceLoader</code>), which is how Connect 3.6+ can scan plugins quickly.</p>
+
+<h3 id="from-scratch">Tutorial: creating a source connector from an empty folder</h3>
+<p>This tutorial reproduces the <em>structure</em> of the real connector. Steps 1–8 give a working but trivial connector; steps 9–12 point to the real CDC code, which you should copy rather than retype. <b>The skeleton in step 6 is a teaching example, not the production implementation.</b></p>
+<ol class="steps">
+<li><b>JDK and Maven:</b> nothing to install if you use the Maven container (<code>docker pull maven:3.9-eclipse-temurin-17</code>). Otherwise install a JDK 17+ (e.g. Eclipse Temurin) and Maven 3.9+, then check <code>java -version</code> and <code>mvn -v</code>.</li>
+<li><b>Project folders:</b> <code>my-connector/pom.xml</code>, <code>src/main/java/&lt;package path&gt;/</code>, <code>src/main/resources/META-INF/services/</code>, <code>src/test/java/</code>.</li>
+<li><b>Kafka Connect API version:</b> use the same version as the target worker (here 3.8.0; on OpenShift, the Kafka version of your Event Streams or Confluent release). Compiling against an older API than the runtime is safe; newer is not.</li>
+<li><b>Dependencies:</b> copy lines 12–38 of the project's <code>pom.xml</code> (provided scope for <code>connect-api</code> and <code>slf4j-api</code>).</li>
+<li><b>Service file:</b> <code>src/main/resources/META-INF/services/org.apache.kafka.connect.source.SourceConnector</code> containing the fully qualified connector class name.</li>
+<li><b>Connector and task classes</b> (teaching skeleton):
+<pre data-lang="java"><code>// HelloConnector.java
+package hello;
+import java.util.*;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.source.SourceConnector;
+
+public class HelloConnector extends SourceConnector {
+    private Map&lt;String, String&gt; props;
+    @Override public void start(Map&lt;String, String&gt; p) { props = p; }
+    @Override public Class&lt;? extends Task&gt; taskClass() { return HelloTask.class; }
+    @Override public List&lt;Map&lt;String, String&gt;&gt; taskConfigs(int max) { return List.of(props); }
+    @Override public void stop() { }
+    @Override public ConfigDef config() { return new ConfigDef().define("topic", ConfigDef.Type.STRING, ConfigDef.Importance.HIGH, "Target topic"); }
+    @Override public String version() { return "0.0.1"; }
+}
+
+// HelloTask.java
+package hello;
+import java.util.*;
+import org.apache.kafka.connect.source.SourceRecord;
+import org.apache.kafka.connect.source.SourceTask;
+
+public class HelloTask extends SourceTask {
+    private String topic; private long n;
+    @Override public void start(Map&lt;String, String&gt; p) { topic = p.get("topic"); }
+    @Override public List&lt;SourceRecord&gt; poll() throws InterruptedException {
+        Thread.sleep(1000);
+        return List.of(new SourceRecord(Map.of("source", "hello"), Map.of("n", n), topic, null, "hello " + n++));
+    }
+    @Override public void stop() { }
+    @Override public String version() { return "0.0.1"; }
+}</code></pre>
+<span class="small">Verified: these two files plus the service file compile with the project's POM settings (<code>mvn package</code> produced a 4 KB JAR). They were not deployed to a worker.</span></li>
+<li><b>Configuration definition:</b> move settings into a class extending <code>AbstractConfig</code> with a <code>ConfigDef</code> (see <a href="source/SybaseCdcConfig.html">SybaseCdcConfig</a>), so invalid configs fail at <code>start()</code>.</li>
+<li><b>Build, install, register:</b> <code>mvn package</code>, copy the JAR into a new folder under <code>plugin.path</code>, restart the worker, check <code>GET /connector-plugins</code>, then <code>POST /connectors</code> with <code>{"name":"hello","config":{"connector.class":"…HelloConnector","topic":"hello"}}</code> and read the topic.</li>
+<li><b>Offsets and recovery:</b> make the source offset describe a position you can resume from; read it in <code>start()</code> with <code>context.offsetStorageReader().offset(partition)</code>; use a partition map with a stable key order (a lesson from <a href="#hist-later">history 7.3</a>); only claim a position once everything before it is acknowledged (<a href="#fig-17">Figure 17</a>).</li>
+<li><b>Error handling and resources:</b> throw <code>ConnectException</code> for fatal start-up errors; close sockets and threads in <code>stop()</code>; never block <code>poll()</code> forever.</li>
+<li><b>The real CDC layer:</b> copy the <code>tds</code>, <code>ltl</code> and <code>cdc</code> packages unchanged; they have no Kafka dependency. Wire them as <a href="source/SybaseCdcSourceTask.html">SybaseCdcSourceTask</a> does: an <code>LtlServer</code> with a listener that feeds a <code>TransactionBuffer</code>, a bounded queue drained by <code>poll()</code>, and an <code>AckTracker</code> fed by <code>commitRecord()</code>.</li>
+<li><b>Tests:</b> unit tests with captured LTL fixtures (<a href="source/LtlParserTest.html">LtlParserTest</a>); end-to-end tests with the Docker environment and the scenario scripts (<a href="#ch-tests">test chapter</a>).</li>
+</ol>

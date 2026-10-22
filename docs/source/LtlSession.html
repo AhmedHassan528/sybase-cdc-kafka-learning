@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LtlSession.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>LtlSession.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java</code> · 251 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> one RepAgent connection, playing the part of a Replication Server. It reads TDS messages, answers the login and the three control commands (<code>connect source</code>, <code>get maintenance user</code>, <code>get truncation</code>) exactly as a Replication Server does, and hands LTL data to the listener. This is the class where most of the protocol discoveries live; every rule below was learned from a real failure (see the <a href="../index.html#ch-history">development history</a>).</p>
+<p><b>Protocol rules encoded here</b> (all verified on ASE 16.0 SP02 PL02): (1) confirm the client's packet size in the login reply; (2) answer every LTL data message with exactly one DONE; (3) answer <code>connect source</code> with two result sets; (4) never acknowledge a message you could not parse: drop the connection instead.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.ltl;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>ltl</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.tds.<span class="t">TdsChannel</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> com.phoenix.cdc.sybase.tds.<span class="t">TdsLogin</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> com.phoenix.cdc.sybase.tds.<span class="t">TdsTokens</span>;
+<span class="ln" id="L6">6</span><span class="k">import</span> com.phoenix.cdc.sybase.tds.<span class="t">TdsTokens</span>.<span class="t">Column</span>;
+<span class="ln" id="L7">7</span><span class="k">import</span> org.slf4j.<span class="t">Logger</span>;
+<span class="ln" id="L8">8</span><span class="k">import</span> org.slf4j.<span class="t">LoggerFactory</span>;</code></pre><div class="note"><div class="range">Lines 3–8</div><p>TDS layer classes and logging.</p></div></section>
+<section class="blk" id="b10"><pre class="code"><code><span class="ln" id="L10">10</span><span class="k">import</span> java.io.<span class="t">IOException</span>;
+<span class="ln" id="L11">11</span><span class="k">import</span> java.net.<span class="t">Socket</span>;
+<span class="ln" id="L12">12</span><span class="k">import</span> java.nio.<span class="t">ByteOrder</span>;
+<span class="ln" id="L13">13</span><span class="k">import</span> java.nio.charset.<span class="t">Charset</span>;
+<span class="ln" id="L14">14</span><span class="k">import</span> java.nio.charset.<span class="t">StandardCharsets</span>;
+<span class="ln" id="L15">15</span><span class="k">import</span> java.nio.file.<span class="t">Files</span>;
+<span class="ln" id="L16">16</span><span class="k">import</span> java.nio.file.<span class="t">Path</span>;
+<span class="ln" id="L17">17</span><span class="k">import</span> java.util.<span class="t">HexFormat</span>;
+<span class="ln" id="L18">18</span><span class="k">import</span> java.util.<span class="t">List</span>;
+<span class="ln" id="L19">19</span><span class="k">import</span> java.util.<span class="t">Locale</span>;
+<span class="ln" id="L20">20</span><span class="k">import</span> java.util.concurrent.atomic.<span class="t">AtomicLong</span>;
+<span class="ln" id="L21">21</span><span class="k">import</span> java.util.regex.<span class="t">Matcher</span>;
+<span class="ln" id="L22">22</span><span class="k">import</span> java.util.regex.<span class="t">Pattern</span>;</code></pre><div class="note"><div class="range">Lines 10–22</div><p>JDK classes: sockets, byte order, charsets, files (for raw dumps), hex formatting, an atomic counter and regular expressions.</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span><span class="c">/**</span>
+<span class="ln" id="L25">25</span><span class="c"> * One RepAgent connection. Plays the part of a Replication Server:</span>
+<span class="ln" id="L26">26</span><span class="c"> *</span>
+<span class="ln" id="L27">27</span><span class="c"> * &lt;ol&gt;</span>
+<span class="ln" id="L28">28</span><span class="c"> *   &lt;li&gt;TDS login → LOGINACK&lt;/li&gt;</span>
+<span class="ln" id="L29">29</span><span class="c"> *   &lt;li&gt;"connect source lti 'srv'.'db' 760" → two result sets: negotiated LTL version; Sysversion + UpgradeLocater&lt;/li&gt;</span>
+<span class="ln" id="L30">30</span><span class="c"> *   &lt;li&gt;"get maintenance user for 'srv'.'db'" → one row: user name&lt;/li&gt;</span>
+<span class="ln" id="L31">31</span><span class="c"> *   &lt;li&gt;"get truncation 'srv'.'db'" → one row: 36-byte origin queue ID&lt;/li&gt;</span>
+<span class="ln" id="L32">32</span><span class="c"> *   &lt;li&gt;"distribute ..." batches → parsed and handed to the listener, answered with DONE&lt;/li&gt;</span>
+<span class="ln" id="L33">33</span><span class="c"> * &lt;/ol&gt;</span>
+<span class="ln" id="L34">34</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 24–34</div><p>Class comment: the conversation in order.</p></div></section>
+<section class="blk" id="b35"><pre class="code"><code><span class="ln" id="L35">35</span><span class="k">final</span> <span class="k">class</span> <span class="t">LtlSession</span> <span class="k">implements</span> <span class="t">Runnable</span> {</code></pre><div class="note"><div class="range">Lines 35</div><p>Package-private, implements <code>Runnable</code> so <code>LtlServer</code> can run it on a thread.</p></div></section>
+<section class="blk" id="b37"><pre class="code"><code><span class="ln" id="L37">37</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">Logger</span> log = <span class="t">LoggerFactory</span>.getLogger(<span class="t">LtlSession</span>.<span class="k">class</span>);
+<span class="ln" id="L38">38</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">String</span> <span class="t">SERVER_NAME</span> = <span class="s">"CDC_RS"</span>;
+<span class="ln" id="L39">39</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">String</span> <span class="t">DUMP_DIR</span> = <span class="t">System</span>.getProperty(<span class="s">"ltl.dump.dir"</span>);
+<span class="ln" id="L40">40</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">AtomicLong</span> <span class="t">DUMP_SEQ</span> = <span class="k">new</span> <span class="t">AtomicLong</span>();</code></pre><div class="note"><div class="range">Lines 37–40</div><p>Logger; the server name used in error messages; the optional raw-dump directory read from the JVM system property <code>ltl.dump.dir</code> (set with <code>-Dltl.dump.dir=…</code>, e.g. via <code>KAFKA_OPTS</code>); and a counter for dump file names shared by all sessions. <b>Caution:</b> dumps contain customer data; use only in test environments.</p></div></section>
+<section class="blk" id="b42"><pre class="code"><code><span class="ln" id="L42">42</span>    <span class="c">/** Replication Server version we claim to be (16.0); RepAgent only uses it for compatibility checks. */</span>
+<span class="ln" id="L43">43</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">RS_SYSVERSION</span> = <span class="n">1600</span>;
+<span class="ln" id="L44">44</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">UPGRADE_LOCATOR_LEN</span> = <span class="n">36</span>;
+<span class="ln" id="L45">45</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">ENV_PACKETSIZE</span> = <span class="n">4</span>;</code></pre><div class="note"><div class="range">Lines 42–45</div><p>Constants for the Replication Server impersonation: the system version we claim (1600 = RS 16.0), the 36-byte upgrade locater, and the TDS ENVCHANGE type number for packet size (4).</p></div></section>
+<section class="blk" id="b46"><pre class="code"><code><span class="ln" id="L46">46</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">Pattern</span> <span class="t">CONNECT_SOURCE</span> =
+<span class="ln" id="L47">47</span>        <span class="t">Pattern</span>.compile(<span class="s">"connect source lti\\s+\"?([^\".\\s]+)\"?\\s*\\.\\s*\"?([^\".\\s]+)\"?\\s+(\\d+)"</span>, <span class="t">Pattern</span>.<span class="t">CASE_INSENSITIVE</span>);</code></pre><div class="note"><div class="range">Lines 46–47</div><p>Regular expression for <code>connect source lti "MYSYBASE"."phoenix_test" 760 passthru</code>: captures server, database and proposed version, with or without double quotes, case-insensitive. In Java source <code>\\s</code> is the regex <code>\s</code> (whitespace).</p></div></section>
+<section class="blk" id="b49"><pre class="code"><code><span class="ln" id="L49">49</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">List</span>&lt;<span class="t">Column</span>&gt; <span class="t">VERSION_COLS</span> = <span class="t">List</span>.of(<span class="k">new</span> <span class="t">Column</span>(<span class="s">"VERSION"</span>, <span class="t">TdsTokens</span>.<span class="t">TYPE_INT4</span>, <span class="n">4</span>));
+<span class="ln" id="L50">50</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">List</span>&lt;<span class="t">Column</span>&gt; <span class="t">SYSVERSION_COLS</span> = <span class="t">List</span>.of(
+<span class="ln" id="L51">51</span>        <span class="k">new</span> <span class="t">Column</span>(<span class="s">"Sysversion"</span>, <span class="t">TdsTokens</span>.<span class="t">TYPE_INT4</span>, <span class="n">4</span>),
+<span class="ln" id="L52">52</span>        <span class="k">new</span> <span class="t">Column</span>(<span class="s">"UpgradeLocater"</span>, <span class="t">TdsTokens</span>.<span class="t">TYPE_VARBINARY</span>, <span class="t">UPGRADE_LOCATOR_LEN</span>));
+<span class="ln" id="L53">53</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">List</span>&lt;<span class="t">Column</span>&gt; <span class="t">MAINT_COLS</span> = <span class="t">List</span>.of(<span class="k">new</span> <span class="t">Column</span>(<span class="s">"maint_user"</span>, <span class="t">TdsTokens</span>.<span class="t">TYPE_VARCHAR</span>, <span class="n">30</span>));
+<span class="ln" id="L54">54</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">List</span>&lt;<span class="t">Column</span>&gt; <span class="t">TRUNC_COLS</span> = <span class="t">List</span>.of(<span class="k">new</span> <span class="t">Column</span>(<span class="s">"truncation"</span>, <span class="t">TdsTokens</span>.<span class="t">TYPE_VARBINARY</span>, <span class="n">36</span>));</code></pre><div class="note"><div class="range">Lines 49–54</div><p>Result-set layouts (<em>row formats</em>) for the control answers: <code>VERSION</code> int; <code>Sysversion</code> int + <code>UpgradeLocater</code> binary(36); maintenance user varchar(30); truncation binary(36). The two-result-set answer to <code>connect source</code> matches the example in SAP's Replication Server Design Guide; answering with one result set was suspected of contributing to the early RepAgent failures.</p></div></section>
+<section class="blk" id="b56"><pre class="code"><code><span class="ln" id="L56">56</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">Socket</span> socket;
+<span class="ln" id="L57">57</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">LtlListener</span> listener;
+<span class="ln" id="L58">58</span>    <span class="k">private</span> <span class="k">final</span> <span class="k">boolean</span> trace;
+<span class="ln" id="L59">59</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">Charset</span> charsetOverride;
+<span class="ln" id="L60">60</span> 
+<span class="ln" id="L61">61</span>    <span class="k">private</span> <span class="t">TdsChannel</span> ch;
+<span class="ln" id="L62">62</span>    <span class="k">private</span> <span class="t">ByteOrder</span> order = <span class="t">ByteOrder</span>.<span class="t">LITTLE_ENDIAN</span>;
+<span class="ln" id="L63">63</span>    <span class="k">private</span> <span class="t">Charset</span> charset = <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>;
+<span class="ln" id="L64">64</span>    <span class="k">private</span> <span class="t">String</span> server = <span class="s">"?"</span>;
+<span class="ln" id="L65">65</span>    <span class="k">private</span> <span class="t">String</span> database = <span class="s">"?"</span>;</code></pre><div class="note"><div class="range">Lines 56–65</div><p>Per-connection state. Defaults (little-endian, ISO-8859-1) apply until the login packet says otherwise.</p></div></section>
+<section class="blk" id="b67"><pre class="code"><code><span class="ln" id="L67">67</span>    <span class="t">LtlSession</span>(<span class="t">Socket</span> socket, <span class="t">LtlListener</span> listener, <span class="k">boolean</span> trace, <span class="t">Charset</span> charsetOverride) {
+<span class="ln" id="L68">68</span>        <span class="k">this</span>.socket = socket;
+<span class="ln" id="L69">69</span>        <span class="k">this</span>.listener = listener;
+<span class="ln" id="L70">70</span>        <span class="k">this</span>.trace = trace;
+<span class="ln" id="L71">71</span>        <span class="k">this</span>.charsetOverride = charsetOverride;
+<span class="ln" id="L72">72</span>    }</code></pre><div class="note"><div class="range">Lines 67–72</div><p>Constructor.</p></div></section>
+<section class="blk" id="b74"><pre class="code"><code><span class="ln" id="L74">74</span>    <span class="a">@Override</span>
+<span class="ln" id="L75">75</span>    <span class="k">public</span> <span class="k">void</span> run() {
+<span class="ln" id="L76">76</span>        <span class="t">Exception</span> cause = <span class="k">null</span>;
+<span class="ln" id="L77">77</span>        <span class="k">try</span> (<span class="t">TdsChannel</span> c = <span class="k">new</span> <span class="t">TdsChannel</span>(socket)) {
+<span class="ln" id="L78">78</span>            ch = c;
+<span class="ln" id="L79">79</span>            <span class="k">if</span> (trace) ch.setPacketTrace(s -&gt; log.info(<span class="s">"TDS {}"</span>, s));
+<span class="ln" id="L80">80</span>            log.info(<span class="s">"RepAgent connected from {}"</span>, ch.remote());</code></pre><div class="note"><div class="range">Lines 74–80</div><p><b>Session loop start.</b> try-with-resources closes the channel (and socket) however the loop ends. "RepAgent connected from …" is logged for every connection.</p></div></section>
+<section class="blk" id="b81"><pre class="code"><code><span class="ln" id="L81">81</span>            <span class="t">TdsChannel</span>.<span class="t">Message</span> m;
+<span class="ln" id="L82">82</span>            <span class="k">while</span> ((m = ch.read()) != <span class="k">null</span>) {
+<span class="ln" id="L83">83</span>                dump(m);
+<span class="ln" id="L84">84</span>                <span class="k">if</span> (trace &amp;&amp; m.type() != <span class="t">TdsChannel</span>.<span class="t">PKT_NORMAL</span>) {
+<span class="ln" id="L85">85</span>                    log.info(<span class="s">"TDS message type=0x{} len={} head={}"</span>, <span class="t">Integer</span>.toHexString(m.type()), m.payload().length, hex(m.payload(), <span class="n">8</span>));
+<span class="ln" id="L86">86</span>                }</code></pre><div class="note"><div class="range">Lines 81–86</div><p>Read whole TDS messages until the peer closes (<code>null</code>). Each message is optionally dumped and traced.</p></div></section>
+<section class="blk" id="b87"><pre class="code"><code><span class="ln" id="L87">87</span>                <span class="k">switch</span> (m.type()) {
+<span class="ln" id="L88">88</span>                    <span class="k">case</span> <span class="t">TdsChannel</span>.<span class="t">PKT_LOGIN</span> -&gt; login(m.payload());
+<span class="ln" id="L89">89</span>                    <span class="k">case</span> <span class="t">TdsChannel</span>.<span class="t">PKT_LANGUAGE</span> -&gt; language(m.payload());
+<span class="ln" id="L90">90</span>                    <span class="k">case</span> <span class="t">TdsChannel</span>.<span class="t">PKT_NORMAL</span> -&gt; tokenStream(m.payload());
+<span class="ln" id="L91">91</span>                    <span class="k">case</span> <span class="t">TdsChannel</span>.<span class="t">PKT_ATTN</span> -&gt; ch.sendResponse(tokens().done(<span class="t">TdsTokens</span>.<span class="t">DONE_ATTN</span>, <span class="n">0</span>).bytes());
+<span class="ln" id="L92">92</span>                    <span class="k">default</span> -&gt; {
+<span class="ln" id="L93">93</span>                        log.warn(<span class="s">"Unhandled TDS packet type 0x{} ({} bytes): {}"</span>, <span class="t">Integer</span>.toHexString(m.type()),
+<span class="ln" id="L94">94</span>                            m.payload().length, hex(m.payload(), <span class="n">256</span>));
+<span class="ln" id="L95">95</span>                        ch.sendResponse(tokens().done(<span class="t">TdsTokens</span>.<span class="t">DONE_FINAL</span>, <span class="n">0</span>).bytes());
+<span class="ln" id="L96">96</span>                    }
+<span class="ln" id="L97">97</span>                }</code></pre><div class="note"><div class="range">Lines 87–97</div><p><b>Dispatch by TDS packet type:</b> login (0x02), old-style language (0x01, used by RepAgent in passthru mode for all LTL and control commands after <code>connect source</code>), TDS 5.0 token stream (0x0F, used for <code>connect source</code> itself), attention/cancel (0x06, answered with DONE_ATTN). Unknown types are logged in hex and answered with DONE.</p></div></section>
+<section class="blk" id="b98"><pre class="code"><code><span class="ln" id="L98">98</span>            }
+<span class="ln" id="L99">99</span>            log.info(<span class="s">"RepAgent for {}.{} disconnected"</span>, server, database);</code></pre><div class="note"><div class="range">Lines 98–99</div><p>Clean end of stream.</p></div></section>
+<section class="blk" id="b100"><pre class="code"><code><span class="ln" id="L100">100</span>        } <span class="k">catch</span> (<span class="t">InterruptedException</span> e) {
+<span class="ln" id="L101">101</span>            <span class="t">Thread</span>.currentThread().interrupt();
+<span class="ln" id="L102">102</span>            cause = e;
+<span class="ln" id="L103">103</span>        } <span class="k">catch</span> (<span class="t">Exception</span> e) {
+<span class="ln" id="L104">104</span>            cause = e;
+<span class="ln" id="L105">105</span>            log.warn(<span class="s">"RepAgent session {}.{} ended with error: {}"</span>, server, database, e.toString());
+<span class="ln" id="L106">106</span>        } <span class="k">finally</span> {
+<span class="ln" id="L107">107</span>            listener.onDisconnect(server, database, cause);
+<span class="ln" id="L108">108</span>        }</code></pre><div class="note"><div class="range">Lines 100–108</div><p>Error handling: restore the interrupt flag if interrupted; log any other error as "ended with error" (e.g. a parse failure or a closed socket); always notify the listener.</p></div></section>
+<section class="blk" id="b109"><pre class="code"><code><span class="ln" id="L109">109</span>    }</code></pre><div class="note"><div class="range">Lines 109</div><p>End of <code>run()</code>.</p></div></section>
+<section class="blk" id="b111"><pre class="code"><code><span class="ln" id="L111">111</span>    <span class="k">private</span> <span class="k">void</span> login(<span class="k">byte</span>[] payload) <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L112">112</span>        <span class="t">TdsLogin</span> login = <span class="t">TdsLogin</span>.parse(payload);
+<span class="ln" id="L113">113</span>        order = login.order;
+<span class="ln" id="L114">114</span>        charset = charsetOverride != <span class="k">null</span> ? charsetOverride : javaCharset(login.charset);
+<span class="ln" id="L115">115</span>        log.info(<span class="s">"TDS login: {} -&gt; using charset {}"</span>, login, charset);
+<span class="ln" id="L116">116</span>        <span class="k">if</span> (trace) log.info(<span class="s">"Login packet: {}"</span>, hex(payload, payload.length));</code></pre><div class="note"><div class="range">Lines 111–116</div><p><b>Login.</b> Parse the login record; adopt the client's byte order and character set (or the configured override). The log line shows user, app ("Replication Agent"), server ("CDC_RS"), charset and packet size; the password is not logged (unless trace is on, which dumps the whole packet).</p></div></section>
+<section class="blk" id="b118"><pre class="code"><code><span class="ln" id="L118">118</span>        <span class="k">boolean</span> ok = listener.authenticate(login.user, login.password);
+<span class="ln" id="L119">119</span>        <span class="t">TdsTokens</span> r = tokens();
+<span class="ln" id="L120">120</span>        <span class="k">if</span> (!ok) {
+<span class="ln" id="L121">121</span>            r.message(<span class="n">4002</span>, <span class="n">14</span>, <span class="s">"Login failed for user '"</span> + login.user + <span class="s">"'"</span>, <span class="t">SERVER_NAME</span>);
+<span class="ln" id="L122">122</span>            r.loginAck(<span class="k">false</span>, <span class="s">"Replication Server"</span>, <span class="k">new</span> <span class="k">byte</span>[] {<span class="n">16</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>});
+<span class="ln" id="L123">123</span>            r.done(<span class="t">TdsTokens</span>.<span class="t">DONE_ERROR</span>, <span class="n">0</span>);
+<span class="ln" id="L124">124</span>            ch.sendResponse(r.bytes());
+<span class="ln" id="L125">125</span>            log.warn(<span class="s">"Rejected RepAgent login for user '{}'"</span>, login.user);
+<span class="ln" id="L126">126</span>            <span class="k">return</span>;
+<span class="ln" id="L127">127</span>        }</code></pre><div class="note"><div class="range">Lines 118–127</div><p><b>Rejected login:</b> an error message (EED token, Msg 4002 "Login failed"), a failed LOGINACK and a DONE with the error bit. RepAgent logs "Login failed for user 'rs_user'" in the ASE errorlog and stops its thread (seen in capture 1, when password encryption was still on).</p></div></section>
+<section class="blk" id="b128"><pre class="code"><code><span class="ln" id="L128">128</span>        r.loginAck(<span class="k">true</span>, <span class="s">"Replication Server"</span>, <span class="k">new</span> <span class="k">byte</span>[] {<span class="n">16</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>});
+<span class="ln" id="L129">129</span>        <span class="k">if</span> (login.capabilityToken != <span class="k">null</span>) r.raw(login.capabilityToken);
+<span class="ln" id="L130">130</span>        <span class="c">// Confirm the packet size RepAgent asked for ("send buffer size", 2k by default). Without this</span>
+<span class="ln" id="L131">131</span>        <span class="c">// CT-Lib falls back to 512-byte packets and splits RepAgent's buffers with misplaced EOM flags.</span>
+<span class="ln" id="L132">132</span>        r.envChange(<span class="t">ENV_PACKETSIZE</span>, <span class="t">String</span>.valueOf(login.packetSize), <span class="s">"512"</span>);
+<span class="ln" id="L133">133</span>        r.done(<span class="t">TdsTokens</span>.<span class="t">DONE_FINAL</span>, <span class="n">0</span>);
+<span class="ln" id="L134">134</span>        ch.sendResponse(r.bytes());
+<span class="ln" id="L135">135</span>        ch.setPacketSize(login.packetSize);</code></pre><div class="note"><div class="range">Lines 128–135</div><p><b>Accepted login:</b> LOGINACK (success, TDS 5.0, program "Replication Server" 16.0.0.0), the client's own capability token echoed back, and an ENVCHANGE confirming the requested packet size. <b>Why ENVCHANGE matters:</b> without it CT-Lib (RepAgent's client library) fell back to 512-byte packets and split RepAgent's 2,048-byte buffers so that an end-of-message flag landed mid-batch. The connector then answered twice; RepAgent read the extra DONE as its <code>get truncation</code> result (CT-Lib result type <code>CS_CMD_SUCCEED</code> = 4047) and aborted.</p></div></section>
+<section class="blk" id="b136"><pre class="code"><code><span class="ln" id="L136">136</span>    }</code></pre><div class="note"><div class="range">Lines 136</div><p>End of <code>login()</code>.</p></div></section>
+<section class="blk" id="b138"><pre class="code"><code><span class="ln" id="L138">138</span>    <span class="c">/** TDS 5.0 token stream: we expect a LANGUAGE token (0x21): u32 length, u8 status, text. */</span>
+<span class="ln" id="L139">139</span>    <span class="k">private</span> <span class="k">void</span> tokenStream(<span class="k">byte</span>[] p) <span class="k">throws</span> <span class="t">IOException</span>, <span class="t">InterruptedException</span> {
+<span class="ln" id="L140">140</span>        <span class="k">if</span> (trace) log.info(<span class="s">"TDS message type=0x0f len={} head={}"</span>, p.length, hex(p, <span class="n">8</span>));
+<span class="ln" id="L141">141</span>        <span class="k">if</span> (p.length &gt;= <span class="n">6</span> &amp;&amp; (p[<span class="n">0</span>] &amp; <span class="n">0xff</span>) == <span class="n">0x21</span>) {
+<span class="ln" id="L142">142</span>            <span class="k">int</span> len = order == <span class="t">ByteOrder</span>.<span class="t">LITTLE_ENDIAN</span>
+<span class="ln" id="L143">143</span>                ? (p[<span class="n">1</span>] &amp; <span class="n">0xff</span>) | (p[<span class="n">2</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">8</span> | (p[<span class="n">3</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">16</span> | (p[<span class="n">4</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">24</span>
+<span class="ln" id="L144">144</span>                : (p[<span class="n">1</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">24</span> | (p[<span class="n">2</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">16</span> | (p[<span class="n">3</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">8</span> | (p[<span class="n">4</span>] &amp; <span class="n">0xff</span>);
+<span class="ln" id="L145">145</span>            <span class="k">int</span> textLen = <span class="t">Math</span>.min(len - <span class="n">1</span>, p.length - <span class="n">6</span>);
+<span class="ln" id="L146">146</span>            language(java.util.<span class="t">Arrays</span>.copyOfRange(p, <span class="n">6</span>, <span class="n">6</span> + textLen));
+<span class="ln" id="L147">147</span>            <span class="k">return</span>;
+<span class="ln" id="L148">148</span>        }</code></pre><div class="note"><div class="range">Lines 138–148</div><p><b>TDS 5.0 token stream.</b> Only the LANGUAGE token (0x21) is expected: 4-byte length in the client's byte order, 1 status byte, then the text. The length includes the status byte, hence <code>len - 1</code>.</p></div></section>
+<section class="blk" id="b149"><pre class="code"><code><span class="ln" id="L149">149</span>        log.warn(<span class="s">"Unhandled TDS token 0x{} ({} bytes): {}"</span>, <span class="t">Integer</span>.toHexString(p.length &gt; <span class="n">0</span> ? p[<span class="n">0</span>] &amp; <span class="n">0xff</span> : <span class="n">0</span>),
+<span class="ln" id="L150">150</span>            p.length, hex(p, <span class="n">256</span>));
+<span class="ln" id="L151">151</span>        ch.sendResponse(tokens().done(<span class="t">TdsTokens</span>.<span class="t">DONE_FINAL</span>, <span class="n">0</span>).bytes());
+<span class="ln" id="L152">152</span>    }</code></pre><div class="note"><div class="range">Lines 149–152</div><p>Anything else is logged and answered with DONE.</p></div></section>
+<section class="blk" id="b154"><pre class="code"><code><span class="ln" id="L154">154</span>    <span class="k">private</span> <span class="k">void</span> language(<span class="k">byte</span>[] raw) <span class="k">throws</span> <span class="t">IOException</span>, <span class="t">InterruptedException</span> {
+<span class="ln" id="L155">155</span>        <span class="c">// ISO-8859-1 maps bytes 1:1, so lengths and offsets match the raw message.</span>
+<span class="ln" id="L156">156</span>        <span class="t">String</span> cmd = <span class="k">new</span> <span class="t">String</span>(raw, <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>).strip();
+<span class="ln" id="L157">157</span>        <span class="t">String</span> lower = cmd.toLowerCase(<span class="t">Locale</span>.<span class="t">ROOT</span>);
+<span class="ln" id="L158">158</span>        <span class="k">if</span> (trace) log.info(<span class="s">"LTL &lt;&lt;&lt; {}"</span>, cmd.length() &gt; <span class="n">4000</span> ? cmd.substring(<span class="n">0</span>, <span class="n">4000</span>) + <span class="s">"...("</span> + cmd.length() + <span class="s">" chars)"</span> : cmd);</code></pre><div class="note"><div class="range">Lines 154–158</div><p><b>Language command.</b> ISO-8859-1 maps bytes one-to-one, so the decoded text has the same offsets as the bytes (needed to detect the command type safely regardless of the database charset).</p></div></section>
+<section class="blk" id="b160"><pre class="code"><code><span class="ln" id="L160">160</span>        <span class="k">if</span> (!lower.startsWith(<span class="s">"connect source"</span>) &amp;&amp; !lower.startsWith(<span class="s">"get "</span>)) {
+<span class="ln" id="L161">161</span>            <span class="c">// LTL data: one or more complete "distribute" commands.</span>
+<span class="ln" id="L162">162</span>            <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; cmds;
+<span class="ln" id="L163">163</span>            <span class="k">try</span> {
+<span class="ln" id="L164">164</span>                cmds = <span class="t">LtlParser</span>.parse(raw, charset);</code></pre><div class="note"><div class="range">Lines 160–164</div><p><b>LTL data</b> (everything that is not a control command): parse with the session charset.</p></div></section>
+<section class="blk" id="b165"><pre class="code"><code><span class="ln" id="L165">165</span>            } <span class="k">catch</span> (<span class="t">RuntimeException</span> e) {
+<span class="ln" id="L166">166</span>                <span class="c">// Never acknowledge what we could not understand. LTL batches get no reply, so the only</span>
+<span class="ln" id="L167">167</span>                <span class="c">// way to refuse one is to drop the connection; RepAgent reconnects and re-sends from</span>
+<span class="ln" id="L168">168</span>                <span class="c">// the last truncation point we gave it.</span>
+<span class="ln" id="L169">169</span>                <span class="k">throw</span> <span class="k">new</span> <span class="t">IOException</span>(<span class="s">"Cannot parse LTL, dropping RepAgent connection: "</span> + e.getMessage(), e);
+<span class="ln" id="L170">170</span>            }</code></pre><div class="note"><div class="range">Lines 165–170</div><p><b>Parse failure:</b> throw, which ends the session and closes the socket without replying. LTL data messages are only acknowledged by the DONE below; not sending it means not acknowledging. RepAgent reports a communications error, waits <code>retry timeout</code> and re-sends from the last truncation point. If the data really is unparsable, this repeats until a fixed connector is deployed, while the log grows: monitor for it.</p></div></section>
+<section class="blk" id="b171"><pre class="code"><code><span class="ln" id="L171">171</span>            listener.onCommands(cmds);</code></pre><div class="note"><div class="range">Lines 171</div><p>Hand the commands to the listener (the task). This call may block on the full queue: back-pressure.</p></div></section>
+<section class="blk" id="b172"><pre class="code"><code><span class="ln" id="L172">172</span>            <span class="c">// Exactly one DONE per TDS message. This only lines up with RepAgent if the packet size it</span>
+<span class="ln" id="L173">173</span>            <span class="c">// asked for was confirmed at login (see login()); otherwise CT-Lib re-splits its buffers,</span>
+<span class="ln" id="L174">174</span>            <span class="c">// EOM flags land mid-batch, we answer twice, and RepAgent later reads the extra DONE as the</span>
+<span class="ln" id="L175">175</span>            <span class="c">// answer to "get truncation" (CT-Lib result type CS_CMD_SUCCEED = 4047) and aborts.</span>
+<span class="ln" id="L176">176</span>            ch.sendResponse(tokens().done(<span class="t">TdsTokens</span>.<span class="t">DONE_FINAL</span>, <span class="n">0</span>).bytes());</code></pre><div class="note"><div class="range">Lines 172–176</div><p><b>Exactly one DONE per message</b>, sent only after the commands were buffered.</p></div></section>
+<section class="blk" id="b177"><pre class="code"><code><span class="ln" id="L177">177</span>        } <span class="k">else</span> <span class="k">if</span> (lower.startsWith(<span class="s">"connect source"</span>)) {
+<span class="ln" id="L178">178</span>            <span class="c">// connect source lti "SERVER"."db" 760 passthru</span>
+<span class="ln" id="L179">179</span>            <span class="t">Matcher</span> cm = <span class="t">CONNECT_SOURCE</span>.matcher(cmd);
+<span class="ln" id="L180">180</span>            <span class="k">if</span> (!cm.find()) <span class="k">throw</span> <span class="k">new</span> <span class="t">IOException</span>(<span class="s">"Unexpected connect source command: "</span> + cmd);
+<span class="ln" id="L181">181</span>            server = cm.group(<span class="n">1</span>);
+<span class="ln" id="L182">182</span>            database = cm.group(<span class="n">2</span>);
+<span class="ln" id="L183">183</span>            <span class="k">int</span> proposed = <span class="t">Integer</span>.parseInt(cm.group(<span class="n">3</span>));</code></pre><div class="note"><div class="range">Lines 177–183</div><p><b>connect source:</b> extract server, database and proposed LTL version with the regex.</p></div></section>
+<section class="blk" id="b184"><pre class="code"><code><span class="ln" id="L184">184</span>            <span class="k">int</span> version;
+<span class="ln" id="L185">185</span>            <span class="k">try</span> {
+<span class="ln" id="L186">186</span>                version = listener.onConnectSource(server, database, proposed);
+<span class="ln" id="L187">187</span>            } <span class="k">catch</span> (<span class="t">RuntimeException</span> e) {
+<span class="ln" id="L188">188</span>                log.error(<span class="s">"Refusing connect source {}.{}: {}"</span>, server, database, e.getMessage());
+<span class="ln" id="L189">189</span>                ch.sendResponse(tokens().message(<span class="n">32001</span>, <span class="n">16</span>, e.getMessage(), <span class="t">SERVER_NAME</span>).done(<span class="t">TdsTokens</span>.<span class="t">DONE_ERROR</span>, <span class="n">0</span>).bytes());
+<span class="ln" id="L190">190</span>                <span class="k">return</span>;
+<span class="ln" id="L191">191</span>            }</code></pre><div class="note"><div class="range">Lines 184–191</div><p>Let the listener accept or refuse. Refusal answers with an error message (EED, Msg 32001) and DONE_ERROR.</p></div></section>
+<section class="blk" id="b192"><pre class="code"><code><span class="ln" id="L192">192</span>            log.info(<span class="s">"connect source {}.{} proposed LTL {} -&gt; using {}"</span>, server, database, proposed, version);
+<span class="ln" id="L193">193</span>            <span class="c">// Replication Server answers with two result sets: VERSION, then Sysversion + UpgradeLocater.</span>
+<span class="ln" id="L194">194</span>            ch.sendResponse(tokens()
+<span class="ln" id="L195">195</span>                .rowFormat(<span class="t">VERSION_COLS</span>).row(<span class="t">VERSION_COLS</span>, version)
+<span class="ln" id="L196">196</span>                .done(<span class="t">TdsTokens</span>.<span class="t">DONE_MORE</span> | <span class="t">TdsTokens</span>.<span class="t">DONE_COUNT</span>, <span class="n">1</span>)
+<span class="ln" id="L197">197</span>                .rowFormat(<span class="t">SYSVERSION_COLS</span>).row(<span class="t">SYSVERSION_COLS</span>, <span class="t">RS_SYSVERSION</span>, <span class="k">new</span> <span class="k">byte</span>[<span class="t">UPGRADE_LOCATOR_LEN</span>])
+<span class="ln" id="L198">198</span>                .done(<span class="t">TdsTokens</span>.<span class="t">DONE_COUNT</span>, <span class="n">1</span>).bytes());</code></pre><div class="note"><div class="range">Lines 192–198</div><p>Answer with two result sets: the negotiated version (DONE with MORE|COUNT flags = "a row was returned and more results follow"), then Sysversion and a zero UpgradeLocater (final DONE with COUNT).</p></div></section>
+<section class="blk" id="b199"><pre class="code"><code><span class="ln" id="L199">199</span>        } <span class="k">else</span> <span class="k">if</span> (lower.startsWith(<span class="s">"get maintenance user"</span>)) {
+<span class="ln" id="L200">200</span>            <span class="t">String</span> user = listener.maintenanceUser(server, database);
+<span class="ln" id="L201">201</span>            ch.sendResponse(tokens().rowFormat(<span class="t">MAINT_COLS</span>).row(<span class="t">MAINT_COLS</span>, user)
+<span class="ln" id="L202">202</span>                .done(<span class="t">TdsTokens</span>.<span class="t">DONE_COUNT</span>, <span class="n">1</span>).bytes());</code></pre><div class="note"><div class="range">Lines 199–202</div><p><b>get maintenance user:</b> one varchar row.</p></div></section>
+<section class="blk" id="b203"><pre class="code"><code><span class="ln" id="L203">203</span>        } <span class="k">else</span> <span class="k">if</span> (lower.startsWith(<span class="s">"get truncation"</span>)) {
+<span class="ln" id="L204">204</span>            <span class="k">byte</span>[] tp = listener.truncationPoint(server, database);
+<span class="ln" id="L205">205</span>            <span class="k">if</span> (trace) log.info(<span class="s">"get truncation -&gt; 0x{}"</span>, <span class="t">HexFormat</span>.of().formatHex(tp));
+<span class="ln" id="L206">206</span>            ch.sendResponse(tokens().rowFormat(<span class="t">TRUNC_COLS</span>).row(<span class="t">TRUNC_COLS</span>, (<span class="t">Object</span>) tp)
+<span class="ln" id="L207">207</span>                .done(<span class="t">TdsTokens</span>.<span class="t">DONE_COUNT</span>, <span class="n">1</span>).bytes());</code></pre><div class="note"><div class="range">Lines 203–207</div><p><b>get truncation:</b> one binary(36) row with the listener's watermark. <code>(Object) tp</code> makes the byte array one argument of the varargs <code>row(...)</code> call instead of being spread.</p></div></section>
+<section class="blk" id="b208"><pre class="code"><code><span class="ln" id="L208">208</span>        } <span class="k">else</span> {
+<span class="ln" id="L209">209</span>            log.warn(<span class="s">"Unknown command from RepAgent, answering DONE: {}"</span>, cmd);
+<span class="ln" id="L210">210</span>            ch.sendResponse(tokens().done(<span class="t">TdsTokens</span>.<span class="t">DONE_FINAL</span>, <span class="n">0</span>).bytes());
+<span class="ln" id="L211">211</span>        }
+<span class="ln" id="L212">212</span>    }</code></pre><div class="note"><div class="range">Lines 208–212</div><p>Any other <code>get …</code> command: log and answer DONE (none was observed).</p></div></section>
+<section class="blk" id="b214"><pre class="code"><code><span class="ln" id="L214">214</span>    <span class="c">/**</span>
+<span class="ln" id="L215">215</span><span class="c">     * With -Dltl.dump.dir=/some/dir every message RepAgent sends is saved as NNNNNN-type.bin, so the</span>
+<span class="ln" id="L216">216</span><span class="c">     * exact LTL bytes of a new ASE version can be studied offline (e.g. with od -c).</span>
+<span class="ln" id="L217">217</span><span class="c">     */</span>
+<span class="ln" id="L218">218</span>    <span class="k">private</span> <span class="k">void</span> dump(<span class="t">TdsChannel</span>.<span class="t">Message</span> m) {
+<span class="ln" id="L219">219</span>        <span class="k">if</span> (<span class="t">DUMP_DIR</span> == <span class="k">null</span>) <span class="k">return</span>;
+<span class="ln" id="L220">220</span>        <span class="k">try</span> {
+<span class="ln" id="L221">221</span>            <span class="t">Path</span> dir = <span class="t">Path</span>.of(<span class="t">DUMP_DIR</span>);
+<span class="ln" id="L222">222</span>            <span class="t">Files</span>.createDirectories(dir);
+<span class="ln" id="L223">223</span>            <span class="t">Files</span>.write(dir.resolve(<span class="t">String</span>.format(<span class="s">"%06d-%02x.bin"</span>, <span class="t">DUMP_SEQ</span>.incrementAndGet(), m.type())), m.payload());
+<span class="ln" id="L224">224</span>        } <span class="k">catch</span> (<span class="t">IOException</span> e) {
+<span class="ln" id="L225">225</span>            log.warn(<span class="s">"Cannot dump LTL message: {}"</span>, e.toString());
+<span class="ln" id="L226">226</span>        }
+<span class="ln" id="L227">227</span>    }</code></pre><div class="note"><div class="range">Lines 214–227</div><p><b>Raw dump</b> helper: writes each message to <code>NNNNNN-TT.bin</code> (sequence, packet type). This is how the LTL 760 encoding was decoded, and how the encoding of a new ASE version (SP04) should be checked before production. Failures to write only log a warning.</p></div></section>
+<section class="blk" id="b229"><pre class="code"><code><span class="ln" id="L229">229</span>    <span class="k">private</span> <span class="t">TdsTokens</span> tokens() {
+<span class="ln" id="L230">230</span>        <span class="k">return</span> <span class="k">new</span> <span class="t">TdsTokens</span>(order, charset);
+<span class="ln" id="L231">231</span>    }</code></pre><div class="note"><div class="range">Lines 229–231</div><p>Factory for a response builder using this session's byte order and charset.</p></div></section>
+<section class="blk" id="b233"><pre class="code"><code><span class="ln" id="L233">233</span>    <span class="k">static</span> <span class="t">Charset</span> javaCharset(<span class="t">String</span> sybase) {
+<span class="ln" id="L234">234</span>        <span class="t">String</span> s = sybase == <span class="k">null</span> ? <span class="s">""</span> : sybase.trim().toLowerCase(<span class="t">Locale</span>.<span class="t">ROOT</span>);
+<span class="ln" id="L235">235</span>        <span class="k">return</span> <span class="k">switch</span> (s) {
+<span class="ln" id="L236">236</span>            <span class="k">case</span> <span class="s">"utf8"</span>, <span class="s">"utf-8"</span> -&gt; <span class="t">StandardCharsets</span>.<span class="t">UTF_8</span>;
+<span class="ln" id="L237">237</span>            <span class="k">case</span> <span class="s">"cp1256"</span> -&gt; <span class="t">Charset</span>.forName(<span class="s">"windows-1256"</span>);
+<span class="ln" id="L238">238</span>            <span class="k">case</span> <span class="s">"cp1252"</span> -&gt; <span class="t">Charset</span>.forName(<span class="s">"windows-1252"</span>);
+<span class="ln" id="L239">239</span>            <span class="k">case</span> <span class="s">"cp850"</span> -&gt; <span class="t">Charset</span>.forName(<span class="s">"IBM850"</span>);
+<span class="ln" id="L240">240</span>            <span class="k">case</span> <span class="s">"iso_1"</span>, <span class="s">""</span> -&gt; <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>;
+<span class="ln" id="L241">241</span>            <span class="k">default</span> -&gt; {
+<span class="ln" id="L242">242</span>                <span class="k">try</span> { <span class="k">yield</span> <span class="t">Charset</span>.forName(s); } <span class="k">catch</span> (<span class="t">Exception</span> e) { <span class="k">yield</span> <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>; }
+<span class="ln" id="L243">243</span>            }
+<span class="ln" id="L244">244</span>        };
+<span class="ln" id="L245">245</span>    }</code></pre><div class="note"><div class="range">Lines 233–245</div><p><b>Sybase → Java charset names.</b> Known names are mapped explicitly (<code>cp1256</code> = Windows Arabic), others are tried as Java names. <b>Risk:</b> an unrecognised name silently falls back to ISO-8859-1, which garbles non-Latin text. The chosen charset is logged at every login; check it, and set <code>ltl.charset</code> explicitly in production.</p></div></section>
+<section class="blk" id="b247"><pre class="code"><code><span class="ln" id="L247">247</span>    <span class="k">private</span> <span class="k">static</span> <span class="t">String</span> hex(<span class="k">byte</span>[] b, <span class="k">int</span> max) {
+<span class="ln" id="L248">248</span>        <span class="k">int</span> n = <span class="t">Math</span>.min(b.length, max);
+<span class="ln" id="L249">249</span>        <span class="k">return</span> <span class="t">HexFormat</span>.of().formatHex(b, <span class="n">0</span>, n) + (b.length &gt; n ? <span class="s">"..."</span> : <span class="s">""</span>);
+<span class="ln" id="L250">250</span>    }</code></pre><div class="note"><div class="range">Lines 247–250</div><p>Hex helper for logs, truncated to <code>max</code> bytes.</p></div></section>
+<section class="blk" id="b251"><pre class="code"><code><span class="ln" id="L251">251</span>}</code></pre><div class="note"><div class="range">Lines 251</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

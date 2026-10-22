@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChangeEventMapper.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>ChangeEventMapper.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java</code> · 73 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> decides what a Kafka record looks like: the topic name, the key (primary key columns) and the value (operation, before/after images, source position). The format is deliberately close to the widely used Debezium envelope (<code>op</code>, <code>before</code>, <code>after</code>, <code>source</code>, <code>ts_ms</code>) so consumers find it familiar, but it is <b>not</b> Debezium-compatible in field names or types.</p>
+<p><b>Known limitations</b> (documented, not fixed): (1) the topic name ignores the table owner, so <code>dbo.payment</code> and <code>other.payment</code> would share a topic; (2) <code>txn_rows</code> counts all rows of the transaction, including rows of tables excluded by <code>table.include.list</code>; (3) the output is schemaless JSON, so Avro/Schema Registry is not supported yet.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.connect;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>connect</code>: classes that touch the Kafka Connect API.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.cdc.<span class="t">CommittedTransaction</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> com.phoenix.cdc.sybase.cdc.<span class="t">Oqid</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlCommand</span>;
+<span class="ln" id="L6">6</span> 
+<span class="ln" id="L7">7</span><span class="k">import</span> java.util.<span class="t">LinkedHashMap</span>;
+<span class="ln" id="L8">8</span><span class="k">import</span> java.util.<span class="t">Map</span>;</code></pre><div class="note"><div class="range">Lines 3–8</div><p>Imports from the connector's own packages and the JDK. <code>LinkedHashMap</code> keeps insertion order, so JSON fields always appear in the same order (easier for humans and diff tools).</p></div></section>
+<section class="blk" id="b10"><pre class="code"><code><span class="ln" id="L10">10</span><span class="c">/**</span>
+<span class="ln" id="L11">11</span><span class="c"> * Builds the change event (schemaless; use JsonConverter with schemas.enable=false):</span>
+<span class="ln" id="L12">12</span><span class="c"> *</span>
+<span class="ln" id="L13">13</span><span class="c"> * &lt;pre&gt;</span>
+<span class="ln" id="L14">14</span><span class="c"> * key:   {"payment_id": "500000000000002"}                (primary key columns flagged by RepAgent)</span>
+<span class="ln" id="L15">15</span><span class="c"> * value: {"op": "c|u|d", "before": {...}|null, "after": {...}|null,</span>
+<span class="ln" id="L16">16</span><span class="c"> *         "source": {"server", "db", "owner", "table", "xid", "oqid", "commit_oqid",</span>
+<span class="ln" id="L17">17</span><span class="c"> *                    "commit_time", "user", "seq", "txn_rows"},</span>
+<span class="ln" id="L18">18</span><span class="c"> *         "ts_ms": 1760990000000}</span>
+<span class="ln" id="L19">19</span><span class="c"> * &lt;/pre&gt;</span>
+<span class="ln" id="L20">20</span><span class="c"> * Consumers can de-duplicate on source.oqid (unique per row change, increasing in log order).</span>
+<span class="ln" id="L21">21</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 10–21</div><p>Comment showing the exact event shape, with a real key from the tests.</p></div></section>
+<section class="blk" id="b22"><pre class="code"><code><span class="ln" id="L22">22</span><span class="k">final</span> <span class="k">class</span> <span class="t">ChangeEventMapper</span> {</code></pre><div class="note"><div class="range">Lines 22</div><p>Package-private class (no <code>public</code>): only the task in the same package uses it.</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">String</span> server;
+<span class="ln" id="L25">25</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">String</span> database;
+<span class="ln" id="L26">26</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">String</span> topicPrefix;
+<span class="ln" id="L27">27</span> 
+<span class="ln" id="L28">28</span>    <span class="t">ChangeEventMapper</span>(<span class="t">String</span> server, <span class="t">String</span> database, <span class="t">String</span> topicPrefix) {
+<span class="ln" id="L29">29</span>        <span class="k">this</span>.server = server;
+<span class="ln" id="L30">30</span>        <span class="k">this</span>.database = database;
+<span class="ln" id="L31">31</span>        <span class="k">this</span>.topicPrefix = topicPrefix;
+<span class="ln" id="L32">32</span>    }</code></pre><div class="note"><div class="range">Lines 24–32</div><p>Fields and constructor: server name, database name and topic prefix from the connector configuration.</p></div></section>
+<section class="blk" id="b34"><pre class="code"><code><span class="ln" id="L34">34</span>    <span class="t">String</span> topic(<span class="t">LtlCommand</span> c) {
+<span class="ln" id="L35">35</span>        <span class="k">return</span> topicPrefix + <span class="s">"."</span> + database + <span class="s">"."</span> + c.table();
+<span class="ln" id="L36">36</span>    }</code></pre><div class="note"><div class="range">Lines 34–36</div><p><b>Topic name</b> = <code>prefix.database.table</code>, e.g. <code>sybase.phoenix_test.payment</code>. Topics are created automatically by the broker in the local setup (<code>auto.create.topics.enable</code> default true); in production, topics should be pre-created with the right partitions, replication factor and retention.</p></div></section>
+<section class="blk" id="b38"><pre class="code"><code><span class="ln" id="L38">38</span>    <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; key(<span class="t">LtlCommand</span> c) {
+<span class="ln" id="L39">39</span>        <span class="k">if</span> (c.keyColumns().isEmpty()) <span class="k">return</span> <span class="k">null</span>;
+<span class="ln" id="L40">40</span>        <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; row = c.after() != <span class="k">null</span> ? c.after() : c.before();
+<span class="ln" id="L41">41</span>        <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; k = <span class="k">new</span> <span class="t">LinkedHashMap</span>&lt;&gt;();
+<span class="ln" id="L42">42</span>        <span class="k">for</span> (<span class="t">String</span> col : c.keyColumns()) k.put(col, row.get(col));
+<span class="ln" id="L43">43</span>        <span class="k">return</span> k;
+<span class="ln" id="L44">44</span>    }</code></pre><div class="note"><div class="range">Lines 38–44</div><p><b>Key:</b> a map of the primary-key columns (flag <code>G</code> in LTL) taken from the after image, or the before image for deletes. Tables without a primary key get a <code>null</code> key, so their events are spread round-robin across partitions and lose per-row ordering when a topic has more than one partition. A primary key on every captured table is a prerequisite for ordering guarantees.</p></div></section>
+<section class="blk" id="b46"><pre class="code"><code><span class="ln" id="L46">46</span>    <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; value(<span class="t">LtlCommand</span> c, <span class="t">CommittedTransaction</span> tx, <span class="k">int</span> seq) {
+<span class="ln" id="L47">47</span>        <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; source = <span class="k">new</span> <span class="t">LinkedHashMap</span>&lt;&gt;();
+<span class="ln" id="L48">48</span>        source.put(<span class="s">"server"</span>, server);
+<span class="ln" id="L49">49</span>        source.put(<span class="s">"db"</span>, database);
+<span class="ln" id="L50">50</span>        source.put(<span class="s">"owner"</span>, c.owner());
+<span class="ln" id="L51">51</span>        source.put(<span class="s">"table"</span>, c.table());
+<span class="ln" id="L52">52</span>        source.put(<span class="s">"xid"</span>, tx.tranId());
+<span class="ln" id="L53">53</span>        source.put(<span class="s">"oqid"</span>, <span class="t">Oqid</span>.hex(c.oqid()));
+<span class="ln" id="L54">54</span>        source.put(<span class="s">"commit_oqid"</span>, <span class="t">Oqid</span>.hex(tx.commitOqid()));
+<span class="ln" id="L55">55</span>        source.put(<span class="s">"commit_time"</span>, tx.commitTime());
+<span class="ln" id="L56">56</span>        source.put(<span class="s">"user"</span>, tx.user());
+<span class="ln" id="L57">57</span>        source.put(<span class="s">"seq"</span>, (<span class="k">long</span>) seq);
+<span class="ln" id="L58">58</span>        source.put(<span class="s">"txn_rows"</span>, (<span class="k">long</span>) tx.changes().size());</code></pre><div class="note"><div class="range">Lines 46–58</div><p><b>The <code>source</code> block:</b> where the change came from and its exact log position. <code>oqid</code> is unique per row change and increases in log order, which makes it the de-duplication key for consumers. <code>commit_oqid</code> is shared by all rows of a transaction. <code>seq</code> is the row's index inside the published rows of the transaction; <code>txn_rows</code> is the transaction's total row count. Numbers are cast to <code>long</code> because the schemaless JsonConverter needs standard Java types.</p></div></section>
+<section class="blk" id="b60"><pre class="code"><code><span class="ln" id="L60">60</span>        <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; v = <span class="k">new</span> <span class="t">LinkedHashMap</span>&lt;&gt;();
+<span class="ln" id="L61">61</span>        v.put(<span class="s">"op"</span>, <span class="k">switch</span> (c.kind()) {
+<span class="ln" id="L62">62</span>            <span class="k">case</span> <span class="t">INSERT</span> -&gt; <span class="s">"c"</span>;
+<span class="ln" id="L63">63</span>            <span class="k">case</span> <span class="t">UPDATE</span> -&gt; <span class="s">"u"</span>;
+<span class="ln" id="L64">64</span>            <span class="k">case</span> <span class="t">DELETE</span> -&gt; <span class="s">"d"</span>;
+<span class="ln" id="L65">65</span>            <span class="k">default</span> -&gt; <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"not a row change: "</span> + c.kind());
+<span class="ln" id="L66">66</span>        });</code></pre><div class="note"><div class="range">Lines 60–66</div><p><b>Operation code:</b> <code>c</code> create, <code>u</code> update, <code>d</code> delete. A <em>switch expression</em> returns a value; <code>default</code> throws, because only row changes may reach this method. A throw here fails the task, which is the correct reaction to an internal bug.</p></div></section>
+<section class="blk" id="b67"><pre class="code"><code><span class="ln" id="L67">67</span>        v.put(<span class="s">"before"</span>, c.before());
+<span class="ln" id="L68">68</span>        v.put(<span class="s">"after"</span>, c.after());
+<span class="ln" id="L69">69</span>        v.put(<span class="s">"source"</span>, source);
+<span class="ln" id="L70">70</span>        v.put(<span class="s">"ts_ms"</span>, <span class="t">System</span>.currentTimeMillis());
+<span class="ln" id="L71">71</span>        <span class="k">return</span> v;</code></pre><div class="note"><div class="range">Lines 67–71</div><p>Before/after images, the source block, and <code>ts_ms</code>: the time the event was built in the connector (milliseconds since 1970, UTC). Comparing <code>ts_ms</code> with <code>source.commit_time</code> gives the capture latency, but <code>commit_time</code> is ASE local time without a time zone; make sure both clocks are in the same zone before comparing.</p></div></section>
+<section class="blk" id="b72"><pre class="code"><code><span class="ln" id="L72">72</span>    }
+<span class="ln" id="L73">73</span>}</code></pre><div class="note"><div class="range">Lines 72–73</div><p>Return and end of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

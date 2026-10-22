@@ -1,0 +1,48 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsChannel.java
+@summary
+<p><b>Role:</b> TDS 5.0 <em>packet framing</em> on one socket. TDS (Tabular Data Stream) is the binary protocol Sybase clients and servers speak; RepAgent uses Sybase's Client-Library (CT-Lib), so the connector must speak TDS before it can see any LTL. A logical message is split into packets with 8-byte headers; this class reassembles incoming messages and splits outgoing ones.</p>
+<p><b>Robustness finding:</b> <code>read()</code> accumulates packets until the end-of-message flag with no upper size limit. A misbehaving or hostile client could make the worker allocate unbounded memory. Only RepAgent should be able to reach the port (network policy); a size cap is a recommended follow-up.</p>
+@@ 1
+<p>Package <code>tds</code>: the wire protocol, independent of LTL and Kafka.</p>
+@@ 3-8
+<p>Byte streams and sockets from <code>java.io</code>/<code>java.net</code>.</p>
+@@ 10-18
+<p>The 8-byte header layout. The length field is big-endian (network byte order) in every TDS version, unlike the token contents, whose integers follow the client's byte order.</p>
+@@ 19
+<p>Final, <code>AutoCloseable</code> (closing it closes the socket).</p>
+@@ 21-26
+<p>Packet types observed or needed: 0x01 language (raw text; RepAgent sends LTL and control commands this way in passthru mode), 0x02 login, 0x03 RPC (unused), 0x04 response (what we send), 0x06 attention (cancel; RepAgent sent one right before aborting in the 4047 incident), 0x0F TDS 5.0 token stream.</p>
+@@ 28
+<p>Header size.</p>
+@@ 30-34
+<p>Socket streams, the outgoing packet size (512 until the login negotiates a larger one) and an optional trace callback.</p>
+@@ 36-39
+<p>Enables per-packet header logging (used with <code>ltl.trace</code>). <code>Consumer&lt;String&gt;</code> is a functional interface: "something that accepts a string", here a lambda that logs it.</p>
+@@ 41-45
+<p>Constructor: grab the socket's streams.</p>
+@@ 47
+<p>A received message: packet type and the concatenated payload.</p>
+@@ 49-55
+<p><b>Read a message.</b> <code>readNBytes(n)</code> (Java 9+) blocks until exactly <code>n</code> bytes arrive or the stream ends. Zero bytes before any packet means the peer closed cleanly (return <code>null</code>); a partial header means the connection broke mid-packet.</p>
+@@ 56-60
+<p>Decode the header (unsigned bytes) and read the packet body; a short body is an error.</p>
+@@ 61
+<p>Optional trace line, e.g. <code>packet type=0x01 status=0x01 len=2048 seq=0</code>. These lines exposed the 512-byte re-splitting that caused the 4047 incident.</p>
+@@ 62-63
+<p>Append the body; if the status bit 0x01 (end of message, EOM) is set, the message is complete.</p>
+@@ 64-65
+<p>End of loop and method.</p>
+@@ 67-75
+<p><b>Send a response.</b> Split the token bytes into chunks of the negotiated packet size minus the header; mark the last chunk with EOM. <code>synchronized</code> so two threads can never interleave packets on one socket (only the session thread writes today; this is a safety net).</p>
+@@ 76-78
+<p>Header: type 0x04, status, big-endian length, channel 0, packet sequence number, window 0.</p>
+@@ 79-83
+<p>Write the chunk, loop until everything is sent, then flush the socket buffer so RepAgent receives the reply immediately.</p>
+@@ 85-87
+<p>Accept the packet size requested at login if it is within TDS limits (512–65535); otherwise keep 512.</p>
+@@ 89-91
+<p>Remote address for log lines.</p>
+@@ 93-96
+<p>Close the socket.</p>
+@@ 97
+<p>End of class.</p>

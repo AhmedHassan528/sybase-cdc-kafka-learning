@@ -1,0 +1,8 @@
+elapsed_s,ase_time,blocked,locks,log_free_pages,sec_trunc_page,repagent_state,kafka_new_events,connector_task,connect_errors,sybase_cpu,sybase_mem,connect_cpu,connect_mem,kafka_cpu,kafka_mem
+11,20:28:58,0,43,32507,72818,sleeping,0,RUNNING,0,99.92%,205.3MiB,1.06%,304.1MiB,2.15%,1.306GiB
+28,20:29:14,0,44,27200,72879,scanning,62719,RUNNING,0,72.83%,204.3MiB,280.48%,1013MiB,53.57%,1.309GiB
+44,20:29:31,0,0,26087,74064,scanning,280845,RUNNING,0,73.36%,204.6MiB,137.83%,911.7MiB,37.89%,1.312GiB
+60,20:29:47,0,0,28702,75575,scanning,500000,RUNNING,0,74.46%,204.6MiB,150.98%,1.749GiB,46.43%,1.315GiB
+78,20:30:03,0,0,28702,76891,scanning,690581,RUNNING,0,100.33%,204.7MiB,1.56%,704.6MiB,1.65%,1.303GiB
+93,20:30:21,0,0,28702,77877,scanning,861122,RUNNING,0,74.81%,204.5MiB,144.10%,1.493GiB,43.65%,1.307GiB
+107,20:30:37,0,0,28702,79258,sleeping,1000000,RUNNING,0,0.38%,204.8MiB,1.04%,1.666GiB,2.05%,1.308GiB

@@ -1,0 +1,67 @@
+<h2 id="ch-troubleshooting" data-keywords="troubleshooting errors symptoms diagnosis login failed 4002 4047 segv snap validate port in use plugin not found offsets stale log full repagent down">Troubleshooting guide</h2>
+<p>Start with the decision tree, isolate the layer, then use the catalog. Every entry marked <span class="pill pass">SEEN</span> actually happened during this project (with evidence); <span class="pill na">ANTICIPATED</span> entries are derived from code or product behaviour and were not observed.</p>
+
+<figure-diagram src="14-troubleshooting-tree" n="14" title="Troubleshooting decision tree">
+<p><b>How to use:</b> start at "No events in Kafka?" and answer each question with the command shown in the box. Each leaf names the catalog entry below.</p>
+<p><b>Does not show:</b> performance problems (see <a href="#ts-perf">slow delivery</a>).</p>
+</figure-diagram>
+
+<h3 id="ts-layers">Isolate the layer first</h3>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Layer</th><th>Healthy when</th><th>Command (local)</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Containers / pods</td><td>all running</td><td><code>docker ps</code> · <code>oc get pods</code></td></tr>
+<tr><td>2</td><td>Kafka</td><td>broker answers</td><td><code>docker exec cdc-kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092</code></td></tr>
+<tr><td>3</td><td>Connect worker + plugin</td><td><code>GET /</code> and plugin listed</td><td><code>curl -s localhost:8083/connector-plugins</code></td></tr>
+<tr><td>4</td><td>Connector task</td><td>RUNNING</td><td><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/status</code></td></tr>
+<tr><td>5</td><td>Listener</td><td>port 11752 open</td><td>log line <code>LTL server listening on 0.0.0.0:11752</code></td></tr>
+<tr><td>6</td><td>Network ASE → connector</td><td>TCP connect works</td><td>from the ASE host: <code>bash -c 'echo &gt; /dev/tcp/connect/11752' &amp;&amp; echo open</code></td></tr>
+<tr><td>7</td><td>RepAgent</td><td>state sleeping/scanning, connected</td><td><code>sp_help_rep_agent phoenix_test, 'process'</code>; ASE errorlog</td></tr>
+<tr><td>8</td><td>Table marking</td><td>table is replicated</td><td><code>sp_setreptable payment</code> (without <code>true</code>: shows the status)</td></tr>
+<tr><td>9</td><td>Filtering</td><td>table in <code>table.include.list</code>; not the maintenance user</td><td>connector config</td></tr>
+<tr><td>10</td><td>Positions</td><td>truncation page and offsets advance</td><td><code>captures/truncpage.sql</code>, <code>_connect-offsets</code></td></tr>
+</tbody></table></div>
+
+<h3 id="ts-catalog">Catalog</h3>
+<div class="tbl"><table>
+<thead><tr><th>Symptom (exact text)</th><th>Layer</th><th>Cause</th><th>Fix</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>ASE container exits at boot; errorlog shows <code>SIGSEGV</code> in <code>Snap::Validate</code></td><td>Docker/kernel</td><td>2015 ASE build needs <code>READ_IMPLIES_EXEC</code>; Linux ≥ 5.8 no longer implies it for 64-bit binaries</td><td><code>rie_shim.so</code> via <code>LD_PRELOAD</code> + <code>seccomp=unconfined</code> (local image only, <a href="#shim">details</a>)</td><td><span class="pill pass">SEEN</span> <code>logs/ase-crash-snap-validate.txt</code></td></tr>
+<tr><td><code>RepAgent(4): Received the following error message from the Replication Server: Msg 4002. Login failed for user 'rs_user'.</code></td><td>RepAgent ↔ connector</td><td>Wrong user/password, or RepAgent sends an encrypted password (<code>net password encryption</code> true)</td><td>Align credentials; <code>sp_config_rep_agent db, 'net password encryption', 'false'</code>; restart RepAgent</td><td><span class="pill pass">SEEN</span> <code>logs/ase-errorlog-excerpts.txt</code></td></tr>
+<tr><td><code>RepAgent(4): Fatal error from CT-Lib. (CT-Lib command = usctresults, return status = 4047).</code> then <code>terminated abnormally with error. (major 92, minor 10)</code></td><td>Protocol</td><td>Connector's TDS replies malformed (packet size not confirmed, extra DONE)</td><td>Fixed in 0.1.0. If it reappears (e.g. on SP04), capture with <code>ltl.trace</code> and compare with <a href="#tds">TDS notes</a></td><td><span class="pill pass">SEEN</span> (fixed)</td></tr>
+<tr><td>ASE crashes in <code>ra_free_mempool</code> when RepAgent stops</td><td>ASE (local build)</td><td>Allocator/ASLR interaction in the 2015 build after the protocol error above</td><td><code>MALLOC_ARENA_MAX=1</code> + <code>setarch -R</code> in <code>start.sh</code>; root fix was the protocol fix. Not proven that the workaround alone prevents it</td><td><span class="pill pass">SEEN</span> <code>logs/ase-crash-ra-free-mempool.txt</code></td></tr>
+<tr><td><code>Msg 18381</code> from <code>sp_config_rep_agent</code></td><td>ASE</td><td>Run from <code>master</code></td><td><code>use &lt;database&gt;</code> first</td><td><span class="pill pass">SEEN</span></td></tr>
+<tr><td>RepAgent takes minutes to reconnect after a connector restart</td><td>RepAgent</td><td><code>retry timeout</code> default 60 s plus dead-peer detection on next send</td><td><code>sp_config_rep_agent db, 'retry timeout', '10'</code></td><td><span class="pill pass">SEEN</span></td></tr>
+<tr><td>Plugin not in <code>/connector-plugins</code>; <code>Failed to find any class that implements Connector</code></td><td>Connect</td><td>JAR not under <code>plugin.path</code> at worker start, or wrong folder layout</td><td>Copy to <code>&lt;plugin.path&gt;/sybase-cdc/</code>, restart worker</td><td><span class="pill na">ANTICIPATED</span></td></tr>
+<tr><td>Task FAILED: <code>Cannot listen on …:11752</code> / <code>Address already in use</code></td><td>Connector</td><td>Another task or process holds the port (two connectors, or old task not stopped)</td><td>One connector per port; delete the duplicate; restart task</td><td><span class="pill na">ANTICIPATED</span></td></tr>
+<tr><td>RepAgent refused: wrong database</td><td>Connector</td><td><code>database.name</code>/<code>database.server.name</code> differ from what RepAgent sends in <code>connect source</code></td><td>Use <code>@@servername</code> and the exact database name</td><td><span class="pill na">ANTICIPATED</span></td></tr>
+<tr><td>Garbled accented / Arabic text in Kafka</td><td>Connector</td><td>Charset fallback to ISO-8859-1 when <code>ltl.charset</code> is empty and the login charset is unknown to Java</td><td>Set <code>ltl.charset</code> explicitly; test with real data</td><td><span class="pill na">ANTICIPATED</span></td></tr>
+<tr><td>Changes on a table never appear</td><td>ASE / filter</td><td>Table not marked; or not in <code>table.include.list</code>; or written by the maintenance user</td><td><code>sp_setreptable t, true</code>; adjust the list</td><td><span class="pill na">ANTICIPATED</span></td></tr>
+<tr><td>Same events appear twice</td><td>Design</td><td>At-least-once after restarts (T4b, T6b, P5)</td><td>Expected; consumers de-duplicate on <code>source.oqid</code></td><td><span class="pill pass">SEEN</span></td></tr>
+<tr><td>7 duplicates after a restart; task log: <code>last committed OQID in Kafka: none</code> although offsets exist</td><td>Connector</td><td>Offset partition map with random key order (<code>Map.of</code>)</td><td>Fixed (sorted <code>TreeMap</code>)</td><td><span class="pill pass">SEEN</span> (fixed)</td></tr>
+<tr id="ts-offsets"><td>REST <code>GET /connectors/…/offsets</code> shows an old <code>commit_oqid</code> that never changes</td><td>Connect</td><td>Two partition keys exist in <code>_connect-offsets</code>: <code>{"server","database"}</code> (old, written before the fix) and <code>{"database","server"}</code> (current). The REST view shows the old one; the task reads the current one</td><td>Read <code>_connect-offsets</code> directly (<a href="#wt-verify">walkthrough step 23</a>). On a fresh environment this does not occur</td><td><span class="pill pass">SEEN</span> <code>logs/connect-offsets-topic.txt</code></td></tr>
+<tr><td>Task restarts during a Kafka outage; RepAgent disconnects</td><td>Connect</td><td>Worker loses its group membership and rebalances</td><td>Nothing; data safe; check the log afterwards</td><td><span class="pill pass">SEEN</span> (P5)</td></tr>
+<tr><td>Log fills; <code>CDC ALERT: … below 24576 free pages</code></td><td>ASE</td><td>Connector not acknowledging (down, failed, or slower than the write rate)</td><td>Restore the connector first. <a href="#rb-log-emergency">Runbook</a> for the emergency path</td><td><span class="pill pass">SEEN</span> (T7, threshold only)</td></tr>
+<tr><td>RepAgent trace file grows by hundreds of MB</td><td>ASE</td><td>Trace flags 9201/9204 left on</td><td>Turn trace flags off; delete the trace file after review (contains customer data)</td><td><span class="pill pass">SEEN</span> (435 MB)</td></tr>
+<tr><td>Numeric shown as <code>"100."</code></td><td>Connector</td><td>LTL numeric formatting</td><td>Fixed</td><td><span class="pill pass">SEEN</span> (fixed)</td></tr>
+<tr><td>Connect OOM / heap near 2 GB</td><td>Connect</td><td>Large transactions are buffered completely until COMMIT</td><td>Raise heap and container limit; lower <code>queue.max.transactions</code></td><td><span class="pill warn">NEAR</span> (1,954 MiB in T6)</td></tr>
+<tr><td>Commands with <code>/opt/...</code> fail in Git Bash: <code>No such file or directory</code></td><td>Host</td><td>MSYS path conversion</td><td><code>export MSYS_NO_PATHCONV=1</code></td><td><span class="pill pass">SEEN</span></td></tr>
+<tr><td>Containers fail to create: name already in use</td><td>Docker</td><td>Old containers with the same names</td><td>Names prefixed with <code>cdc-</code>; remove only your own old containers</td><td><span class="pill pass">SEEN</span></td></tr>
+</tbody></table></div>
+
+<h3 id="ts-perf">Slow delivery</h3>
+<ul>
+<li>Compare ASE commit time with Kafka arrival (test 6 method). In this project the <b>RepAgent log scan</b> was the bottleneck (ASE committed in 25 s, delivery took 122 s).</li>
+<li>RepAgent tuning parameters exist (<code>scan batch size</code>, <code>ltl batch size</code>, <code>send buffer size</code>); none was changed or tested here. Change one at a time in a test environment.</li>
+<li>Connect side: CPU of the worker, producer batching, Kafka replication latency (production RF 3 adds latency not present locally).</li>
+</ul>
+
+<h3 id="ts-collect">What to collect before asking for help</h3>
+<ol>
+<li>Connector status JSON (task trace included).</li>
+<li>Worker log around the time, filtered: <code>grep -E "sybase-cdc|ERROR|WARN"</code>.</li>
+<li>ASE errorlog lines containing <code>RepAgent</code>.</li>
+<li><code>sp_help_rep_agent db, 'process'</code> and <code>'config'</code> output.</li>
+<li>Truncation page and the last <code>_connect-offsets</code> record.</li>
+<li>Only if needed and approved: a short <code>ltl.trace=true</code> capture. <b>It contains customer data</b>; handle it as production data and delete it afterwards.</li>
+</ol>

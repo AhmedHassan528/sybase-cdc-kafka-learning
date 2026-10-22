@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TdsTokens.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>TdsTokens.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsTokens.java</code> · 156 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> builds TDS 5.0 response <em>token streams</em>, the server side of the conversation. A TDS response is a sequence of tokens, each starting with a one-byte token id. The connector needs only seven of them, listed in the class comment. Methods return <code>this</code> so calls can be chained (<code>tokens().rowFormat(...).row(...).done(...)</code>).</p>
+<p><b>Byte order:</b> integers inside tokens are written in the byte order the client asked for at login (little-endian for RepAgent on x86_64). Only the packet header (in <a href="TdsChannel.html">TdsChannel</a>) is always big-endian.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.tds;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>tds</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> java.io.<span class="t">ByteArrayOutputStream</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> java.nio.<span class="t">ByteOrder</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> java.nio.charset.<span class="t">Charset</span>;
+<span class="ln" id="L6">6</span><span class="k">import</span> java.util.<span class="t">List</span>;</code></pre><div class="note"><div class="range">Lines 3–6</div><p>JDK imports.</p></div></section>
+<section class="blk" id="b8"><pre class="code"><code><span class="ln" id="L8">8</span><span class="c">/**</span>
+<span class="ln" id="L9">9</span><span class="c"> * Builds a TDS 5.0 response token stream. Integers are written in the byte</span>
+<span class="ln" id="L10">10</span><span class="c"> * order the client asked for at login.</span>
+<span class="ln" id="L11">11</span><span class="c"> *</span>
+<span class="ln" id="L12">12</span><span class="c"> * Tokens used by a minimal "Replication Server":</span>
+<span class="ln" id="L13">13</span><span class="c"> *   0xAD LOGINACK   0xE2 CAPABILITY   0xE3 ENVCHANGE   0xE5 EED (message)</span>
+<span class="ln" id="L14">14</span><span class="c"> *   0xEE ROWFMT     0xD1 ROW          0xFD DONE</span>
+<span class="ln" id="L15">15</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 8–15</div><p>Token ids used: 0xAD LOGINACK, 0xE2 CAPABILITY, 0xE3 ENVCHANGE (environment change, e.g. packet size), 0xE5 EED (extended error/info message), 0xEE ROWFMT (column descriptions), 0xD1 ROW (one row of values), 0xFD DONE (end of a result).</p></div></section>
+<section class="blk" id="b16"><pre class="code"><code><span class="ln" id="L16">16</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">TdsTokens</span> {</code></pre><div class="note"><div class="range">Lines 16</div><p>Final class; a new instance per response.</p></div></section>
+<section class="blk" id="b18"><pre class="code"><code><span class="ln" id="L18">18</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">DONE_FINAL</span> = <span class="n">0x0000</span>;
+<span class="ln" id="L19">19</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">DONE_MORE</span>  = <span class="n">0x0001</span>;
+<span class="ln" id="L20">20</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">DONE_ERROR</span> = <span class="n">0x0002</span>;
+<span class="ln" id="L21">21</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">DONE_COUNT</span> = <span class="n">0x0010</span>;
+<span class="ln" id="L22">22</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">DONE_ATTN</span>  = <span class="n">0x0020</span>;</code></pre><div class="note"><div class="range">Lines 18–22</div><p>DONE status bits: FINAL (0) = last result; MORE = more results follow; ERROR = the command failed; COUNT = the row count field is valid; ATTN = acknowledges a cancel. Combined with bitwise OR (<code>DONE_MORE | DONE_COUNT</code>).</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span>    <span class="c">/** Wire datatypes we need for result sets. */</span>
+<span class="ln" id="L25">25</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">TYPE_INT4</span> = <span class="n">0x38</span>;
+<span class="ln" id="L26">26</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">TYPE_VARCHAR</span> = <span class="n">0x27</span>;
+<span class="ln" id="L27">27</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">int</span> <span class="t">TYPE_VARBINARY</span> = <span class="n">0x25</span>;</code></pre><div class="note"><div class="range">Lines 24–27</div><p>TDS datatype ids for the three column types the control answers need: 4-byte int, varchar, varbinary.</p></div></section>
+<section class="blk" id="b29"><pre class="code"><code><span class="ln" id="L29">29</span>    <span class="k">public</span> <span class="k">record</span> <span class="t">Column</span>(<span class="t">String</span> name, <span class="k">int</span> type, <span class="k">int</span> maxLen) {}</code></pre><div class="note"><div class="range">Lines 29</div><p>Column description for <code>rowFormat</code>.</p></div></section>
+<section class="blk" id="b31"><pre class="code"><code><span class="ln" id="L31">31</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">ByteArrayOutputStream</span> out = <span class="k">new</span> <span class="t">ByteArrayOutputStream</span>();
+<span class="ln" id="L32">32</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">ByteOrder</span> order;
+<span class="ln" id="L33">33</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">Charset</span> charset;
+<span class="ln" id="L34">34</span> 
+<span class="ln" id="L35">35</span>    <span class="k">public</span> <span class="t">TdsTokens</span>(<span class="t">ByteOrder</span> order, <span class="t">Charset</span> charset) {
+<span class="ln" id="L36">36</span>        <span class="k">this</span>.order = order;
+<span class="ln" id="L37">37</span>        <span class="k">this</span>.charset = charset;
+<span class="ln" id="L38">38</span>    }</code></pre><div class="note"><div class="range">Lines 31–38</div><p>The output buffer and the client's byte order and charset.</p></div></section>
+<section class="blk" id="b40"><pre class="code"><code><span class="ln" id="L40">40</span>    <span class="k">public</span> <span class="t">TdsTokens</span> loginAck(<span class="k">boolean</span> ok, <span class="t">String</span> progName, <span class="k">byte</span>[] progVersion) {
+<span class="ln" id="L41">41</span>        <span class="k">byte</span>[] name = progName.getBytes(charset);
+<span class="ln" id="L42">42</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L43">43</span>        b.u8(ok ? <span class="n">5</span> : <span class="n">6</span>);                 <span class="c">// 5 = TDS_LOG_SUCCEED, 6 = TDS_LOG_FAIL</span>
+<span class="ln" id="L44">44</span>        b.raw(<span class="k">new</span> <span class="k">byte</span>[] {<span class="n">5</span>, <span class="n">0</span>, <span class="n">0</span>, <span class="n">0</span>});   <span class="c">// TDS version 5.0</span>
+<span class="ln" id="L45">45</span>        b.u8(name.length).raw(name);
+<span class="ln" id="L46">46</span>        b.raw(progVersion);
+<span class="ln" id="L47">47</span>        <span class="k">return</span> token(<span class="n">0xAD</span>, b, <span class="k">false</span>);
+<span class="ln" id="L48">48</span>    }</code></pre><div class="note"><div class="range">Lines 40–48</div><p><b>LOGINACK:</b> status 5 (success) or 6 (failure), TDS version 5.0.0.0, program name and 4-byte program version. The connector calls itself "Replication Server" version 16.0.0.0; RepAgent accepted this.</p></div></section>
+<section class="blk" id="b50"><pre class="code"><code><span class="ln" id="L50">50</span>    <span class="c">/** Echo the client's capability token unchanged (it carries its own length). */</span>
+<span class="ln" id="L51">51</span>    <span class="k">public</span> <span class="t">TdsTokens</span> raw(<span class="k">byte</span>[] token) {
+<span class="ln" id="L52">52</span>        out.writeBytes(token);
+<span class="ln" id="L53">53</span>        <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L54">54</span>    }</code></pre><div class="note"><div class="range">Lines 50–54</div><p>Copy pre-built token bytes unchanged (used to echo the client's CAPABILITY token, which already contains its own length).</p></div></section>
+<section class="blk" id="b56"><pre class="code"><code><span class="ln" id="L56">56</span>    <span class="k">public</span> <span class="t">TdsTokens</span> envChange(<span class="k">int</span> type, <span class="t">String</span> newValue, <span class="t">String</span> oldValue) {
+<span class="ln" id="L57">57</span>        <span class="k">byte</span>[] nv = newValue.getBytes(charset);
+<span class="ln" id="L58">58</span>        <span class="k">byte</span>[] ov = oldValue.getBytes(charset);
+<span class="ln" id="L59">59</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L60">60</span>        b.u8(type).u8(nv.length).raw(nv).u8(ov.length).raw(ov);
+<span class="ln" id="L61">61</span>        <span class="k">return</span> token(<span class="n">0xE3</span>, b, <span class="k">false</span>);
+<span class="ln" id="L62">62</span>    }</code></pre><div class="note"><div class="range">Lines 56–62</div><p><b>ENVCHANGE:</b> type, new value, old value, each length-prefixed. Type 4 with "2048"/"512" confirms the packet size; this single token fixed the 4047 incident.</p></div></section>
+<section class="blk" id="b64"><pre class="code"><code><span class="ln" id="L64">64</span>    <span class="c">/** Extended error/info message (EED). severity &gt;= 11 is an error to the client. */</span>
+<span class="ln" id="L65">65</span>    <span class="k">public</span> <span class="t">TdsTokens</span> message(<span class="k">int</span> number, <span class="k">int</span> severity, <span class="t">String</span> text, <span class="t">String</span> serverName) {
+<span class="ln" id="L66">66</span>        <span class="k">byte</span>[] msg = text.getBytes(charset);
+<span class="ln" id="L67">67</span>        <span class="k">byte</span>[] srv = serverName.getBytes(charset);
+<span class="ln" id="L68">68</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L69">69</span>        b.u32(number).u8(<span class="n">1</span>).u8(severity);
+<span class="ln" id="L70">70</span>        b.u8(<span class="n">5</span>).raw(<span class="s">"ZZZZZ"</span>.getBytes(charset));   <span class="c">// SQLSTATE</span>
+<span class="ln" id="L71">71</span>        b.u8(<span class="n">0</span>);                                   <span class="c">// status: no params follow</span>
+<span class="ln" id="L72">72</span>        b.u16(<span class="n">0</span>);                                  <span class="c">// transaction state</span>
+<span class="ln" id="L73">73</span>        b.u16(msg.length).raw(msg);
+<span class="ln" id="L74">74</span>        b.u8(srv.length).raw(srv);
+<span class="ln" id="L75">75</span>        b.u8(<span class="n">0</span>);                                   <span class="c">// procedure name length</span>
+<span class="ln" id="L76">76</span>        b.u16(<span class="n">0</span>);                                  <span class="c">// line number</span>
+<span class="ln" id="L77">77</span>        <span class="k">return</span> token(<span class="n">0xE5</span>, b, <span class="k">false</span>);
+<span class="ln" id="L78">78</span>    }</code></pre><div class="note"><div class="range">Lines 64–78</div><p><b>EED (error message):</b> message number, state 1, severity (≥ 11 is an error for the client), SQLSTATE placeholder <code>ZZZZZ</code>, status, transaction state, message text, server name, empty procedure name and line 0. Used for "Login failed" (4002) and for refusing <code>connect source</code> (32001).</p></div></section>
+<section class="blk" id="b80"><pre class="code"><code><span class="ln" id="L80">80</span>    <span class="k">public</span> <span class="t">TdsTokens</span> rowFormat(<span class="t">List</span>&lt;<span class="t">Column</span>&gt; cols) {
+<span class="ln" id="L81">81</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L82">82</span>        b.u16(cols.size());
+<span class="ln" id="L83">83</span>        <span class="k">for</span> (<span class="t">Column</span> c : cols) {
+<span class="ln" id="L84">84</span>            <span class="k">byte</span>[] n = c.name().getBytes(charset);
+<span class="ln" id="L85">85</span>            b.u8(n.length).raw(n);
+<span class="ln" id="L86">86</span>            b.u8(<span class="n">0x10</span>);        <span class="c">// status: nullable</span>
+<span class="ln" id="L87">87</span>            b.u32(<span class="n">0</span>);          <span class="c">// usertype</span>
+<span class="ln" id="L88">88</span>            b.u8(c.type());
+<span class="ln" id="L89">89</span>            <span class="k">if</span> (c.type() != <span class="t">TYPE_INT4</span>) b.u8(c.maxLen());
+<span class="ln" id="L90">90</span>            b.u8(<span class="n">0</span>);           <span class="c">// locale length</span>
+<span class="ln" id="L91">91</span>        }
+<span class="ln" id="L92">92</span>        <span class="k">return</span> token(<span class="n">0xEE</span>, b, <span class="k">false</span>);
+<span class="ln" id="L93">93</span>    }</code></pre><div class="note"><div class="range">Lines 80–93</div><p><b>ROWFMT:</b> number of columns, then per column: name, status 0x10 (nullable), user type 0, datatype, a max-length byte for variable-length types, and locale length 0.</p></div></section>
+<section class="blk" id="b95"><pre class="code"><code><span class="ln" id="L95">95</span>    <span class="c">/** One row; values must match the row format: Integer for INT4, String for VARCHAR, byte[] for VARBINARY. */</span>
+<span class="ln" id="L96">96</span>    <span class="k">public</span> <span class="t">TdsTokens</span> row(<span class="t">List</span>&lt;<span class="t">Column</span>&gt; cols, <span class="t">Object</span>... values) {
+<span class="ln" id="L97">97</span>        out.write(<span class="n">0xD1</span>);
+<span class="ln" id="L98">98</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L99">99</span>        <span class="k">for</span> (<span class="k">int</span> i = <span class="n">0</span>; i &lt; cols.size(); i++) {
+<span class="ln" id="L100">100</span>            <span class="t">Object</span> v = values[i];
+<span class="ln" id="L101">101</span>            <span class="k">switch</span> (cols.get(i).type()) {
+<span class="ln" id="L102">102</span>                <span class="k">case</span> <span class="t">TYPE_INT4</span> -&gt; b.u32((<span class="t">Integer</span>) v);
+<span class="ln" id="L103">103</span>                <span class="k">case</span> <span class="t">TYPE_VARCHAR</span> -&gt; { <span class="k">byte</span>[] s = ((<span class="t">String</span>) v).getBytes(charset); b.u8(s.length).raw(s); }
+<span class="ln" id="L104">104</span>                <span class="k">case</span> <span class="t">TYPE_VARBINARY</span> -&gt; { <span class="k">byte</span>[] s = (<span class="k">byte</span>[]) v; b.u8(s.length).raw(s); }
+<span class="ln" id="L105">105</span>                <span class="k">default</span> -&gt; <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"type "</span> + cols.get(i).type());
+<span class="ln" id="L106">106</span>            }
+<span class="ln" id="L107">107</span>        }
+<span class="ln" id="L108">108</span>        out.writeBytes(b.bytes());
+<span class="ln" id="L109">109</span>        <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L110">110</span>    }</code></pre><div class="note"><div class="range">Lines 95–110</div><p><b>ROW:</b> one value per column in the declared format. The casts (<code>(Integer) v</code>, <code>(String) v</code>, <code>(byte[]) v</code>) throw <code>ClassCastException</code> on a programming error. Variable-length values are length-prefixed with one byte, so at most 255 bytes, enough for these answers.</p></div></section>
+<section class="blk" id="b112"><pre class="code"><code><span class="ln" id="L112">112</span>    <span class="k">public</span> <span class="t">TdsTokens</span> done(<span class="k">int</span> status, <span class="k">int</span> count) {
+<span class="ln" id="L113">113</span>        out.write(<span class="n">0xFD</span>);
+<span class="ln" id="L114">114</span>        <span class="t">Buf</span> b = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L115">115</span>        b.u16(status).u16(<span class="n">0</span>).u32(count);
+<span class="ln" id="L116">116</span>        out.writeBytes(b.bytes());
+<span class="ln" id="L117">117</span>        <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L118">118</span>    }</code></pre><div class="note"><div class="range">Lines 112–118</div><p><b>DONE:</b> status, transaction state (0), and row count.</p></div></section>
+<section class="blk" id="b120"><pre class="code"><code><span class="ln" id="L120">120</span>    <span class="k">public</span> <span class="k">byte</span>[] bytes() {
+<span class="ln" id="L121">121</span>        <span class="k">return</span> out.toByteArray();
+<span class="ln" id="L122">122</span>    }</code></pre><div class="note"><div class="range">Lines 120–122</div><p>The finished token bytes, handed to <code>TdsChannel.sendResponse</code>.</p></div></section>
+<section class="blk" id="b124"><pre class="code"><code><span class="ln" id="L124">124</span>    <span class="k">private</span> <span class="t">TdsTokens</span> token(<span class="k">int</span> id, <span class="t">Buf</span> body, <span class="k">boolean</span> len32) {
+<span class="ln" id="L125">125</span>        <span class="k">byte</span>[] data = body.bytes();
+<span class="ln" id="L126">126</span>        out.write(id);
+<span class="ln" id="L127">127</span>        <span class="t">Buf</span> len = <span class="k">new</span> <span class="t">Buf</span>();
+<span class="ln" id="L128">128</span>        <span class="k">if</span> (len32) len.u32(data.length); <span class="k">else</span> len.u16(data.length);
+<span class="ln" id="L129">129</span>        out.writeBytes(len.bytes());
+<span class="ln" id="L130">130</span>        out.writeBytes(data);
+<span class="ln" id="L131">131</span>        <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L132">132</span>    }</code></pre><div class="note"><div class="range">Lines 124–132</div><p>Generic "token id + length + body" writer. All tokens used here have 2-byte lengths (<code>len32</code> is always false).</p></div></section>
+<section class="blk" id="b134"><pre class="code"><code><span class="ln" id="L134">134</span>    <span class="c">/** Little helper that writes integers in the negotiated byte order. */</span>
+<span class="ln" id="L135">135</span>    <span class="k">private</span> <span class="k">final</span> <span class="k">class</span> <span class="t">Buf</span> {
+<span class="ln" id="L136">136</span>        <span class="k">private</span> <span class="k">final</span> <span class="t">ByteArrayOutputStream</span> b = <span class="k">new</span> <span class="t">ByteArrayOutputStream</span>();</code></pre><div class="note"><div class="range">Lines 134–136</div><p>Inner helper class writing integers in the session's byte order. Non-static, so it can read the outer <code>order</code> field.</p></div></section>
+<section class="blk" id="b138"><pre class="code"><code><span class="ln" id="L138">138</span>        <span class="t">Buf</span> u8(<span class="k">int</span> v) { b.write(v); <span class="k">return</span> <span class="k">this</span>; }</code></pre><div class="note"><div class="range">Lines 138</div><p>One byte (<code>write(int)</code> keeps only the lowest 8 bits).</p></div></section>
+<section class="blk" id="b140"><pre class="code"><code><span class="ln" id="L140">140</span>        <span class="t">Buf</span> u16(<span class="k">int</span> v) {
+<span class="ln" id="L141">141</span>            <span class="k">if</span> (order == <span class="t">ByteOrder</span>.<span class="t">LITTLE_ENDIAN</span>) { b.write(v); b.write(v &gt;&gt; <span class="n">8</span>); }
+<span class="ln" id="L142">142</span>            <span class="k">else</span> { b.write(v &gt;&gt; <span class="n">8</span>); b.write(v); }
+<span class="ln" id="L143">143</span>            <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L144">144</span>        }</code></pre><div class="note"><div class="range">Lines 140–144</div><p>Two bytes, low byte first for little-endian. <code>v &gt;&gt; 8</code> shifts right by 8 bits to get the next byte.</p></div></section>
+<section class="blk" id="b146"><pre class="code"><code><span class="ln" id="L146">146</span>        <span class="t">Buf</span> u32(<span class="k">int</span> v) {
+<span class="ln" id="L147">147</span>            <span class="k">if</span> (order == <span class="t">ByteOrder</span>.<span class="t">LITTLE_ENDIAN</span>) { b.write(v); b.write(v &gt;&gt; <span class="n">8</span>); b.write(v &gt;&gt; <span class="n">16</span>); b.write(v &gt;&gt; <span class="n">24</span>); }
+<span class="ln" id="L148">148</span>            <span class="k">else</span> { b.write(v &gt;&gt; <span class="n">24</span>); b.write(v &gt;&gt; <span class="n">16</span>); b.write(v &gt;&gt; <span class="n">8</span>); b.write(v); }
+<span class="ln" id="L149">149</span>            <span class="k">return</span> <span class="k">this</span>;
+<span class="ln" id="L150">150</span>        }</code></pre><div class="note"><div class="range">Lines 146–150</div><p>Four bytes in the chosen order.</p></div></section>
+<section class="blk" id="b152"><pre class="code"><code><span class="ln" id="L152">152</span>        <span class="t">Buf</span> raw(<span class="k">byte</span>[] bytes) { b.writeBytes(bytes); <span class="k">return</span> <span class="k">this</span>; }
+<span class="ln" id="L153">153</span> 
+<span class="ln" id="L154">154</span>        <span class="k">byte</span>[] bytes() { <span class="k">return</span> b.toByteArray(); }
+<span class="ln" id="L155">155</span>    }</code></pre><div class="note"><div class="range">Lines 152–155</div><p>Raw bytes and the result; end of helper.</p></div></section>
+<section class="blk" id="b156"><pre class="code"><code><span class="ln" id="L156">156</span>}</code></pre><div class="note"><div class="range">Lines 156</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

@@ -1,0 +1,5 @@
+Secret sybase-cdc-ltl
+KafkaConnect sybase-cdc
+KafkaConnector sybase-cdc-phoenix
+Service sybase-cdc-ltl
+NetworkPolicy sybase-cdc-ltl-from-ase

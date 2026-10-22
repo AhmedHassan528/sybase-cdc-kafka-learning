@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TdsLogin.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>TdsLogin.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsLogin.java</code> · 73 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> reads the fields the connector needs from RepAgent's TDS 5.0 login record (packet type 0x02). The offsets follow the public TDS 5.0 login layout as implemented by the open-source FreeTDS project, and were confirmed against the real login packet captured from RepAgent (evidence <code>ltl/capture-1-first-session.txt</code>: user <code>rs_user</code> at offset 31, app "Replication Agent", server "CDC_RS", charset <code>iso_1</code>, packet size 2048).</p>
+<p><b>Limits:</b> name fields hold at most 30 bytes, so RepAgent passwords longer than 30 characters are untested. With <code>net password encryption = true</code> the password field is empty (RepAgent sends it later through an RSA challenge the connector does not implement).</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.tds;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>tds</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> java.nio.<span class="t">ByteOrder</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> java.nio.charset.<span class="t">StandardCharsets</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> java.util.<span class="t">Arrays</span>;</code></pre><div class="note"><div class="range">Lines 3–5</div><p>JDK imports.</p></div></section>
+<section class="blk" id="b7"><pre class="code"><code><span class="ln" id="L7">7</span><span class="c">/**</span>
+<span class="ln" id="L8">8</span><span class="c"> * Parsed TDS 5.0 login record (packet type 0x02).</span>
+<span class="ln" id="L9">9</span><span class="c"> *</span>
+<span class="ln" id="L10">10</span><span class="c"> * The record is a fixed layout of 30-byte name fields, each followed by a</span>
+<span class="ln" id="L11">11</span><span class="c"> * one-byte length. Offsets below follow the Sybase TDS 5.0 spec / FreeTDS.</span>
+<span class="ln" id="L12">12</span><span class="c"> * After the record the client appends a CAPABILITY token (0xE2), which we</span>
+<span class="ln" id="L13">13</span><span class="c"> * echo back so the client sees the same capability set it asked for.</span>
+<span class="ln" id="L14">14</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 7–14</div><p>Class comment: fixed layout, 30-byte fields each followed by a length byte, and the CAPABILITY token appended after the record.</p></div></section>
+<section class="blk" id="b15"><pre class="code"><code><span class="ln" id="L15">15</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">TdsLogin</span> {</code></pre><div class="note"><div class="range">Lines 15</div><p>Final class with public final fields: a simple read-only data holder.</p></div></section>
+<section class="blk" id="b17"><pre class="code"><code><span class="ln" id="L17">17</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> host;
+<span class="ln" id="L18">18</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> user;
+<span class="ln" id="L19">19</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> password;
+<span class="ln" id="L20">20</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> appName;
+<span class="ln" id="L21">21</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> serverName;
+<span class="ln" id="L22">22</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> progName;
+<span class="ln" id="L23">23</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">String</span> charset;
+<span class="ln" id="L24">24</span>    <span class="k">public</span> <span class="k">final</span> <span class="k">int</span> packetSize;</code></pre><div class="note"><div class="range">Lines 17–24</div><p>Parsed fields. <code>host</code> was empty in RepAgent's login.</p></div></section>
+<section class="blk" id="b25"><pre class="code"><code><span class="ln" id="L25">25</span>    <span class="c">/** Byte order the client wants integers in (lint2 field: 3 = little-endian, 2 = big-endian). */</span>
+<span class="ln" id="L26">26</span>    <span class="k">public</span> <span class="k">final</span> <span class="t">ByteOrder</span> order;</code></pre><div class="note"><div class="range">Lines 25–26</div><p>Byte order requested by the client. The <code>lint2</code> field at offset 124 is 3 for little-endian (x86) clients and 2 for big-endian ones. RepAgent on Linux x86_64 sent 3.</p></div></section>
+<section class="blk" id="b27"><pre class="code"><code><span class="ln" id="L27">27</span>    <span class="c">/** Raw CAPABILITY token from the login packet (including the 0xE2 byte), or null. */</span>
+<span class="ln" id="L28">28</span>    <span class="k">public</span> <span class="k">final</span> <span class="k">byte</span>[] capabilityToken;</code></pre><div class="note"><div class="range">Lines 27–28</div><p>The client's capability token (what TDS features it supports), echoed back in the login reply.</p></div></section>
+<section class="blk" id="b30"><pre class="code"><code><span class="ln" id="L30">30</span>    <span class="k">private</span> <span class="t">TdsLogin</span>(<span class="k">byte</span>[] p) {
+<span class="ln" id="L31">31</span>        host = field(p, <span class="n">0</span>, <span class="n">30</span>);
+<span class="ln" id="L32">32</span>        user = field(p, <span class="n">31</span>, <span class="n">30</span>);
+<span class="ln" id="L33">33</span>        password = field(p, <span class="n">62</span>, <span class="n">30</span>);</code></pre><div class="note"><div class="range">Lines 30–33</div><p>Fixed offsets: host name at 0, user at 31, password at 62 (each 30 bytes + length byte).</p></div></section>
+<section class="blk" id="b34"><pre class="code"><code><span class="ln" id="L34">34</span>        order = (p.length &gt; <span class="n">124</span> &amp;&amp; p[<span class="n">124</span>] == <span class="n">2</span>) ? <span class="t">ByteOrder</span>.<span class="t">BIG_ENDIAN</span> : <span class="t">ByteOrder</span>.<span class="t">LITTLE_ENDIAN</span>;</code></pre><div class="note"><div class="range">Lines 34</div><p>Byte order from <code>lint2</code>.</p></div></section>
+<section class="blk" id="b35"><pre class="code"><code><span class="ln" id="L35">35</span>        appName = field(p, <span class="n">140</span>, <span class="n">30</span>);
+<span class="ln" id="L36">36</span>        serverName = field(p, <span class="n">171</span>, <span class="n">30</span>);
+<span class="ln" id="L37">37</span>        progName = field(p, <span class="n">462</span>, <span class="n">10</span>);
+<span class="ln" id="L38">38</span>        charset = field(p, <span class="n">525</span>, <span class="n">30</span>);</code></pre><div class="note"><div class="range">Lines 35–38</div><p>Application name (140), server name the client wanted (171), client library name (462, "CT-Library"), character set (525).</p></div></section>
+<section class="blk" id="b39"><pre class="code"><code><span class="ln" id="L39">39</span>        <span class="t">String</span> bs = field(p, <span class="n">557</span>, <span class="n">6</span>);
+<span class="ln" id="L40">40</span>        <span class="k">int</span> ps;
+<span class="ln" id="L41">41</span>        <span class="k">try</span> { ps = <span class="t">Integer</span>.parseInt(bs.trim()); } <span class="k">catch</span> (<span class="t">NumberFormatException</span> e) { ps = <span class="n">512</span>; }
+<span class="ln" id="L42">42</span>        packetSize = ps;</code></pre><div class="note"><div class="range">Lines 39–42</div><p>Requested packet size as text (offset 557, e.g. "2048"); 512 if not a number. This value is confirmed back to RepAgent in the login reply; see <a href="LtlSession.html#b128">LtlSession lines 128–135</a>.</p></div></section>
+<section class="blk" id="b43"><pre class="code"><code><span class="ln" id="L43">43</span>        capabilityToken = findCapability(p);
+<span class="ln" id="L44">44</span>    }</code></pre><div class="note"><div class="range">Lines 43–44</div><p>Locate the capability token; end of constructor.</p></div></section>
+<section class="blk" id="b46"><pre class="code"><code><span class="ln" id="L46">46</span>    <span class="k">public</span> <span class="k">static</span> <span class="t">TdsLogin</span> parse(<span class="k">byte</span>[] payload) {
+<span class="ln" id="L47">47</span>        <span class="k">return</span> <span class="k">new</span> <span class="t">TdsLogin</span>(payload);
+<span class="ln" id="L48">48</span>    }</code></pre><div class="note"><div class="range">Lines 46–48</div><p>Static factory.</p></div></section>
+<section class="blk" id="b50"><pre class="code"><code><span class="ln" id="L50">50</span>    <span class="k">private</span> <span class="k">static</span> <span class="t">String</span> field(<span class="k">byte</span>[] p, <span class="k">int</span> off, <span class="k">int</span> max) {
+<span class="ln" id="L51">51</span>        <span class="k">if</span> (p.length &lt;= off + max) <span class="k">return</span> <span class="s">""</span>;
+<span class="ln" id="L52">52</span>        <span class="k">int</span> len = <span class="t">Math</span>.min(p[off + max] &amp; <span class="n">0xff</span>, max);
+<span class="ln" id="L53">53</span>        <span class="k">return</span> <span class="k">new</span> <span class="t">String</span>(p, off, len, <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>);
+<span class="ln" id="L54">54</span>    }</code></pre><div class="note"><div class="range">Lines 50–54</div><p>Read one name field: the length byte sits right after the field; never trust it beyond the field size. Fields outside a short packet read as empty.</p></div></section>
+<section class="blk" id="b56"><pre class="code"><code><span class="ln" id="L56">56</span>    <span class="c">/** The capability token is the tail of the packet: 0xE2, u16 length, body. Accept either byte order. */</span>
+<span class="ln" id="L57">57</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">byte</span>[] findCapability(<span class="k">byte</span>[] p) {
+<span class="ln" id="L58">58</span>        <span class="k">for</span> (<span class="k">int</span> i = <span class="n">400</span>; i &lt; p.length - <span class="n">3</span>; i++) {
+<span class="ln" id="L59">59</span>            <span class="k">if</span> ((p[i] &amp; <span class="n">0xff</span>) != <span class="n">0xE2</span>) <span class="k">continue</span>;
+<span class="ln" id="L60">60</span>            <span class="k">int</span> be = ((p[i + <span class="n">1</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">8</span>) | (p[i + <span class="n">2</span>] &amp; <span class="n">0xff</span>);
+<span class="ln" id="L61">61</span>            <span class="k">int</span> le = ((p[i + <span class="n">2</span>] &amp; <span class="n">0xff</span>) &lt;&lt; <span class="n">8</span>) | (p[i + <span class="n">1</span>] &amp; <span class="n">0xff</span>);
+<span class="ln" id="L62">62</span>            <span class="k">if</span> (i + <span class="n">3</span> + be == p.length || i + <span class="n">3</span> + le == p.length) <span class="k">return</span> <span class="t">Arrays</span>.copyOfRange(p, i, p.length);
+<span class="ln" id="L63">63</span>        }
+<span class="ln" id="L64">64</span>        <span class="k">return</span> <span class="k">null</span>;
+<span class="ln" id="L65">65</span>    }</code></pre><div class="note"><div class="range">Lines 56–65</div><p>Find the capability token (0xE2) after offset 400 by checking that its 2-byte length (in either byte order) reaches exactly the end of the packet, so the layout does not have to be known precisely.</p></div></section>
+<section class="blk" id="b67"><pre class="code"><code><span class="ln" id="L67">67</span>    <span class="a">@Override</span>
+<span class="ln" id="L68">68</span>    <span class="k">public</span> <span class="t">String</span> toString() {
+<span class="ln" id="L69">69</span>        <span class="k">return</span> <span class="s">"TdsLogin{host="</span> + host + <span class="s">", user="</span> + user + <span class="s">", app="</span> + appName + <span class="s">", server="</span> + serverName
+<span class="ln" id="L70">70</span>            + <span class="s">", prog="</span> + progName + <span class="s">", charset="</span> + charset + <span class="s">", packetSize="</span> + packetSize
+<span class="ln" id="L71">71</span>            + <span class="s">", order="</span> + order + <span class="s">", capability="</span> + (capabilityToken != <span class="k">null</span> ? capabilityToken.length + <span class="s">"B"</span> : <span class="s">"none"</span>) + <span class="s">"}"</span>;
+<span class="ln" id="L72">72</span>    }</code></pre><div class="note"><div class="range">Lines 67–72</div><p>Readable summary for the "TDS login: …" log line. The password is deliberately not included.</p></div></section>
+<section class="blk" id="b73"><pre class="code"><code><span class="ln" id="L73">73</span>}</code></pre><div class="note"><div class="range">Lines 73</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

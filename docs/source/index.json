@@ -1,0 +1,140 @@
+[
+  {
+    "cls": "AckTracker",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/AckTracker.java",
+    "lines": 68,
+    "blocks": 14
+  },
+  {
+    "cls": "AckTrackerTest",
+    "file": "sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/cdc/AckTrackerTest.java",
+    "lines": 25,
+    "blocks": 10
+  },
+  {
+    "cls": "ChangeEventMapper",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java",
+    "lines": 73,
+    "blocks": 11
+  },
+  {
+    "cls": "CommittedTransaction",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/CommittedTransaction.java",
+    "lines": 22,
+    "blocks": 6
+  },
+  {
+    "cls": "LtlCommand",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlCommand.java",
+    "lines": 39,
+    "blocks": 7
+  },
+  {
+    "cls": "LtlLexer",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlLexer.java",
+    "lines": 123,
+    "blocks": 25
+  },
+  {
+    "cls": "LtlListener",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlListener.java",
+    "lines": 32,
+    "blocks": 10
+  },
+  {
+    "cls": "LtlParser",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java",
+    "lines": 181,
+    "blocks": 27
+  },
+  {
+    "cls": "LtlParserTest",
+    "file": "sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlParserTest.java",
+    "lines": 124,
+    "blocks": 24
+  },
+  {
+    "cls": "LtlProbe",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java",
+    "lines": 86,
+    "blocks": 14
+  },
+  {
+    "cls": "LtlServer",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java",
+    "lines": 86,
+    "blocks": 16
+  },
+  {
+    "cls": "LtlSession",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java",
+    "lines": 251,
+    "blocks": 39
+  },
+  {
+    "cls": "LtlValues",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlValues.java",
+    "lines": 99,
+    "blocks": 23
+  },
+  {
+    "cls": "LtlValuesTest",
+    "file": "sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlValuesTest.java",
+    "lines": 23,
+    "blocks": 7
+  },
+  {
+    "cls": "Oqid",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/Oqid.java",
+    "lines": 34,
+    "blocks": 11
+  },
+  {
+    "cls": "SybaseCdcConfig",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+    "lines": 95,
+    "blocks": 26
+  },
+  {
+    "cls": "SybaseCdcSourceConnector",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java",
+    "lines": 51,
+    "blocks": 14
+  },
+  {
+    "cls": "SybaseCdcSourceTask",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+    "lines": 195,
+    "blocks": 45
+  },
+  {
+    "cls": "TdsChannel",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsChannel.java",
+    "lines": 97,
+    "blocks": 22
+  },
+  {
+    "cls": "TdsLogin",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsLogin.java",
+    "lines": 73,
+    "blocks": 17
+  },
+  {
+    "cls": "TdsTokens",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsTokens.java",
+    "lines": 156,
+    "blocks": 23
+  },
+  {
+    "cls": "TransactionBuffer",
+    "file": "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java",
+    "lines": 84,
+    "blocks": 21
+  },
+  {
+    "cls": "TransactionBufferTest",
+    "file": "sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/cdc/TransactionBufferTest.java",
+    "lines": 35,
+    "blocks": 12
+  }
+]

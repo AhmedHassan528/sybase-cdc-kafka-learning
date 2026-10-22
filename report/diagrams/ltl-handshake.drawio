@@ -1,0 +1,25 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="seq" name="RepAgent LTL handshake">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" page="1" pageWidth="1000" pageHeight="900">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="ra" value="RepAgent (ASE)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;size=40;fillColor=#e2f0f5;strokeColor=#0b6e8f;" vertex="1" parent="1"><mxGeometry x="80" y="20" width="160" height="820" as="geometry"/></mxCell>
+        <mxCell id="cn" value="Connector (CDC_RS :11752)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;size=40;fillColor=#f6f8f9;strokeColor=#16232b;" vertex="1" parent="1"><mxGeometry x="660" y="20" width="200" height="820" as="geometry"/></mxCell>
+        <mxCell id="m1" value="TDS login: rs_user, packet size 2048, charset iso_1" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="100" as="sourcePoint"/><mxPoint x="760" y="100" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="LOGINACK + CAPABILITY + ENVCHANGE(packet size 2048) + DONE" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="150" as="sourcePoint"/><mxPoint x="160" y="150" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="connect source lti &quot;MYSYBASE&quot;.&quot;phoenix_test&quot; 760 passthru" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="210" as="sourcePoint"/><mxPoint x="760" y="210" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4" value="result 1: VERSION 760 / result 2: Sysversion 1600, UpgradeLocater" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="260" as="sourcePoint"/><mxPoint x="160" y="260" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m5" value="get maintenance user for &quot;MYSYBASE&quot;.&quot;phoenix_test&quot;" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="320" as="sourcePoint"/><mxPoint x="760" y="320" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m6" value="cdc_maint" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="370" as="sourcePoint"/><mxPoint x="160" y="370" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m7" value="get truncation &quot;MYSYBASE&quot;.&quot;phoenix_test&quot;" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="430" as="sourcePoint"/><mxPoint x="760" y="430" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m8" value="36-byte OQID of last Kafka-acknowledged commit (zeros on first start)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="480" as="sourcePoint"/><mxPoint x="160" y="480" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="loop" value="loop: every LTL batch" style="shape=umlFrame;whiteSpace=wrap;html=1;width=150;height=26;" vertex="1" parent="1"><mxGeometry x="120" y="510" width="700" height="150" as="geometry"/></mxCell>
+        <mxCell id="m9" value="distribute 1 time,4 0x oqid,6 0x xid: begin | applied rs_insert/update/delete | commit" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="570" as="sourcePoint"/><mxPoint x="760" y="570" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m10" value="DONE (exactly one per TDS message)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="630" as="sourcePoint"/><mxPoint x="160" y="630" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m11" value="get truncation (about every 15 s)" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="160" y="710" as="sourcePoint"/><mxPoint x="760" y="710" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m12" value="acked OQID: RepAgent moves the secondary truncation point" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#9a6100;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="760" y="760" as="sourcePoint"/><mxPoint x="160" y="760" as="targetPoint"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

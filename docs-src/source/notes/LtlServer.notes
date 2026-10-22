@@ -1,0 +1,36 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java
+@summary
+<p><b>Role:</b> the TCP listener that RepAgent connects to, the network endpoint named <code>CDC_RS</code> in the ASE interfaces file. It accepts connections and starts one <a href="LtlSession.html">LtlSession</a> thread per connection.</p>
+<p><b>Security posture (as implemented):</b> plain TCP, no TLS, no IP allow-list, no limit on concurrent connections. Authentication is the TDS login check only. In production, restrict who can reach the port with network controls (firewall, OpenShift NetworkPolicy); see the security chapter.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-4
+<p>Logging.</p>
+@@ 6-12
+<p>Networking classes from <code>java.net</code>: <code>ServerSocket</code> listens, <code>Socket</code> is one accepted connection, <code>InetSocketAddress</code> is host+port. <code>ConcurrentHashMap.newKeySet()</code> gives a thread-safe set.</p>
+@@ 14-17
+<p>Class comment.</p>
+@@ 18
+<p><code>implements AutoCloseable</code> allows use in try-with-resources and documents that <code>close()</code> must be called (the task does it in <code>stop()</code>).</p>
+@@ 20
+<p>Logger.</p>
+@@ 22-29
+<p>Settings passed through to each session, the set of open client sockets (so <code>close()</code> can disconnect them), the server socket (<code>volatile</code> because the accept thread reads it while another thread may close it) and the accept thread.</p>
+@@ 31-37
+<p>Constructor: stores settings; nothing is opened yet.</p>
+@@ 39-43
+<p><b>Bind.</b> <code>setReuseAddress(true)</code> lets the port be reused immediately after a restart, even while old connections are in TCP TIME_WAIT; without it a quick connector restart could fail with "Address already in use". <code>bind</code> throws <code>IOException</code> if the port is taken; the task turns that into a <code>ConnectException</code>.</p>
+@@ 44-48
+<p>Start the accept loop on its own <em>daemon</em> thread (a daemon thread does not keep the JVM alive) and log the "LTL server listening" line, the first health check in the runbooks.</p>
+@@ 50-56
+<p><b>Accept loop.</b> <code>accept()</code> blocks until RepAgent connects. <code>TCP_NODELAY</code> disables Nagle's algorithm, so small replies (DONE, truncation rows) are sent immediately; RepAgent waits for them, so delays here would slow replication. <code>SO_KEEPALIVE</code> lets the OS detect dead peers on idle connections.</p>
+@@ 57-65
+<p>One daemon thread per connection, named after the remote address (visible in thread dumps). The <code>finally</code> block removes the socket from the set whatever happens. The lambda <code>() -&gt; { … }</code> is the thread's <code>Runnable</code>.</p>
+@@ 66-70
+<p>An exception from <code>accept()</code> is expected when <code>close()</code> closes the socket; it is only logged if the server is still meant to run.</p>
+@@ 72-80
+<p><b>Close:</b> stop accepting, then close every client socket. Each session's blocking <code>read()</code> then fails, the session ends and calls <code>onDisconnect</code>. Exceptions during close are deliberately ignored.</p>
+@@ 81-84
+<p>Wait up to 5 seconds for the accept thread to finish, restoring the interrupt flag if interrupted (standard Java practice), then log the "stopped" line.</p>
+@@ 85-86
+<p>End of method and class.</p>

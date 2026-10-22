@@ -1,0 +1,93 @@
+<h2 id="ch-runbooks" data-keywords="runbook operations start stop restart deploy rollback upgrade log full emergency password rotation add table health check">Operational runbooks</h2>
+<p>Each runbook lists who runs it, preconditions, steps, verification and rollback. Commands are shown for the local environment and, where different, for OpenShift. <b>None of these runbooks was executed end to end as a runbook</b>; their steps reuse operations that were exercised in the tests (named in each one). Placeholders: <code>&lt;db&gt;</code> database, <code>&lt;ns&gt;</code> namespace, <code>${…}</code> secrets.</p>
+
+<h3 id="rb-health">RB-1 Daily health check (read-only)</h3>
+<ol>
+<li>Task RUNNING: <code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/status</code> · <code>oc get kafkaconnector sybase-cdc-phoenix -n &lt;ns&gt;</code>.</li>
+<li>RepAgent up: <code>sp_help_rep_agent &lt;db&gt;, 'process'</code> → <code>sleeping</code> or <code>scanning</code>.</li>
+<li>Log space: <code>select lct_admin('logsegment_freepages', db_id('&lt;db&gt;'))</code>; any rows in <code>cdc_log_alert</code> since yesterday?</li>
+<li>Positions move: truncation page (<code>captures/truncpage.sql</code>) is higher than yesterday's if there was activity.</li>
+<li>Worker log has no <code>ERROR</code> for the connector.</li>
+</ol>
+<p class="small">All queries are read-only. Used throughout test 6 monitoring.</p>
+
+<h3 id="rb-stop">RB-2 Planned stop and start</h3>
+<p><b>Precondition:</b> the stop window is short compared with the time the log takes to fill at current write rate (test 7: ≈ 655 pages per 100,000 rows; size this for production).</p>
+<ol>
+<li>Stop the connector: <code>curl -s -X PUT localhost:8083/connectors/sybase-cdc-phoenix/stop</code> (Kafka 3.5+; closes port 11752). On OpenShift: <code>spec.state: stopped</code> in the KafkaConnector if your operator version supports it, otherwise scale as agreed with the platform team.</li>
+<li>RepAgent notices and retries every <code>retry timeout</code> seconds; nothing to do on ASE for short stops. For long stops, a DBA may run <code>sp_stop_rep_agent &lt;db&gt;</code> (the log is held either way).</li>
+<li>Start: <code>curl -s -X PUT localhost:8083/connectors/sybase-cdc-phoenix/resume</code>; if RepAgent was stopped, <code>sp_start_rep_agent &lt;db&gt;</code>.</li>
+<li><b>Verify:</b> <code>RepAgent connected</code> in the log; truncation page advances; consumers see new events.</li>
+</ol>
+<p class="small">Exercised in T6a (stop/resume during a 20,000-transaction load: 0 lost, 0 duplicates).</p>
+
+<h3 id="rb-restart">RB-3 Restart a FAILED task</h3>
+<ol>
+<li>Read the reason: <code>…/status</code> → <code>tasks[0].trace</code>. Do not restart in a loop without reading it.</li>
+<li>If the cause is fixed or transient: <code>curl -s -X POST localhost:8083/connectors/sybase-cdc-phoenix/tasks/0/restart</code>.</li>
+<li>If it is a parse error (unknown LTL), restarting repeats it: RepAgent resends the same transaction. Capture it (<a href="#ts-collect">what to collect</a>), fix the parser, redeploy (RB-4). The log keeps growing meanwhile: watch RB-6 thresholds.</li>
+</ol>
+
+<h3 id="rb-deploy">RB-4 Deploy a new connector version, and roll back</h3>
+<figure-diagram src="15-deploy-rollback" n="15" title="Deployment, upgrade and rollback flow">
+<p><b>Purpose:</b> the safe order for changing the connector: build and test → publish artifact with checksum → stop connector → replace image/JAR → start → verify → keep the previous artifact for rollback. Offsets survive because the connector name and <code>{database, server}</code> stay the same.</p>
+<p><b>Rollback rule:</b> rolling back the JAR is safe as long as the offset format is unchanged (<code>{commit_oqid}</code> in 0.1.0). If a future version changes the offset format, its release notes must say so.</p>
+</figure-diagram>
+<ol>
+<li>Build and run unit tests; record SHA-256/SHA-512.</li>
+<li>Local: <code>./sybase-cdc-connector/deploy-local.sh</code> (build, restart worker, wait RUNNING). OpenShift: update <code>build.plugins[].artifacts[].url</code> + <code>sha512sum</code>, or the <code>image</code> digest, in the KafkaConnect CR; the operator rolls the pod.</li>
+<li><b>Verify:</b> plugin version in <code>/connector-plugins</code>; task RUNNING; <code>last committed OQID in Kafka: &lt;hex&gt;</code> (not <code>none</code>) in the start log; walkthrough checks.</li>
+<li><b>Rollback:</b> put the previous artifact/digest back and repeat step 2.</li>
+</ol>
+<p class="small">The restart part was exercised repeatedly during development (<code>deploy-local.sh</code>) and in T4b/T6b (resume from stored offset).</p>
+
+<h3 id="rb-rotate">RB-5 Rotate the RepAgent ↔ connector password</h3>
+<p><b>Proposed, not tested.</b> Both sides must change in one window.</p>
+<ol>
+<li>DBA: <code>sp_stop_rep_agent &lt;db&gt;</code>.</li>
+<li>DBA: <code>sp_config_rep_agent &lt;db&gt;, 'rs password', '${NEW_LTL_PASSWORD}'</code> (from the secret store; check the exact parameter name on SP04 with <code>sp_config_rep_agent &lt;db&gt;</code>).</li>
+<li>Platform: update the Secret; restart the task so the config provider re-reads it.</li>
+<li>DBA: <code>sp_start_rep_agent &lt;db&gt;</code>. <b>Verify:</b> <code>RepAgent connected</code>, no <code>Msg 4002</code> in the errorlog.</li>
+<li><b>Rollback:</b> the old password in both places.</li>
+</ol>
+
+<h3 id="rb-add-table">RB-6 Add a table to capture</h3>
+<ol>
+<li>Confirm the table has a primary key and supported column types (no LOB).</li>
+<li>Kafka: create topic <code>&lt;prefix&gt;.&lt;db&gt;.&lt;table&gt;</code> with the agreed partitions/RF; grant ACLs.</li>
+<li>Connector: add the table to <code>table.include.list</code> (CR or REST <code>PUT …/config</code>); the task restarts.</li>
+<li>DBA: <code>sp_setreptable &lt;table&gt;, true</code>. Only changes <b>after</b> this point are captured; existing rows need a separate initial load (not part of this connector).</li>
+<li><b>Verify</b> with a test change agreed with the table owner.</li>
+</ol>
+
+<h3 id="rb-log-emergency">RB-7 Transaction log filling up because the connector is not acknowledging</h3>
+<div class="callout danger"><span class="t">Read completely before acting</span>The secondary truncation point protects changes that have not reached Kafka. Removing it frees the log but <b>permanently loses those changes for Kafka</b> and requires a re-baseline of every consumer. That decision belongs to the DBA team and the data owners, not to an operator following a runbook.</div>
+<p><b>Trigger:</b> <code>CDC ALERT</code> in the ASE errorlog / row in <code>cdc_log_alert</code> / free log pages falling.</p>
+<ol>
+<li><b>Measure (read-only):</b> free pages now and 5 minutes later → time until full. Check <code>master..syslogshold</code> (is the oldest hold the replication truncation point, or an open user transaction?).</li>
+<li><b>Restore delivery first</b> (the normal fix; drains on its own, test 7 drained 1.05M rows in 99 s): task state (RB-3), RepAgent state (<code>sp_start_rep_agent</code> if down), network, Kafka.</li>
+<li><b>Buy time without losing data:</b> the DBA can add log space (<code>alter database &lt;db&gt; log on &lt;device&gt; = '&lt;size&gt;'</code>) according to the bank's standards.</li>
+<li><b>Only if the above fails and the business accepts data loss for Kafka:</b>
+<div class="callout danger"><span class="t">DESTRUCTIVE: manual DBA decision only. Never automated, never run during the tests of this project.</span>
+<pre data-lang="sql"><code>-- DESTRUCTIVE: discards the replication truncation point. Changes not yet in Kafka are lost for CDC.
+-- Run only with written approval of the DBA lead and data owner. Then re-baseline all consumers.
+sp_stop_rep_agent &lt;db&gt;
+go
+use &lt;db&gt;
+go
+dbcc settrunc('ltm', 'ignore')
+go
+dump transaction &lt;db&gt; ... -- per the bank's log backup procedure (do not use 'truncate_only' without DBA approval)
+go</code></pre>
+Afterwards, re-enable with <code>dbcc settrunc('ltm', 'valid')</code>, reset the connector position (new connector name, or delete its offset), restart RepAgent and run an initial load or reconciliation for every consumer.</div></li>
+<li><b>Post-incident:</b> root cause, how long the connector was down, whether alert thresholds were early enough.</li>
+</ol>
+<p class="small">Steps 1–2 were exercised in test 7 (alert fired at 25.4% used; no suspended processes; full drain). Steps 3–4 were deliberately <b>not</b> run.</p>
+
+<h3 id="rb-decommission">RB-8 Decommission CDC for a database</h3>
+<ol>
+<li>Stop consumers' dependency (agreed date).</li>
+<li>DBA: <code>sp_stop_rep_agent &lt;db&gt;</code>, then <code>sp_config_rep_agent &lt;db&gt;, 'disable'</code> (removes the secondary truncation point so the log is no longer held), <code>sp_setreptable &lt;table&gt;, false</code>.</li>
+<li>Delete the KafkaConnector (or <code>DELETE /connectors/…</code>), then the KafkaConnect cluster, Service, NetworkPolicy, Secret.</li>
+<li>Topics: keep or delete according to the retention policy; deleting topics is irreversible.</li>
+</ol>

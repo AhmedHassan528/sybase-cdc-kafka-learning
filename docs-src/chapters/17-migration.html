@@ -1,0 +1,43 @@
+<h2 id="ch-migration" data-keywords="version compatibility migration sp04 pl07 upgrade ltl version validation capture fixtures kafka version java">Version compatibility and migration to ASE 16.0 SP04 PL07</h2>
+<p>The connector was built and tested against <b>ASE 16.0 SP02 PL02</b>. Production is <b>ASE 16.0 SP04 PL07 HF1 (EBF 31179), SLES 12.4</b>. Nothing in this project proves that SP04's RepAgent sends the same bytes. This chapter lists what could differ and a safe procedure to find out.</p>
+
+<h3 id="mig-matrix">Compatibility matrix</h3>
+<div class="tbl"><table>
+<thead><tr><th>Component</th><th>Tested</th><th>Target</th><th>Status</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td>ASE</td><td>16.0 SP02 PL02 (2015 build, Developer Edition image)</td><td>16.0 SP04 PL07 HF1</td><td><span class="pill fail">UNVERIFIED</span></td><td>LTL format, login and RepAgent behaviour may differ</td></tr>
+<tr><td>LTL version</td><td>760 (RepAgent proposed 760)</td><td>unknown; connector always answers 760</td><td><span class="pill fail">UNVERIFIED</span></td><td>RepAgent must accept 760; new tokens possible</td></tr>
+<tr><td>Kafka Connect API</td><td>3.8.0</td><td>Event Streams' Kafka version</td><td><span class="pill warn">CHECK</span></td><td>Compiled against 3.8.0. The key API, <code>SourceTask.commitRecord(record, metadata)</code>, is present in 3.8.0 (<code>evidence/13-connect-api-signatures.txt</code>); recompile and test against the exact target version</td></tr>
+<tr><td>Java</td><td>class version 61 (Java 17), runtime 21.0.4</td><td>JVM in the Event Streams image</td><td><span class="pill warn">CHECK</span></td><td>Needs Java ≥ 17 at runtime</td></tr>
+<tr><td>OS of ASE</td><td>Linux container (<code>datagrip/sybase</code>) with the kernel workaround</td><td>SLES 12.4 native</td><td><span class="pill pass">N/A</span></td><td>Workarounds are local only</td></tr>
+<tr><td>Charset</td><td><code>iso_1</code></td><td>production charset</td><td><span class="pill fail">UNVERIFIED</span></td><td>Arabic or other non-Latin data needs the correct Java charset</td></tr>
+</tbody></table></div>
+
+<h3 id="mig-differences">What could differ on SP04</h3>
+<ul>
+<li><b>Proposed LTL version</b> above 760, and whether RepAgent accepts the connector's answer 760.</li>
+<li><b>New or changed commands/keywords</b> in <code>distribute</code> (for example for new data types or features enabled on the server).</li>
+<li><b>Login packet</b>: capabilities, packet size, password encryption defaults.</li>
+<li><b>Configured features</b> on the production server: <code>stream replication</code>, <code>multithread rep agent</code>, <code>send structured oqids</code>, <code>short ltl keywords</code>; the connector supports only the defaults (all false).</li>
+<li><b>Column types</b> used by Phoenix tables that the <code>payment</code> test never exercised.</li>
+</ul>
+
+<h3 id="mig-procedure">Validation procedure (non-production SP04 server)</h3>
+<div class="callout warn"><span class="t">Never on the production database</span>Enabling RepAgent creates a secondary truncation point that holds the log. Use a dedicated SP04 test server (same version and patch level as production, restored copy of the schema, masked data). The discovery probe acknowledges every transaction immediately and must never be pointed at a database whose changes matter.</div>
+<ol class="steps">
+<li><b>Environment:</b> an SP04 PL07 HF1 test ASE; a Connect worker with the 0.1.0 JAR; network path ASE → worker:11752.</li>
+<li><b>Configure RepAgent</b> exactly as production will be (<a href="#cfg-repagent">settings</a>), pointing at the worker.</li>
+<li><b>Capture raw messages:</b> start the worker with the JVM property <code>-Dltl.dump.dir=/tmp/ltl-dump</code> (for example through <code>KAFKA_OPTS</code>) so every RepAgent message is saved as <code>NNNNNN-type.bin</code>, and set <code>ltl.trace=true</code> for the session. These files contain the test data: treat them as confidential.</li>
+<li><b>Generate coverage:</b> run the type-probe scripts (<code>sybase/90…92_*.sql.manual</code>) and the Phoenix tables' DDL with representative rows: every column type, NULLs, max lengths, updates of PK and non-PK columns, deletes, rollbacks, multi-row transactions.</li>
+<li><b>Compare:</b> the <code>connect source</code> line (<code>proposed LTL N -&gt; using 760</code>), the login log lines and the dumped bytes with the SP02 captures in <code>docs/evidence/ltl/</code>. Any parse error makes the task FAILED with the offending text in the trace.</li>
+<li><b>Add fixtures:</b> copy representative SP04 messages into the unit tests (as <a href="source/LtlParserTest.html">LtlParserTest</a> does with SP02 captures) and run <code>mvn test</code>.</li>
+<li><b>Rerun the integration suite</b> (T1–T7, P5, T6a/b) on SP04 with the same acceptance criteria and evidence.</li>
+<li><b>Record results</b> in this handbook (version matrix + test report) before any production change ticket.</li>
+</ol>
+
+<h3 id="mig-upgrade">Upgrading components later</h3>
+<ul>
+<li><b>ASE patch</b>: repeat the validation procedure; RepAgent must be stopped during ASE upgrade anyway.</li>
+<li><b>Kafka / Event Streams</b>: recompile against the new <code>connect-api</code> version, run unit tests, smoke test in the test namespace.</li>
+<li><b>Connector</b>: offsets are stored by connector name and <code>{database, server}</code>; keep both unchanged to resume where the previous version stopped (<a href="#rb-deploy">runbook</a>).</li>
+</ul>

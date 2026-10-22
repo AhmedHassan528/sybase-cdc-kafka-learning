@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LtlProbe.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>LtlProbe.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java</code> · 86 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> a stand-alone diagnostic program (a <code>main</code> method, not part of Kafka Connect) that acts as a fake Replication Server and prints everything RepAgent sends. It was the tool used to discover the LTL 760 protocol and is the tool to use first against a new ASE version.</p>
+<p class="warn"><b>Never point a production RepAgent at the probe.</b> It acknowledges the highest OQID it has seen, whether or not anything was delivered. ASE would then free log records that never reached Kafka, which is permanent data loss for the CDC pipeline. It also has built-in default credentials. Use it only against a test database.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.tools;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>tools</code>: utilities that ship in the JAR but are not used by the connector.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.cdc.<span class="t">Oqid</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> com.phoenix.cdc.sybase.cdc.<span class="t">TransactionBuffer</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlCommand</span>;
+<span class="ln" id="L6">6</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlListener</span>;
+<span class="ln" id="L7">7</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlServer</span>;
+<span class="ln" id="L8">8</span> 
+<span class="ln" id="L9">9</span><span class="k">import</span> java.util.<span class="t">List</span>;
+<span class="ln" id="L10">10</span><span class="k">import</span> java.util.regex.<span class="t">Matcher</span>;
+<span class="ln" id="L11">11</span><span class="k">import</span> java.util.regex.<span class="t">Pattern</span>;</code></pre><div class="note"><div class="range">Lines 3–11</div><p>Reuses the connector's own classes, which is why the probe exercises exactly the production protocol code.</p></div></section>
+<section class="blk" id="b13"><pre class="code"><code><span class="ln" id="L13">13</span><span class="c">/**</span>
+<span class="ln" id="L14">14</span><span class="c"> * Discovery tool: a stand-alone fake Replication Server, no Kafka involved.</span>
+<span class="ln" id="L15">15</span><span class="c"> * Logs every LTL command RepAgent sends and prints committed transactions.</span>
+<span class="ln" id="L16">16</span><span class="c"> * It acknowledges each commit immediately, so the ASE log keeps truncating.</span>
+<span class="ln" id="L17">17</span><span class="c"> *</span>
+<span class="ln" id="L18">18</span><span class="c"> * Run inside the Connect container (it has Java and the Kafka logging jars):</span>
+<span class="ln" id="L19">19</span><span class="c"> *   java -cp "/opt/kafka/libs/*:/opt/connectors/sybase-cdc/*" \</span>
+<span class="ln" id="L20">20</span><span class="c"> *        com.phoenix.cdc.sybase.tools.LtlProbe 11752 rs_user rs_password</span>
+<span class="ln" id="L21">21</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 13–21</div><p>How to run it: inside the Connect container, with Kafka's <code>libs</code> on the classpath for SLF4J/reload4j logging. Stop the connector first, because both need port 11752.</p></div></section>
+<section class="blk" id="b22"><pre class="code"><code><span class="ln" id="L22">22</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">LtlProbe</span> {</code></pre><div class="note"><div class="range">Lines 22</div><p>Final class with only a <code>main</code> method.</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span>    <span class="c">/** LTL 760 command tag 4 = origin_qid, e.g. ",4 0x0000...". */</span>
+<span class="ln" id="L25">25</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">Pattern</span> <span class="t">OQID_TAG</span> = <span class="t">Pattern</span>.compile(<span class="s">"(?:^|[ ,])4 0x([0-9a-fA-F]{64})"</span>);</code></pre><div class="note"><div class="range">Lines 24–25</div><p>Regex to pick OQIDs out of a command's raw text: tag 4 followed by 64 hex characters (32 bytes). Used only for the probe's acknowledge-everything behaviour.</p></div></section>
+<section class="blk" id="b27"><pre class="code"><code><span class="ln" id="L27">27</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> main(<span class="t">String</span>[] args) <span class="k">throws</span> <span class="t">Exception</span> {
+<span class="ln" id="L28">28</span>        <span class="k">int</span> port = args.length &gt; <span class="n">0</span> ? <span class="t">Integer</span>.parseInt(args[<span class="n">0</span>]) : <span class="n">11752</span>;
+<span class="ln" id="L29">29</span>        <span class="t">String</span> user = args.length &gt; <span class="n">1</span> ? args[<span class="n">1</span>] : <span class="s">"rs_user"</span>;
+<span class="ln" id="L30">30</span>        <span class="t">String</span> password = args.length &gt; <span class="n">2</span> ? args[<span class="n">2</span>] : <span class="s">"rs_password"</span>;
+<span class="ln" id="L31">31</span>        <span class="t">TransactionBuffer</span> buffer = <span class="k">new</span> <span class="t">TransactionBuffer</span>(<span class="n">100_000</span>);
+<span class="ln" id="L32">32</span>        <span class="k">byte</span>[][] lastSeen = <span class="k">new</span> <span class="k">byte</span>[<span class="n">1</span>][];</code></pre><div class="note"><div class="range">Lines 27–32</div><p><code>public static void main(String[] args)</code>: the JVM entry point. Arguments: port, user and password, with local defaults. A <code>TransactionBuffer</code> groups transactions for printing. <code>byte[][] lastSeen</code> is a one-element array used as a mutable box, because a lambda or anonymous class may only capture effectively-final local variables.</p></div></section>
+<section class="blk" id="b34"><pre class="code"><code><span class="ln" id="L34">34</span>        <span class="t">LtlListener</span> listener = <span class="k">new</span> <span class="t">LtlListener</span>() {
+<span class="ln" id="L35">35</span>            <span class="a">@Override</span>
+<span class="ln" id="L36">36</span>            <span class="k">public</span> <span class="k">boolean</span> authenticate(<span class="t">String</span> u, <span class="t">String</span> p) {
+<span class="ln" id="L37">37</span>                <span class="t">System</span>.out.printf(<span class="s">"[probe] login user=%s password-ok=%s%n"</span>, u, password.equals(p));
+<span class="ln" id="L38">38</span>                <span class="k">return</span> user.equals(u) &amp;&amp; password.equals(p);
+<span class="ln" id="L39">39</span>            }</code></pre><div class="note"><div class="range">Lines 34–39</div><p>An <em>anonymous class</em> implementing <code>LtlListener</code>. <code>authenticate</code> prints whether the password matched; during discovery this showed that the password field was empty while RepAgent used password encryption.</p></div></section>
+<section class="blk" id="b41"><pre class="code"><code><span class="ln" id="L41">41</span>            <span class="a">@Override</span>
+<span class="ln" id="L42">42</span>            <span class="k">public</span> <span class="k">int</span> onConnectSource(<span class="t">String</span> server, <span class="t">String</span> database, <span class="k">int</span> proposedVersion) {
+<span class="ln" id="L43">43</span>                <span class="t">System</span>.out.printf(<span class="s">"[probe] connect source %s.%s LTL %d%n"</span>, server, database, proposedVersion);
+<span class="ln" id="L44">44</span>                <span class="k">return</span> proposedVersion;
+<span class="ln" id="L45">45</span>            }</code></pre><div class="note"><div class="range">Lines 41–45</div><p>Accepts whatever LTL version RepAgent proposes (unlike the connector, which requires 760), so the probe can observe other versions.</p></div></section>
+<section class="blk" id="b47"><pre class="code"><code><span class="ln" id="L47">47</span>            <span class="a">@Override</span>
+<span class="ln" id="L48">48</span>            <span class="k">public</span> <span class="t">String</span> maintenanceUser(<span class="t">String</span> server, <span class="t">String</span> database) {
+<span class="ln" id="L49">49</span>                <span class="k">return</span> <span class="s">"cdc_maint"</span>;
+<span class="ln" id="L50">50</span>            }</code></pre><div class="note"><div class="range">Lines 47–50</div><p>Maintenance user.</p></div></section>
+<section class="blk" id="b52"><pre class="code"><code><span class="ln" id="L52">52</span>            <span class="a">@Override</span>
+<span class="ln" id="L53">53</span>            <span class="k">public</span> <span class="k">byte</span>[] truncationPoint(<span class="t">String</span> server, <span class="t">String</span> database) {
+<span class="ln" id="L54">54</span>                <span class="c">// Discovery only: acknowledge the highest OQID seen, whether or not we understood it.</span>
+<span class="ln" id="L55">55</span>                <span class="k">return</span> <span class="t">Oqid</span>.locator(lastSeen[<span class="n">0</span>]);
+<span class="ln" id="L56">56</span>            }</code></pre><div class="note"><div class="range">Lines 52–56</div><p>Acknowledge-everything truncation: see the warning above.</p></div></section>
+<section class="blk" id="b58"><pre class="code"><code><span class="ln" id="L58">58</span>            <span class="a">@Override</span>
+<span class="ln" id="L59">59</span>            <span class="k">public</span> <span class="k">void</span> onCommands(<span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; commands) {
+<span class="ln" id="L60">60</span>                <span class="k">for</span> (<span class="t">LtlCommand</span> c : commands) {
+<span class="ln" id="L61">61</span>                    <span class="t">Matcher</span> m = <span class="t">OQID_TAG</span>.matcher(c.raw());
+<span class="ln" id="L62">62</span>                    <span class="k">while</span> (m.find()) {
+<span class="ln" id="L63">63</span>                        <span class="k">byte</span>[] q = <span class="t">Oqid</span>.fromHex(m.group(<span class="n">1</span>));
+<span class="ln" id="L64">64</span>                        <span class="k">if</span> (lastSeen[<span class="n">0</span>] == <span class="k">null</span> || <span class="t">Oqid</span>.compare(q, lastSeen[<span class="n">0</span>]) &gt; <span class="n">0</span>) lastSeen[<span class="n">0</span>] = q;
+<span class="ln" id="L65">65</span>                    }
+<span class="ln" id="L66">66</span>                    <span class="t">System</span>.out.printf(<span class="s">"[probe] %-8s xid=%s oqid=%s %s%n"</span>, c.kind(), <span class="t">Oqid</span>.hex(c.tranId()), <span class="t">Oqid</span>.hex(c.oqid()),
+<span class="ln" id="L67">67</span>                        c.isRowChange() ? c.table() + <span class="s">" before="</span> + c.before() + <span class="s">" after="</span> + c.after() : <span class="s">""</span>);
+<span class="ln" id="L68">68</span>                    buffer.accept(c).ifPresent(tx -&gt; <span class="t">System</span>.out.printf(
+<span class="ln" id="L69">69</span>                        <span class="s">"[probe] ==&gt; COMMITTED xid=%s rows=%d user=%s commitOqid=%s%n"</span>,
+<span class="ln" id="L70">70</span>                        tx.tranId(), tx.changes().size(), tx.user(), <span class="t">Oqid</span>.hex(tx.commitOqid())));
+<span class="ln" id="L71">71</span>                }
+<span class="ln" id="L72">72</span>            }</code></pre><div class="note"><div class="range">Lines 58–72</div><p>For every command: track the highest OQID, print kind, transaction id, OQID and row images, and print a summary line when a transaction commits. These <code>[probe]</code> lines are the evidence in <code>captures/ltl-capture-*.log</code>.</p></div></section>
+<section class="blk" id="b74"><pre class="code"><code><span class="ln" id="L74">74</span>            <span class="a">@Override</span>
+<span class="ln" id="L75">75</span>            <span class="k">public</span> <span class="k">void</span> onDisconnect(<span class="t">String</span> server, <span class="t">String</span> database, <span class="t">Exception</span> cause) {
+<span class="ln" id="L76">76</span>                <span class="t">System</span>.out.printf(<span class="s">"[probe] disconnected %s.%s cause=%s%n"</span>, server, database, cause);
+<span class="ln" id="L77">77</span>                buffer.clear();
+<span class="ln" id="L78">78</span>            }
+<span class="ln" id="L79">79</span>        };</code></pre><div class="note"><div class="range">Lines 74–79</div><p>On disconnect, print the cause and clear the buffer.</p></div></section>
+<section class="blk" id="b81"><pre class="code"><code><span class="ln" id="L81">81</span>        <span class="t">LtlServer</span> server = <span class="k">new</span> <span class="t">LtlServer</span>(<span class="s">"0.0.0.0"</span>, port, listener, <span class="k">true</span>, <span class="k">null</span>);
+<span class="ln" id="L82">82</span>        server.start();
+<span class="ln" id="L83">83</span>        <span class="t">Runtime</span>.getRuntime().addShutdownHook(<span class="k">new</span> <span class="t">Thread</span>(server::close));
+<span class="ln" id="L84">84</span>        <span class="t">Thread</span>.currentThread().join();</code></pre><div class="note"><div class="range">Lines 81–84</div><p>Start the server with tracing on; a shutdown hook closes it on Ctrl+C; then block the main thread forever (<code>join()</code> on itself).</p></div></section>
+<section class="blk" id="b85"><pre class="code"><code><span class="ln" id="L85">85</span>    }
+<span class="ln" id="L86">86</span>}</code></pre><div class="note"><div class="range">Lines 85–86</div><p>End of method and class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

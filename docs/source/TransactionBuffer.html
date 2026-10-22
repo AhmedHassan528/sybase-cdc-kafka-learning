@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TransactionBuffer.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>TransactionBuffer.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java</code> · 84 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> implements the rule "publish only on COMMIT, discard on ROLLBACK". RepAgent sends log records in log order, and the log interleaves many concurrent transactions. The buffer keeps a list of row changes per transaction id and releases the list as a <a href="CommittedTransaction.html">CommittedTransaction</a> when that transaction's COMMIT arrives.</p>
+<p><b>Thread:</b> only the RepAgent session thread uses it (not thread-safe by design). <b>Memory:</b> all rows of an open transaction are held in memory; a very large transaction (the 200,000-row test 6b) is held completely. <b>Tests:</b> <code>TransactionBufferTest</code>, scenarios 2, 3, 6b.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.cdc;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>cdc</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlCommand</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> org.slf4j.<span class="t">Logger</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> org.slf4j.<span class="t">LoggerFactory</span>;</code></pre><div class="note"><div class="range">Lines 3–5</div><p>Imports the parsed command type and SLF4J logging. SLF4J (Simple Logging Facade for Java) is an API only; the actual logging library is supplied by the Kafka Connect worker (reload4j in Kafka 3.8). That is why <code>slf4j-api</code> is a <code>provided</code> dependency in the POM.</p></div></section>
+<section class="blk" id="b7"><pre class="code"><code><span class="ln" id="L7">7</span><span class="k">import</span> java.util.<span class="t">ArrayList</span>;
+<span class="ln" id="L8">8</span><span class="k">import</span> java.util.<span class="t">HashMap</span>;
+<span class="ln" id="L9">9</span><span class="k">import</span> java.util.<span class="t">HexFormat</span>;
+<span class="ln" id="L10">10</span><span class="k">import</span> java.util.<span class="t">List</span>;
+<span class="ln" id="L11">11</span><span class="k">import</span> java.util.<span class="t">Map</span>;
+<span class="ln" id="L12">12</span><span class="k">import</span> java.util.<span class="t">Optional</span>;</code></pre><div class="note"><div class="range">Lines 7–12</div><p>JDK collections and <code>Optional</code> (a container that either holds a value or is empty, used instead of returning <code>null</code>).</p></div></section>
+<section class="blk" id="b14"><pre class="code"><code><span class="ln" id="L14">14</span><span class="c">/**</span>
+<span class="ln" id="L15">15</span><span class="c"> * Groups RepAgent commands by transaction id. Transactions from different</span>
+<span class="ln" id="L16">16</span><span class="c"> * sessions interleave in the log, so rows are held per tran_id and released</span>
+<span class="ln" id="L17">17</span><span class="c"> * only when that transaction's COMMIT arrives; ROLLBACK discards them.</span>
+<span class="ln" id="L18">18</span><span class="c"> *</span>
+<span class="ln" id="L19">19</span><span class="c"> * Not thread-safe: fed by the single RepAgent session thread.</span>
+<span class="ln" id="L20">20</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 14–20</div><p>Class comment: why grouping is needed, and the thread-safety contract.</p></div></section>
+<section class="blk" id="b21"><pre class="code"><code><span class="ln" id="L21">21</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">TransactionBuffer</span> {</code></pre><div class="note"><div class="range">Lines 21</div><p>Final class.</p></div></section>
+<section class="blk" id="b23"><pre class="code"><code><span class="ln" id="L23">23</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="t">Logger</span> log = <span class="t">LoggerFactory</span>.getLogger(<span class="t">TransactionBuffer</span>.<span class="k">class</span>);</code></pre><div class="note"><div class="range">Lines 23</div><p>A logger named after the class. <code>static final</code>: one logger shared by all instances, created once when the class loads. Log lines appear in the Connect worker log tagged with the connector and task name.</p></div></section>
+<section class="blk" id="b25"><pre class="code"><code><span class="ln" id="L25">25</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">final</span> <span class="k">class</span> <span class="t">Open</span> {
+<span class="ln" id="L26">26</span>        <span class="k">final</span> <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; changes = <span class="k">new</span> <span class="t">ArrayList</span>&lt;&gt;();
+<span class="ln" id="L27">27</span>        <span class="t">String</span> user;
+<span class="ln" id="L28">28</span>        <span class="k">boolean</span> warned;
+<span class="ln" id="L29">29</span>    }</code></pre><div class="note"><div class="range">Lines 25–29</div><p>Private nested class for one open transaction: its row changes (in arrival order), the user from the BEGIN record, and a flag so the "large transaction" warning is logged only once per transaction.</p></div></section>
+<section class="blk" id="b31"><pre class="code"><code><span class="ln" id="L31">31</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Open</span>&gt; open = <span class="k">new</span> <span class="t">HashMap</span>&lt;&gt;();
+<span class="ln" id="L32">32</span>    <span class="k">private</span> <span class="k">final</span> <span class="k">int</span> warnRowsPerTxn;
+<span class="ln" id="L33">33</span>    <span class="k">private</span> <span class="k">byte</span>[] lastCommitOqid;</code></pre><div class="note"><div class="range">Lines 31–33</div><p>State: open transactions keyed by transaction id (hex string), the warning threshold, and the last commit OQID seen (used by the probe tool only).</p></div></section>
+<section class="blk" id="b35"><pre class="code"><code><span class="ln" id="L35">35</span>    <span class="k">public</span> <span class="t">TransactionBuffer</span>(<span class="k">int</span> warnRowsPerTxn) {
+<span class="ln" id="L36">36</span>        <span class="k">this</span>.warnRowsPerTxn = warnRowsPerTxn;
+<span class="ln" id="L37">37</span>    }</code></pre><div class="note"><div class="range">Lines 35–37</div><p>Constructor. The threshold comes from <code>large.transaction.warn.rows</code> (default 100,000).</p></div></section>
+<section class="blk" id="b39"><pre class="code"><code><span class="ln" id="L39">39</span>    <span class="c">/** Feeds one command; returns the finished transaction when the command is its COMMIT. */</span>
+<span class="ln" id="L40">40</span>    <span class="k">public</span> <span class="t">Optional</span>&lt;<span class="t">CommittedTransaction</span>&gt; accept(<span class="t">LtlCommand</span> c) {
+<span class="ln" id="L41">41</span>        <span class="t">String</span> xid = c.tranId() == <span class="k">null</span> ? <span class="s">""</span> : <span class="t">HexFormat</span>.of().formatHex(c.tranId());</code></pre><div class="note"><div class="range">Lines 39–41</div><p><b>Main method.</b> Takes one command and returns either an empty <code>Optional</code> or the finished transaction. The transaction id is converted to hex so it can be a map key (Java arrays use identity equality, so <code>byte[]</code> keys would never match). Commands without a transaction id (e.g. <code>purge open_xact</code>) get the key <code>""</code>.</p></div></section>
+<section class="blk" id="b42"><pre class="code"><code><span class="ln" id="L42">42</span>        <span class="k">switch</span> (c.kind()) {</code></pre><div class="note"><div class="range">Lines 42</div><p>A <em>switch expression with arrow labels</em> (Java 14+): no fall-through between cases. The compiler checks that the enum's cases used here are valid.</p></div></section>
+<section class="blk" id="b43"><pre class="code"><code><span class="ln" id="L43">43</span>            <span class="k">case</span> <span class="t">BEGIN</span> -&gt; {
+<span class="ln" id="L44">44</span>                <span class="t">Open</span> o = <span class="k">new</span> <span class="t">Open</span>();
+<span class="ln" id="L45">45</span>                o.user = c.user();
+<span class="ln" id="L46">46</span>                open.put(xid, o);
+<span class="ln" id="L47">47</span>            }</code></pre><div class="note"><div class="range">Lines 43–47</div><p><b>BEGIN:</b> start a fresh, empty buffer for this transaction and remember the user. If a buffer already existed for the same id (not expected), it is replaced.</p></div></section>
+<section class="blk" id="b48"><pre class="code"><code><span class="ln" id="L48">48</span>            <span class="k">case</span> <span class="t">INSERT</span>, <span class="t">UPDATE</span>, <span class="t">DELETE</span> -&gt; {
+<span class="ln" id="L49">49</span>                <span class="c">// A missing BEGIN happens when RepAgent restarts inside a transaction's span; keep the rows anyway.</span>
+<span class="ln" id="L50">50</span>                <span class="t">Open</span> o = open.computeIfAbsent(xid, k -&gt; <span class="k">new</span> <span class="t">Open</span>());
+<span class="ln" id="L51">51</span>                o.changes.add(c);
+<span class="ln" id="L52">52</span>                <span class="k">if</span> (!o.warned &amp;&amp; o.changes.size() &gt;= warnRowsPerTxn) {
+<span class="ln" id="L53">53</span>                    o.warned = <span class="k">true</span>;
+<span class="ln" id="L54">54</span>                    log.warn(<span class="s">"Transaction {} holds {} rows in memory (large transaction)"</span>, xid, o.changes.size());
+<span class="ln" id="L55">55</span>                }
+<span class="ln" id="L56">56</span>            }</code></pre><div class="note"><div class="range">Lines 48–56</div><p><b>Row change:</b> append to the transaction's buffer. <code>computeIfAbsent</code> creates the buffer if no BEGIN was seen. That happens legitimately when RepAgent restarts scanning from a truncation point that lies inside a transaction's span. Only the user name is lost in that case, never the rows. Once the buffer reaches the threshold, one warning is logged (the transaction stays in memory either way).</p></div></section>
+<section class="blk" id="b57"><pre class="code"><code><span class="ln" id="L57">57</span>            <span class="k">case</span> <span class="t">COMMIT</span> -&gt; {
+<span class="ln" id="L58">58</span>                <span class="t">Open</span> o = open.remove(xid);
+<span class="ln" id="L59">59</span>                <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; rows = o == <span class="k">null</span> ? <span class="t">List</span>.of() : o.changes;
+<span class="ln" id="L60">60</span>                lastCommitOqid = c.oqid();
+<span class="ln" id="L61">61</span>                <span class="k">return</span> <span class="t">Optional</span>.of(<span class="k">new</span> <span class="t">CommittedTransaction</span>(xid, c.oqid(), c.originTime(), o == <span class="k">null</span> ? <span class="k">null</span> : o.user, rows));
+<span class="ln" id="L62">62</span>            }</code></pre><div class="note"><div class="range">Lines 57–62</div><p><b>COMMIT:</b> remove the buffer and return everything as a <code>CommittedTransaction</code>, with the COMMIT record's OQID as the transaction's log position and its origin time as the commit time. A COMMIT with no buffered rows returns a transaction with an empty list; the task still registers it so the truncation point can advance (see <a href="AckTracker.html">AckTracker</a>). ASE's own system transactions (e.g. <code>rs_logexec</code>, <code>_dmpxact</code>) arrive this way.</p></div></section>
+<section class="blk" id="b63"><pre class="code"><code><span class="ln" id="L63">63</span>            <span class="k">case</span> <span class="t">ROLLBACK</span> -&gt; {
+<span class="ln" id="L64">64</span>                <span class="t">Open</span> o = open.remove(xid);
+<span class="ln" id="L65">65</span>                <span class="k">if</span> (o != <span class="k">null</span> &amp;&amp; !o.changes.isEmpty()) log.debug(<span class="s">"Rolled back {} discarding {} rows"</span>, xid, o.changes.size());
+<span class="ln" id="L66">66</span>            }</code></pre><div class="note"><div class="range">Lines 63–66</div><p><b>ROLLBACK:</b> drop the buffer; nothing is ever published. RepAgent may send a rollback twice for the same id (seen in capture <code>types-rollback.bin</code>); the second is a harmless no-op. <b>Evidence:</b> scenario 2 (0 events). <b>Not handled:</b> partial rollbacks to a savepoint (<code>rollback to oqid</code> forms); they were not observed and are listed as untested.</p></div></section>
+<section class="blk" id="b67"><pre class="code"><code><span class="ln" id="L67">67</span>            <span class="k">case</span> <span class="t">OTHER</span> -&gt; log.debug(<span class="s">"Ignoring LTL command: {}"</span>, c.raw());</code></pre><div class="note"><div class="range">Lines 67</div><p><b>OTHER:</b> logged at DEBUG and ignored.</p></div></section>
+<section class="blk" id="b68"><pre class="code"><code><span class="ln" id="L68">68</span>        }
+<span class="ln" id="L69">69</span>        <span class="k">return</span> <span class="t">Optional</span>.empty();
+<span class="ln" id="L70">70</span>    }</code></pre><div class="note"><div class="range">Lines 68–70</div><p>End of switch; every non-COMMIT command returns "nothing finished yet".</p></div></section>
+<section class="blk" id="b72"><pre class="code"><code><span class="ln" id="L72">72</span>    <span class="k">public</span> <span class="k">int</span> openTransactions() {
+<span class="ln" id="L73">73</span>        <span class="k">return</span> open.size();
+<span class="ln" id="L74">74</span>    }</code></pre><div class="note"><div class="range">Lines 72–74</div><p>Number of open transactions (for diagnostics and tests).</p></div></section>
+<section class="blk" id="b76"><pre class="code"><code><span class="ln" id="L76">76</span>    <span class="k">public</span> <span class="k">byte</span>[] lastCommitOqid() {
+<span class="ln" id="L77">77</span>        <span class="k">return</span> lastCommitOqid;
+<span class="ln" id="L78">78</span>    }</code></pre><div class="note"><div class="range">Lines 76–78</div><p>Last commit OQID; used only by the discovery probe.</p></div></section>
+<section class="blk" id="b80"><pre class="code"><code><span class="ln" id="L80">80</span>    <span class="c">/** Called when RepAgent reconnects: it re-sends everything after the truncation point. */</span>
+<span class="ln" id="L81">81</span>    <span class="k">public</span> <span class="k">void</span> clear() {
+<span class="ln" id="L82">82</span>        open.clear();
+<span class="ln" id="L83">83</span>    }</code></pre><div class="note"><div class="range">Lines 80–83</div><p><b>Clear</b> all open transactions. Called when RepAgent connects or disconnects: after a reconnect RepAgent re-sends from the truncation point, including the BEGIN and rows of transactions that were open, so keeping half-filled buffers would duplicate rows inside one transaction.</p></div></section>
+<section class="blk" id="b84"><pre class="code"><code><span class="ln" id="L84">84</span>}</code></pre><div class="note"><div class="range">Lines 84</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

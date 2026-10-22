@@ -1,0 +1,23 @@
+# UNTESTED TEMPLATE. The connector instance, equivalent to connectors/sybase-cdc-phoenix.json (verified locally).
+# Validate with:  oc apply --dry-run=server -f 03-kafkaconnector.yaml
+apiVersion: eventstreams.ibm.com/v1beta2
+kind: KafkaConnector
+metadata:
+  name: sybase-cdc-phoenix
+  namespace: cdc
+  labels:
+    eventstreams.ibm.com/cluster: sybase-cdc     # name of the KafkaConnect resource
+spec:
+  class: com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector
+  tasksMax: 1
+  config:
+    ltl.listen.port: 11752
+    # Secret mounted by externalConfiguration at /opt/kafka/external-configuration/ltl-credentials
+    ltl.username: ${file:/opt/kafka/external-configuration/ltl-credentials:username}
+    ltl.password: ${file:/opt/kafka/external-configuration/ltl-credentials:password}
+    ltl.charset: <java charset of the ASE server, e.g. ISO-8859-1, UTF-8, windows-1256>
+    database.server.name: <select @@servername on production>
+    database.name: <phoenix database name>
+    topic.prefix: phoenix
+    table.include.list: payment
+    errors.tolerance: none

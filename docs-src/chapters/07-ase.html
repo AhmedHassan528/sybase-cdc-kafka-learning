@@ -1,0 +1,87 @@
+<h2 id="ch-ase" data-keywords="sybase ase sql login user role isql database table transaction devices sp_setreptable permissions">Sybase ASE fundamentals and database setup</h2>
+<p><b>Plain definition:</b> SAP Adaptive Server Enterprise (ASE) is a relational database server: one running server process (here <code>dataserver</code>, named <code>MYSYBASE</code>) hosts several databases (<code>master</code>, <code>phoenix_test</code>…), each containing tables, procedures and users. Clients talk to it with SQL over the TDS protocol (<code>isql</code>, JDBC, the Phoenix application). <b>Here:</b> ASE is the source of all changes; the connector never logs in to it.</p>
+
+<h3 id="ase-objects">Server, database, objects</h3>
+<ul>
+<li><b>Server</b>: the <code>dataserver</code> process and its configuration (<code>sp_configure</code>), listening on port 5000. Its name (<code>@@servername</code> = <code>MYSYBASE</code>) is what RepAgent reports to the connector.</li>
+<li><b>Devices</b>: files ASE stores data in (<code>disk init</code>). This project created <code>phoenix_data</code> (1 GB) and <code>phoenix_log</code> (512 MB).</li>
+<li><b>Database</b>: a set of objects with its own transaction log. <code>phoenix_test</code> stores data on <code>phoenix_data</code> and its log on <code>phoenix_log</code>, so log growth can be measured on its own.</li>
+<li><b>Objects</b>: tables, indexes, procedures, owned by a database user (usually <code>dbo</code>, the database owner).</li>
+<li><b>Transaction</b>: a group of changes that becomes visible and durable together at <code>commit</code>, or disappears at <code>rollback</code>. Without <code>begin tran</code>, each statement is its own transaction (ASE's default "unchained" mode). One <code>insert … select</code> of 10,000 rows is therefore one transaction (verified in test 6: 100 statements → 100 transaction ids × 10,000 rows).</li>
+</ul>
+
+<h3 id="ase-security">Logins, users and roles</h3>
+<p>ASE separates identities on two levels:</p>
+<dl class="kv">
+<dt>Login (server level)</dt><dd>An account that can connect to the server, stored in <code>master..syslogins</code> (<code>create login … with password …</code>). Example: <code>sa</code>.</dd>
+<dt>User (database level)</dt><dd>A login mapped into one database (<code>sp_adduser &lt;login&gt;</code> inside that database). Permissions on tables are granted to users.</dd>
+<dt>Role (server level)</dt><dd>A bundle of system privileges granted to logins: <code>sa_role</code> (administrator), <code>sso_role</code> (security officer), <code>replication_role</code> (replication administration).</dd>
+</dl>
+<div class="callout ok"><span class="t">Verified least privilege for RepAgent administration (test on SP02, evidence 12)</span>
+A login with <b>only</b> <code>replication_role</code>, mapped as a user in the database, could run <code>sp_help_rep_agent</code>, <code>sp_config_rep_agent</code> and query <code>sp_setreptable</code>. A login with only table permissions was refused with "Only the System Administrator (SA), the Database Owner (DBO) or a user with replication_role authorization can execute…". Not tested: <code>sp_start_rep_agent</code>/<code>sp_stop_rep_agent</code>, <code>sp_setreptable … true</code> and <code>sp_configure 'enable rep agent threads'</code> (server-wide, assume <code>sa_role</code>). Re-test on SP04.</div>
+<p><b>Which identities this solution needs:</b></p>
+<div class="tbl"><table>
+<thead><tr><th>Identity</th><th>Where it lives</th><th>Used by</th><th>Needs</th></tr></thead>
+<tbody>
+<tr><td>DBA login with <code>replication_role</code> (+ <code>sa_role</code> for server settings)</td><td>ASE</td><td>A human, once, to configure RepAgent</td><td>See callout</td></tr>
+<tr><td>RepAgent credential (<code>rs_user</code> locally)</td><td><b>Not an ASE login.</b> Stored in RepAgent's config (<code>sp_config_rep_agent … 'enable', 'CDC_RS', user, password</code>) and in the connector</td><td>RepAgent authenticating to the connector</td><td>Same value on both sides</td></tr>
+<tr><td>Maintenance user (<code>cdc_maint</code>)</td><td>A name returned by the connector</td><td>RepAgent, to filter that login's transactions</td><td>Must not be a login that runs business transactions</td></tr>
+<tr><td>Connector's own ASE login</td><td>—</td><td>—</td><td><b>None.</b> The connector never connects to ASE.</td></tr>
+</tbody></table></div>
+<p>Example of an application-style login (executed during the privilege test, then removed): </p>
+<pre data-lang="sql"><code>use master
+go
+create login cdc_app_test with password '&lt;password&gt;' default database phoenix_test
+go
+use phoenix_test
+go
+sp_adduser cdc_app_test
+go
+grant select, insert, update, delete on payment to cdc_app_test
+go</code></pre>
+
+<h3 id="ase-connect">Connecting and checking the version</h3>
+<pre data-lang="bash"><code>printf "select @@version\ngo\nselect @@servername\ngo\nsp_lmconfig\ngo\n" | captures/isql.sh</code></pre>
+<p>Expected (local): <code>Adaptive Server Enterprise/16.0 SP02 PL02/EBF 25320 SMP/P/x86_64/Enterprise Linux/…</code>, <code>MYSYBASE</code>, and <code>edition DE</code>, <code>license type null</code> / property <code>LT DT</code> (Developer Edition, development/test licence). Full output: <code>docs/evidence/08-ase-facts.txt</code>.</p>
+
+<h3 id="ase-scripts">The initialisation scripts, line by line</h3>
+<h4><code>sybase/00_database.sql</code></h4>
+<div class="tbl"><table><tbody>
+<tr><td>1–2</td><td><code>use master</code> / <code>go</code>: devices and databases are created from <code>master</code>. <code>go</code> sends the batch.</td></tr>
+<tr><td>3–6</td><td><code>disk init</code> creates two device files: 1 GB for data, 512 MB for the log.</td></tr>
+<tr><td>7</td><td><code>create database phoenix_test on phoenix_data = '1G' log on phoenix_log = '512M'</code>: data and log on separate devices. A separate log device is what makes "free log pages" a meaningful metric for the CDC backlog.</td></tr>
+<tr><td>9–12</td><td><code>select into</code> (allows minimally logged <code>select into</code>/bcp in this test DB) and <code>ddl in tran</code> (allows <code>create table</code> inside transactions). Test conveniences; check the production database's own options.</td></tr>
+<tr><td>13–14</td><td><code>trunc log on chkpt</code>: ASE truncates the log at each checkpoint, but <b>never beyond the RepAgent secondary truncation point</b>, so un-replicated records stay (test 7). <b>Production databases normally keep this off</b> and rely on <code>dump transaction</code> for point-in-time recovery; RepAgent's truncation point also holds <code>dump tran</code> back. Do not change production backup settings for CDC.</td></tr>
+</tbody></table></div>
+<h4><code>sybase/01_setup.sql</code></h4>
+<div class="tbl"><table><tbody>
+<tr><td>2</td><td><code>sp_configure 'enable rep agent threads', 1</code>: server-wide switch allowing RepAgent threads (dynamic, no restart). On this Developer Edition it needed no additional licence; for production licensing see <a href="#licensing">licensing</a>.</td></tr>
+<tr><td>4–13</td><td>The test table. <code>payment_id numeric(18,0) identity primary key</code>: auto-numbered key; the primary key is what RepAgent flags (<code>G</code>) and what becomes the Kafka key. Every captured table should have a primary key.</td></tr>
+<tr><td>14</td><td><code>sp_setreptable payment, true</code>: marks the table for replication; ASE then writes the extra log information RepAgent needs and RepAgent forwards its changes. The first time, ASE warned <code>Msg 9137 … LTM trunc. point not yet established</code>, which is expected until RepAgent is enabled. Verify with <code>sp_setreptable payment</code> → <code>true, owner_off, primary key = …</code>.</td></tr>
+<tr><td>16</td><td>Print the version into the container log.</td></tr>
+</tbody></table></div>
+<h4><code>sybase/02_repagent.sql</code></h4>
+<div class="tbl"><table><tbody>
+<tr><td>4–7</td><td><code>sp_config_rep_agent phoenix_test, 'enable', 'CDC_RS', 'rs_user', 'rs_password'</code>, run <b>inside</b> the database (from <code>master</code> it fails with Msg 18381). Enables RepAgent for the database, names the "Replication Server" to connect to (an interfaces entry) and the credentials it presents (<code>rs_user</code>/<code>rs_password</code> are <b>local test values</b>; in production the DBA uses values from the secret store, see <a href="#cfg-security">security settings</a>). It also <b>establishes the secondary truncation point</b>: from now on the log is held until RepAgent has delivered it.</td></tr>
+<tr><td>8</td><td>Show RepAgent status (not started yet).</td></tr>
+<tr><td>12</td><td><code>'net password encryption', 'false'</code>: send the password in the plain TDS login field, which the connector can check (<a href="#hist-login">history 4</a>). Takes effect at the next RepAgent start.</td></tr>
+</tbody></table></div>
+<h4><code>sybase/03_log_threshold.sql</code></h4>
+<p>Creates table <code>cdc_log_alert</code>, procedure <code>sp_cdc_log_alert</code> and a free-space threshold on <code>logsegment</code> at 24,576 pages (75% free of 32,768). When free pages fall below it, ASE calls the procedure, which inserts a row and <code>print</code>s <code>CDC ALERT: …</code> into the errorlog. It never truncates anything. ASE's built-in "last-chance threshold" (288 pages here) remains; when reached, ASE suspends transactions that need log space until space is freed. Verified in test 7.</p>
+
+<h3 id="ase-testdata">Test schema and data</h3>
+<p>Besides <code>payment</code>, discovery tables exercise every type: <code>sybase/90_ltl_types_probe.sql.manual</code> (<code>ltl_types</code>: all common types, update, delete, rollback, multi-row), <code>91_ltl_long_values.sql.manual</code> (<code>ltl_long</code> composite key, 63/64/5,000-character values; <code>ltl_nopk</code> without key), <code>92_ltl_long_binary.sql.manual</code> (<code>ltl_long3</code>, 3-digit lengths). Run manually: <code>docker exec cdc-sybase bash -c 'source /opt/sybase/SYBASE.sh; isql -Usa -P… -SMYSYBASE -i /scripts/90_ltl_types_probe.sql.manual'</code>. They are excluded by <code>table.include.list=payment</code> from Kafka but are visible to the probe.</p>
+
+<h3 id="ase-backup">Backup and restore considerations</h3>
+<ul>
+<li>RepAgent's secondary truncation point holds the log until delivery. A stopped connector therefore grows the log and can block <code>dump tran</code> from freeing space.</li>
+<li>Loading a database dump or restarting from a restored database changes the log; OQIDs embed a database <em>generation</em> number, but restore scenarios were <b>not tested</b>. After any restore, plan a re-baseline (full snapshot) of downstream consumers.</li>
+<li><code>dbcc settrunc('ltm', 'ignore')</code> removes the truncation point and lets ASE free the log, discarding un-replicated changes for CDC. It is an emergency DBA action only, never automated (<a href="#rb-log-emergency">runbook</a>).</li>
+</ul>
+
+<h3 id="licensing">Licensing and support facts</h3>
+<ul>
+<li>The local image is <b>ASE Developer Edition</b> (SySAM edition <code>DE</code>, licence type <code>DT</code>): for development and testing only. Do not redistribute the image.</li>
+<li>Whether production RepAgent use requires an additional SAP licence option is <b>not established</b> by this project (SAP knowledge-base articles list separate SySAM features for replication products; none was required on Developer Edition). <b>Action:</b> confirm with the bank's SAP licence owner before go-live.</li>
+<li>SAP documents LTL only up to version 700 and does not support third-party Replication Server emulation. Treat the protocol layer as unsupported by SAP.</li>
+</ul>

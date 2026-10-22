@@ -1,0 +1,30 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="arch" name="Sybase CDC architecture">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" page="1" pageWidth="1400" pageHeight="700">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="ase" value="ASE 16.0 (Phoenix)" style="swimlane;rounded=1;fillColor=#e2f0f5;strokeColor=#0b6e8f;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="20" y="80" width="330" height="420" as="geometry"/></mxCell>
+        <mxCell id="app" value="Phoenix application&lt;br&gt;INSERT / UPDATE / DELETE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#5a6b75;" vertex="1" parent="ase"><mxGeometry x="60" y="40" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="log" value="phoenix_test&lt;br&gt;transaction log (syslogs)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#ffffff;strokeColor=#5a6b75;" vertex="1" parent="ase"><mxGeometry x="75" y="150" width="180" height="90" as="geometry"/></mxCell>
+        <mxCell id="ra" value="RepAgent thread&lt;br&gt;(LTL 760, passthru)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0b6e8f;" vertex="1" parent="ase"><mxGeometry x="60" y="300" width="210" height="60" as="geometry"/></mxCell>
+        <mxCell id="e1" style="endArrow=block;html=1;" edge="1" parent="ase" source="app" target="log"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="scan" style="endArrow=block;html=1;" edge="1" parent="ase" source="log" target="ra"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="kc" value="Kafka Connect worker (sybase-cdc-phoenix)" style="swimlane;rounded=1;fillColor=#f6f8f9;strokeColor=#16232b;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="420" y="80" width="560" height="420" as="geometry"/></mxCell>
+        <mxCell id="srv" value="LtlServer / LtlSession&lt;br&gt;fake Replication Server :11752" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="kc"><mxGeometry x="20" y="300" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="par" value="LtlParser&lt;br&gt;LTL 760 decoder" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="kc"><mxGeometry x="20" y="190" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="buf" value="TransactionBuffer&lt;br&gt;per tran_id, COMMIT only" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="kc"><mxGeometry x="20" y="80" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="q" value="bounded queue&lt;br&gt;SourceTask.poll()" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="kc"><mxGeometry x="310" y="80" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="ack" value="AckTracker&lt;br&gt;watermark = acked commit OQID" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbf0dc;strokeColor=#9a6100;" vertex="1" parent="kc"><mxGeometry x="310" y="300" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;" edge="1" parent="kc" source="srv" target="par"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="endArrow=block;html=1;" edge="1" parent="kc" source="par" target="buf"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="COMMIT" style="endArrow=block;html=1;" edge="1" parent="kc" source="buf" target="q"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="kafka" value="Kafka topic&lt;br&gt;sybase.phoenix_test.payment" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#e3f3ea;strokeColor=#1d7a46;" vertex="1" parent="1"><mxGeometry x="1060" y="150" width="200" height="90" as="geometry"/></mxCell>
+        <mxCell id="e6" value="TDS + LTL (port 11752)" style="endArrow=block;html=1;" edge="1" parent="1" source="ra" target="srv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="produce" style="endArrow=block;html=1;" edge="1" parent="1" source="q" target="kafka"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="producer ack: commitRecord()" style="endArrow=block;html=1;dashed=1;" edge="1" parent="1" source="kafka" target="ack"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="get truncation returns acked OQID&lt;br&gt;(moves secondary truncation point)" style="endArrow=block;html=1;dashed=1;strokeColor=#9a6100;" edge="1" parent="1" source="ack" target="ra"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="840" y="560"/><mxPoint x="185" y="560"/></Array></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

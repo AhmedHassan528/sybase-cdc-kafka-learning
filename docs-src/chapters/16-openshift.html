@@ -1,0 +1,127 @@
+<h2 id="ch-openshift" data-keywords="openshift kubernetes ibm event streams cp4i kafkaconnect kafkaconnector operator image registry service loadbalancer nodeport networkpolicy secret deployment confluent">OpenShift and IBM Event Streams deployment guide</h2>
+<div class="callout danger"><span class="t">Status: UNTESTED</span>No OpenShift cluster or Event Streams instance was available. Everything in this chapter is a <b>proposed</b> procedure built from the locally verified connector, IBM's published Event Streams documentation (<a href="#ref-es">references</a>) and Kubernetes behaviour. The YAML files in <code>deploy/openshift/</code> were only syntax-checked (<code>evidence/11-openshift-yaml-syntax.txt</code>). Validate each step in a non-production namespace first.</div>
+
+<h3 id="os-paths">Two paths</h3>
+<div class="tbl"><table>
+<thead><tr><th></th><th>Path A: Docker (verified)</th><th>Path B: OpenShift + Event Streams (proposed)</th></tr></thead>
+<tbody>
+<tr><td>Worker</td><td><code>apache/kafka:3.8.0</code> container, <code>connect-distributed.sh</code></td><td>KafkaConnect custom resource; the Event Streams operator creates the pod</td></tr>
+<tr><td>Connector JAR</td><td>bind mount or <code>sybase-cdc-connect:0.1.0</code> image</td><td>operator <code>build</code> from an artifact URL, or a pre-built image on IBM's base image</td></tr>
+<tr><td>Connector config</td><td>REST <code>POST</code> of JSON</td><td>KafkaConnector CR (REST changes are overwritten by the operator)</td></tr>
+<tr><td>RepAgent reaches the listener via</td><td>Docker network name <code>connect</code></td><td>LoadBalancer or NodePort Service address (Routes cannot carry raw TDS)</td></tr>
+<tr><td>Secrets</td><td>local test values in files</td><td>OpenShift Secret → mounted file → <code>${file:…}</code> reference</td></tr>
+<tr><td>Kafka security</td><td>PLAINTEXT</td><td>TLS + SCRAM-SHA-512 or mutual TLS, per Event Streams setup</td></tr>
+</tbody></table></div>
+
+<figure-diagram src="11-openshift-architecture" n="11" title="Proposed OpenShift / Event Streams architecture">
+<p><b>Purpose:</b> where each piece runs in production. ASE (SLES 12, outside the cluster) → bank network/firewall → LoadBalancer Service :11752 → the single Connect pod (dedicated KafkaConnect cluster, <code>replicas: 1</code>) → Event Streams brokers over TLS. The NetworkPolicy admits only the ASE host on 11752. Secrets come from the bank's secret store.</p>
+<p><b>Why one replica:</b> RepAgent connects to one host:port, and only the worker running the task has the listener open. With more replicas the Service would send RepAgent to workers without a listener. High availability comes from the pod being rescheduled (seconds to minutes) while ASE holds the log.</p>
+<p><b>Does not show:</b> the image registry and CI pipeline.</p>
+</figure-diagram>
+
+<h3 id="os-prereq">Prerequisites and questions for the platform team</h3>
+<ul>
+<li>Event Streams version and its Kafka version (compile/test against the same Connect API; 0.1.0 targets 3.8.0).</li>
+<li>Namespace (<code>cdc</code> in the templates), permission to create KafkaConnect/KafkaConnector, Service of type LoadBalancer (MetalLB or cloud LB) or NodePort, NetworkPolicy, Secret.</li>
+<li>An approved registry and an artifact repository for the JAR.</li>
+<li>A Kafka user for Connect with: read/write on its three internal topics, write/describe on <code>&lt;prefix&gt;.*</code>, group <code>sybase-cdc-connect</code>.</li>
+<li>Network path ASE host → LB address :11752 (firewall change) and the reverse path is not needed.</li>
+<li>Production ASE facts from the DBA: <code>@@servername</code>, database name, charset (<code>sp_helpsort</code>), tables in scope and their primary keys, log size and current free space, RepAgent licence/option (<a href="#licensing">licensing</a>).</li>
+</ul>
+
+<h3 id="es-image">Building the worker image for Event Streams</h3>
+<p>Two options, both in <code>deploy/openshift/02-kafkaconnect-eventstreams.yaml</code>:</p>
+<ol>
+<li><b>Operator build</b> (<code>spec.build</code>): the operator downloads the JAR from <code>url</code>, checks <code>sha512sum</code>, builds an image and pushes it to <code>output.image</code>. Needs a registry push secret. Compute the checksum with <code>sha512sum sybase-cdc-connector-0.1.0.jar</code>.</li>
+<li><b>Pre-built image</b>: IBM's documentation describes a Dockerfile that starts <code>FROM cp.icr.io/cp/ibm-eventstreams-kafka:&lt;version&gt;</code>, copies plugins under <code>/opt/kafka/plugins/</code> and sets <code>USER 1001</code>. For this connector:
+<pre data-lang="dockerfile"><code>FROM cp.icr.io/cp/ibm-eventstreams-kafka:&lt;your Event Streams version&gt;
+COPY plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar /opt/kafka/plugins/sybase-cdc/
+USER 1001</code></pre>
+Pulling from <code>cp.icr.io</code> needs an IBM entitlement key (obtain through the bank's IBM account; never put it in Git). Reference the image by digest in the KafkaConnect CR.</li>
+</ol>
+<p>The local image <code>sybase-cdc-connect:0.1.0</code> (based on <code>apache/kafka</code>) and its archive <code>deliverables/images/sybase-cdc-connect-0.1.0.tar.gz</code> are for Path A and for plain Strimzi-style clusters; Event Streams expects its own base image.</p>
+
+<h3 id="os-yaml">The templates, explained</h3>
+<div class="tbl"><table>
+<thead><tr><th>File</th><th>Kind</th><th>Key points</th></tr></thead>
+<tbody>
+<tr><td><code>01-secret-ltl.yaml</code></td><td>Secret</td><td>Keys <code>username</code>, <code>password</code> with placeholders <code>${LTL_USERNAME}</code>/<code>${LTL_PASSWORD}</code>. Create it from the secret store (sealed-secrets, External Secrets, Vault), never commit values. Same values the DBA sets with <code>sp_config_rep_agent … 'enable'</code>.</td></tr>
+<tr><td><code>02-kafkaconnect-eventstreams.yaml</code></td><td>KafkaConnect (<code>eventstreams.ibm.com/v1beta2</code>)</td><td><code>replicas: 1</code>; annotation <code>use-connector-resources</code>; TLS trust + SCRAM; <code>build</code> or <code>image</code>; internal topics with RF 3; <code>offset.flush.interval.ms: 5000</code>; JSON converters without schemas; <code>DirectoryConfigProvider</code>; <code>externalConfiguration</code> mounting the Secret; 3 Gi memory, <code>-Xmx2g</code> (local peak 1.95 GiB).</td></tr>
+<tr><td><code>03-kafkaconnector.yaml</code></td><td>KafkaConnector</td><td>Label <code>eventstreams.ibm.com/cluster: sybase-cdc</code>; <code>tasksMax: 1</code>; credentials as <code>${file:/opt/kafka/external-configuration/ltl-credentials:password}</code>; placeholders for server, database, charset; <code>errors.tolerance: none</code>.</td></tr>
+<tr><td><code>04-service-ltl.yaml</code></td><td>Service</td><td><code>LoadBalancer</code> (or NodePort) on 11752; <code>externalTrafficPolicy: Local</code> keeps ASE's source IP for the NetworkPolicy; selector on the operator's pod labels (verify with <code>oc get pods --show-labels</code>).</td></tr>
+<tr><td><code>05-networkpolicy-ltl.yaml</code></td><td>NetworkPolicy</td><td>Ingress to 11752 only from <code>&lt;ase-host-ip&gt;/32</code>. A primary control, because LTL login is a clear-text password over unencrypted TDS.</td></tr>
+</tbody></table></div>
+<p class="small">The <code>externalConfiguration</code> field follows the Event Streams 11.x documentation; newer Strimzi-based operators replace it with template volumes. Check the documentation of your exact version.</p>
+
+<h3 id="os-steps">Deployment procedure (proposed)</h3>
+<ol class="steps">
+<li><b>Prepare:</b> answers to the prerequisites; change tickets for ASE (RepAgent, interfaces entry), firewall and OpenShift.</li>
+<li><b>Publish the artifact:</b> upload the JAR (record SHA-256 and SHA-512) or push the image.</li>
+<li><b>Dry-run:</b> <code>oc apply --dry-run=server -f deploy/openshift/</code> after replacing placeholders (keep secrets out of the files).</li>
+<li><b>Create Secret, KafkaConnect;</b> wait: <code>oc get kafkaconnect sybase-cdc -n cdc -w</code> until Ready; <code>oc logs</code> the pod; check <code>/connector-plugins</code> with <code>oc exec … curl -s localhost:8083/connector-plugins</code>.</li>
+<li><b>Create Service and NetworkPolicy;</b> note the external address: <code>oc get svc sybase-cdc-ltl -n cdc</code>.</li>
+<li><b>Create the KafkaConnector;</b> check <code>oc get kafkaconnector sybase-cdc-phoenix -n cdc -o yaml</code> status and the log line <code>LTL server listening on 0.0.0.0:11752</code>.</li>
+<li><b>Test connectivity from the ASE host</b> to <code>&lt;lb&gt;:11752</code> (TCP only).</li>
+<li><b>DBA configures ASE</b> (in a change window): interfaces entry <code>CDC_RS → &lt;lb&gt; 11752</code>; <code>sp_config_rep_agent db, 'enable', 'CDC_RS', user, password</code>; <code>net password encryption false</code>; <code>retry timeout 10</code>; <code>sp_setreptable</code> for each table; log threshold. <b>Note:</b> enabling RepAgent creates the secondary truncation point; from then on the log is held until the connector acknowledges.</li>
+<li><b>Start RepAgent</b>: <code>sp_start_rep_agent db</code>; verify in the connector log (<code>RepAgent connected</code>, <code>using 760</code> or the version SP04 proposes).</li>
+<li><b>Smoke test</b> with a test row agreed with the business, then the walkthrough checks (offsets, truncation point).</li>
+</ol>
+<p>Rollback and upgrade: see <a href="#rb-deploy">deploy/rollback runbook</a>.</p>
+
+<h3 id="os-confluent">If the platform is Confluent instead</h3>
+<p>The connector is a standard Kafka Connect plugin and does not depend on Event Streams. On Confluent for Kubernetes the equivalents are the <code>Connect</code> and <code>Connector</code> custom resources (API group <code>platform.confluent.io</code>); on plain Strimzi, <code>kafka.strimzi.io</code> KafkaConnect/KafkaConnector, which Event Streams' CRs mirror. The same rules apply: one replica (or a dedicated single-task cluster), a TCP Service, a Secret through a config provider. <b>Not tested</b> on either.</p>
+
+<h3 id="os-monitoring">Monitoring to set up</h3>
+<ul>
+<li>Task state ≠ RUNNING (operator status or Connect REST) → page on-call.</li>
+<li>ASE log free space and the existing threshold alert (<code>cdc_log_alert</code> table / errorlog text <code>CDC ALERT</code>).</li>
+<li>RepAgent state from <code>sp_help_rep_agent</code> (down = not replicating, the log keeps growing).</li>
+<li>Latency: <code>ts_ms</code> minus <code>source.commit_time</code> in a consumer, or Connect's <code>source-record-poll-rate</code> JMX metrics.</li>
+<li>Pod restarts and heap usage (JMX).</li>
+</ul>
+
+<h2 id="ch-readiness" data-keywords="banking production readiness checklist go live approval risk sign off audit">Banking production readiness</h2>
+<div class="callout warn"><span class="t">Verdict: NOT production-ready</span>The connector is a working proof of concept with strong local evidence for correctness under failure. It has <b>not</b> run on the production ASE version, on OpenShift, with production security, or for a long period; it reimplements an undocumented SAP protocol; and it has no vendor support. Passing the Docker tests does not change that.</div>
+<div class="tbl"><table>
+<thead><tr><th>Area</th><th>Requirement</th><th>Status</th><th>Evidence / gap</th></tr></thead>
+<tbody>
+<tr><td>Correctness</td><td>No loss on commit, rollback, crash, restart</td><td><span class="pill pass">Met locally</span></td><td>T1–T7, P5, T6a/b</td></tr>
+<tr><td>Correctness</td><td>Validated on ASE 16.0 SP04 PL07 HF1</td><td><span class="pill fail">Open</span></td><td><a href="#ch-migration">migration procedure</a></td></tr>
+<tr><td>Correctness</td><td>All production tables and data types</td><td><span class="pill fail">Open</span></td><td>only <code>payment</code> end to end; LOBs unsupported</td></tr>
+<tr><td>Security</td><td>Encrypted transport and no clear-text password</td><td><span class="pill fail">Open</span></td><td>LTL is clear text; mitigation: NetworkPolicy + firewall</td></tr>
+<tr><td>Security</td><td>Secrets from the secret store, not in config</td><td><span class="pill warn">Designed</span></td><td>templates use <code>${file:…}</code>; untested</td></tr>
+<tr><td>Security</td><td>Customer data not written to logs</td><td><span class="pill warn">Conditional</span></td><td>only if <code>ltl.trace</code> and dump options stay off</td></tr>
+<tr><td>Security</td><td>Code review and dependency scan</td><td><span class="pill fail">Open</span></td><td>no independent review yet</td></tr>
+<tr><td>Reliability</td><td>Soak test (days) with production-like load</td><td><span class="pill fail">Open</span></td><td>tests lasted minutes</td></tr>
+<tr><td>Reliability</td><td>Largest Phoenix transaction fits in memory</td><td><span class="pill fail">Open</span></td><td>need the size of the largest batch job</td></tr>
+<tr><td>Operations</td><td>Runbooks, monitoring, alerts, on-call</td><td><span class="pill warn">Drafted</span></td><td><a href="#ch-runbooks">runbooks</a>; monitoring not built</td></tr>
+<tr><td>Operations</td><td>Log-full procedure approved by DBAs</td><td><span class="pill fail">Open</span></td><td><a href="#rb-log-emergency">runbook</a> needs DBA sign-off</td></tr>
+<tr><td>Support</td><td>Owner for the code; SAP/IBM positions</td><td><span class="pill fail">Open</span></td><td>SAP does not document LTL ≥ 700 for third parties; licensing of RepAgent use unknown</td></tr>
+<tr><td>Change control</td><td>Versioned source in Git, CI build, signed artifacts</td><td><span class="pill fail">Open</span></td><td>work exists only in a local folder</td></tr>
+<tr><td>Alternative</td><td>Compared with supported products</td><td><span class="pill fail">Open</span></td><td>e.g. SAP Replication Server, Qlik Replicate (<a href="#ref-qlik">uses the same RepAgent mechanism</a>)</td></tr>
+</tbody></table></div>
+
+<h2 id="ch-security" data-keywords="security reliability assessment risks findings severity password tls customer data logs memory charset">Security and reliability assessment</h2>
+<p>Findings from code review and tests. Severity is for a banking production deployment: <span class="pill fail">HIGH</span> blocks go-live; <span class="pill warn">MEDIUM</span> needs a fix or an accepted mitigation; <span class="pill info">LOW</span> should be fixed; <span class="pill na">INFO</span> is a known behaviour to document.</p>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Finding</th><th>Severity</th><th>Evidence</th><th>Recommendation</th></tr></thead>
+<tbody>
+<tr><td>S1</td><td>RepAgent logs in with a clear-text password over unencrypted TDS (<code>net password encryption=false</code>)</td><td><span class="pill fail">HIGH</span></td><td><code>sybase/02_repagent.sql</code>; <a href="#hist-login">history</a></td><td>NetworkPolicy + firewall (only the ASE host); investigate SSL interfaces entries; long, rotated password</td></tr>
+<tr><td>S2</td><td>A literal <code>ltl.password</code> is returned by the Connect REST API</td><td><span class="pill warn">MEDIUM</span></td><td><code>evidence/06-connect-rest.txt</code></td><td>Always use <code>${file:…}</code>; restrict the REST API</td></tr>
+<tr><td>S3</td><td><code>ltl.trace</code>, the probe and <code>ltl.dump.dir</code> write row values (customer data) to logs/files</td><td><span class="pill warn">MEDIUM</span></td><td>code; 435 MB trace incident</td><td>Off in production; approval + deletion procedure when needed</td></tr>
+<tr><td>S4</td><td>The listener accepts any number of concurrent sessions; no limit on message size</td><td><span class="pill warn">MEDIUM</span></td><td>code (<a href="source/LtlServer.html">LtlServer</a>)</td><td>Reject a second session; cap packet/message size</td></tr>
+<tr><td>S5</td><td>Whole transactions are buffered in memory until COMMIT; heap reached 1,954 MiB</td><td><span class="pill warn">MEDIUM</span></td><td>T6.3 stats</td><td>Size heap from the largest transaction; consider spill-to-disk</td></tr>
+<tr><td>S6</td><td>Unknown charsets silently fall back to ISO-8859-1</td><td><span class="pill warn">MEDIUM</span></td><td>code</td><td>Fail on an unknown charset; set <code>ltl.charset</code></td></tr>
+<tr><td>S7</td><td>Undocumented protocol; behaviour on SP04 unknown</td><td><span class="pill fail">HIGH</span></td><td>SAP docs stop at LTL 700</td><td>Migration validation; contingency plan</td></tr>
+<tr><td>S8</td><td>A Kafka outage restarts the task (RepAgent reconnects; duplicates)</td><td><span class="pill info">LOW</span></td><td>P5</td><td>Document; consumers idempotent</td></tr>
+<tr><td>S9</td><td>At-least-once only; duplicates after crashes (up to a full transaction)</td><td><span class="pill na">INFO</span></td><td>T4b, T6b</td><td>De-duplicate on <code>source.oqid</code>; exactly-once (KIP-618) as a future improvement</td></tr>
+<tr><td>S10</td><td><code>errors.tolerance=all</code> would let failed records count as acknowledged</td><td><span class="pill warn">MEDIUM</span></td><td>code (null metadata path)</td><td>Keep <code>none</code>; enforce in config validation</td></tr>
+<tr><td>R1</td><td><code>txn_rows</code> counts rows of filtered-out tables too</td><td><span class="pill info">LOW</span></td><td><a href="source/ChangeEventMapper.html">mapper</a></td><td>Count published rows only, or document</td></tr>
+<tr><td>R2</td><td>Topic name ignores the table owner (two owners → one topic)</td><td><span class="pill info">LOW</span></td><td>code</td><td>Include owner when not <code>dbo</code></td></tr>
+<tr><td>R3</td><td>Tables without a primary key get a null Kafka key (no per-row ordering)</td><td><span class="pill info">LOW</span></td><td>code</td><td>Require PKs or use all columns</td></tr>
+<tr><td>R4</td><td>Decimal values are strings; scale not carried as type information</td><td><span class="pill na">INFO</span></td><td>records</td><td>Consumers parse with <code>BigDecimal</code></td></tr>
+<tr><td>R5</td><td>LOB columns, <code>rs_truncate</code> (truncate table) and replicated procedures are not handled</td><td><span class="pill warn">MEDIUM</span></td><td>code</td><td>Confirm none in scope, or implement</td></tr>
+<tr><td>R6</td><td>Passwords longer than 30 characters untested</td><td><span class="pill info">LOW</span></td><td>-</td><td>Test before choosing the password policy</td></tr>
+<tr><td>R7</td><td>Unused methods in AckTracker; 02_repagent.sql refers to a missing GUIDE.md</td><td><span class="pill na">INFO</span></td><td>code</td><td>Clean up</td></tr>
+<tr><td>R8</td><td>Local-only workarounds (shim, seccomp unconfined, MALLOC/ASLR) must not reach production</td><td><span class="pill na">INFO</span></td><td>compose, start.sh</td><td>Production ASE runs natively on SLES</td></tr>
+</tbody></table></div>

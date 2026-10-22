@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AckTrackerTest.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>AckTrackerTest.java</code></h1><p class="path"><code>sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/cdc/AckTrackerTest.java</code> · 25 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> unit test proving the watermark rule of <a href="AckTracker.html">AckTracker</a>: acknowledgements may arrive out of order, but the watermark only moves past a transaction when it and all earlier transactions are complete. Run with <code>mvn test</code> (JUnit 5).</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.cdc;</code></pre><div class="note"><div class="range">Lines 1</div><p>Same package as the class under test, so the test can use package-private members.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> org.junit.jupiter.api.<span class="t">Test</span>;</code></pre><div class="note"><div class="range">Lines 3</div><p>JUnit 5's <code>@Test</code> annotation marks a method as a test case.</p></div></section>
+<section class="blk" id="b5"><pre class="code"><code><span class="ln" id="L5">5</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertArrayEquals;
+<span class="ln" id="L6">6</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertNull;</code></pre><div class="note"><div class="range">Lines 5–6</div><p><em>Static imports</em> let the test call <code>assertNull(...)</code> instead of <code>Assertions.assertNull(...)</code>.</p></div></section>
+<section class="blk" id="b8"><pre class="code"><code><span class="ln" id="L8">8</span><span class="k">class</span> <span class="t">AckTrackerTest</span> {</code></pre><div class="note"><div class="range">Lines 8</div><p>Test classes need not be public in JUnit 5.</p></div></section>
+<section class="blk" id="b10"><pre class="code"><code><span class="ln" id="L10">10</span>    <span class="a">@Test</span>
+<span class="ln" id="L11">11</span>    <span class="k">void</span> watermarkOnlyMovesWhenEverythingBeforeIsAcked() {</code></pre><div class="note"><div class="range">Lines 10–11</div><p>One test method; the name states the property.</p></div></section>
+<section class="blk" id="b12"><pre class="code"><code><span class="ln" id="L12">12</span>        <span class="t">AckTracker</span> t = <span class="k">new</span> <span class="t">AckTracker</span>(<span class="k">null</span>);
+<span class="ln" id="L13">13</span>        <span class="k">byte</span>[] a = {<span class="n">1</span>}, b = {<span class="n">2</span>}, c = {<span class="n">3</span>};
+<span class="ln" id="L14">14</span>        <span class="t">AckTracker</span>.<span class="t">Pending</span> pa = t.register(a, <span class="n">2</span>);
+<span class="ln" id="L15">15</span>        <span class="t">AckTracker</span>.<span class="t">Pending</span> pb = t.register(b, <span class="n">1</span>);
+<span class="ln" id="L16">16</span>        t.register(c, <span class="n">0</span>);                 <span class="c">// transaction without records for Kafka</span></code></pre><div class="note"><div class="range">Lines 12–16</div><p>Three transactions in commit order with 1-byte fake OQIDs: <code>a</code> has 2 records, <code>b</code> 1, <code>c</code> 0 (a transaction whose rows were all filtered out).</p></div></section>
+<section class="blk" id="b18"><pre class="code"><code><span class="ln" id="L18">18</span>        t.ack(pb);                        <span class="c">// later transaction acked first</span>
+<span class="ln" id="L19">19</span>        assertNull(t.acked());</code></pre><div class="note"><div class="range">Lines 18–19</div><p>The later transaction <code>b</code> is acknowledged first: the watermark must not move (still <code>null</code>).</p></div></section>
+<section class="blk" id="b20"><pre class="code"><code><span class="ln" id="L20">20</span>        t.ack(pa);
+<span class="ln" id="L21">21</span>        assertNull(t.acked());            <span class="c">// a still has one record in flight</span></code></pre><div class="note"><div class="range">Lines 20–21</div><p>One of <code>a</code>'s two records: still not complete.</p></div></section>
+<section class="blk" id="b22"><pre class="code"><code><span class="ln" id="L22">22</span>        t.ack(pa);
+<span class="ln" id="L23">23</span>        assertArrayEquals(c, t.acked());  <span class="c">// a, b and the empty c are all done</span></code></pre><div class="note"><div class="range">Lines 22–23</div><p>The last record of <code>a</code>: now <code>a</code>, <code>b</code> and the empty <code>c</code> are all complete, so the watermark jumps straight to <code>c</code>.</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span>    }
+<span class="ln" id="L25">25</span>}</code></pre><div class="note"><div class="range">Lines 24–25</div><p>End of test and class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

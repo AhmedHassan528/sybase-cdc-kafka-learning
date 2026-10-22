@@ -1,0 +1,50 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsTokens.java
+@summary
+<p><b>Role:</b> builds TDS 5.0 response <em>token streams</em>, the server side of the conversation. A TDS response is a sequence of tokens, each starting with a one-byte token id. The connector needs only seven of them, listed in the class comment. Methods return <code>this</code> so calls can be chained (<code>tokens().rowFormat(...).row(...).done(...)</code>).</p>
+<p><b>Byte order:</b> integers inside tokens are written in the byte order the client asked for at login (little-endian for RepAgent on x86_64). Only the packet header (in <a href="TdsChannel.html">TdsChannel</a>) is always big-endian.</p>
+@@ 1
+<p>Package <code>tds</code>.</p>
+@@ 3-6
+<p>JDK imports.</p>
+@@ 8-15
+<p>Token ids used: 0xAD LOGINACK, 0xE2 CAPABILITY, 0xE3 ENVCHANGE (environment change, e.g. packet size), 0xE5 EED (extended error/info message), 0xEE ROWFMT (column descriptions), 0xD1 ROW (one row of values), 0xFD DONE (end of a result).</p>
+@@ 16
+<p>Final class; a new instance per response.</p>
+@@ 18-22
+<p>DONE status bits: FINAL (0) = last result; MORE = more results follow; ERROR = the command failed; COUNT = the row count field is valid; ATTN = acknowledges a cancel. Combined with bitwise OR (<code>DONE_MORE | DONE_COUNT</code>).</p>
+@@ 24-27
+<p>TDS datatype ids for the three column types the control answers need: 4-byte int, varchar, varbinary.</p>
+@@ 29
+<p>Column description for <code>rowFormat</code>.</p>
+@@ 31-38
+<p>The output buffer and the client's byte order and charset.</p>
+@@ 40-48
+<p><b>LOGINACK:</b> status 5 (success) or 6 (failure), TDS version 5.0.0.0, program name and 4-byte program version. The connector calls itself "Replication Server" version 16.0.0.0; RepAgent accepted this.</p>
+@@ 50-54
+<p>Copy pre-built token bytes unchanged (used to echo the client's CAPABILITY token, which already contains its own length).</p>
+@@ 56-62
+<p><b>ENVCHANGE:</b> type, new value, old value, each length-prefixed. Type 4 with "2048"/"512" confirms the packet size; this single token fixed the 4047 incident.</p>
+@@ 64-78
+<p><b>EED (error message):</b> message number, state 1, severity (≥ 11 is an error for the client), SQLSTATE placeholder <code>ZZZZZ</code>, status, transaction state, message text, server name, empty procedure name and line 0. Used for "Login failed" (4002) and for refusing <code>connect source</code> (32001).</p>
+@@ 80-93
+<p><b>ROWFMT:</b> number of columns, then per column: name, status 0x10 (nullable), user type 0, datatype, a max-length byte for variable-length types, and locale length 0.</p>
+@@ 95-110
+<p><b>ROW:</b> one value per column in the declared format. The casts (<code>(Integer) v</code>, <code>(String) v</code>, <code>(byte[]) v</code>) throw <code>ClassCastException</code> on a programming error. Variable-length values are length-prefixed with one byte, so at most 255 bytes, enough for these answers.</p>
+@@ 112-118
+<p><b>DONE:</b> status, transaction state (0), and row count.</p>
+@@ 120-122
+<p>The finished token bytes, handed to <code>TdsChannel.sendResponse</code>.</p>
+@@ 124-132
+<p>Generic "token id + length + body" writer. All tokens used here have 2-byte lengths (<code>len32</code> is always false).</p>
+@@ 134-136
+<p>Inner helper class writing integers in the session's byte order. Non-static, so it can read the outer <code>order</code> field.</p>
+@@ 138
+<p>One byte (<code>write(int)</code> keeps only the lowest 8 bits).</p>
+@@ 140-144
+<p>Two bytes, low byte first for little-endian. <code>v &gt;&gt; 8</code> shifts right by 8 bits to get the next byte.</p>
+@@ 146-150
+<p>Four bytes in the chosen order.</p>
+@@ 152-155
+<p>Raw bytes and the result; end of helper.</p>
+@@ 156
+<p>End of class.</p>

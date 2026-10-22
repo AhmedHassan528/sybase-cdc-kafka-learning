@@ -1,0 +1,24 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/CommittedTransaction.java
+@summary
+<p><b>Role:</b> an immutable value that carries one finished (committed) database transaction from the <a href="TransactionBuffer.html">TransactionBuffer</a> to the Kafka task. It is the hand-over object between "we understood the log" and "we publish to Kafka".</p>
+<p><b>Created by:</b> <code>TransactionBuffer.accept()</code> when a COMMIT arrives. <b>Used by:</b> <code>SybaseCdcSourceTask</code> (queue, offsets) and <code>ChangeEventMapper</code> (event <code>source</code> block). <b>Tests:</b> <code>TransactionBufferTest</code>.</p>
+@@ 1
+<p><b>Package declaration.</b> Every Java file starts by saying which package (namespace) it belongs to. The folder path <code>com/phoenix/cdc/sybase/cdc</code> must match it, otherwise <code>javac</code> refuses to compile. The <code>cdc</code> package holds the transaction logic that knows nothing about TDS sockets or Kafka.</p>
+@@ 3
+<p><b>Import.</b> Lets the file write <code>LtlCommand</code> instead of the full name <code>com.phoenix.cdc.sybase.ltl.LtlCommand</code>. Imports have no runtime cost; they only help the compiler resolve names. This is the only dependency of this class on the LTL package: a committed transaction is a list of parsed LTL row commands.</p>
+@@ 5
+<p>Imports <code>java.util.List</code>, the standard ordered-collection interface from the JDK (Java Development Kit).</p>
+@@ 7-15
+<p><b>Javadoc comment.</b> <code>/** ... */</code> comments are documentation that tools (IDEs, the <code>javadoc</code> tool) read. The <code>@param</code> tags document each record component. Comments never change behaviour.</p>
+@@ 16-21
+<p><b>What:</b> a Java <em>record</em> (Java 16+). One line declares an immutable class with five private final fields, a constructor taking all five, accessor methods named like the fields (<code>tranId()</code>, <code>commitOqid()</code>, …), and <code>equals</code>/<code>hashCode</code>/<code>toString</code>.</p>
+<ul>
+<li><code>tranId</code>: the ASE transaction id as hex text. Hex is used because the raw id is binary (e.g. <code>0000000000001c6d001a4d59...</code>) and must be printable in the event's <code>source.xid</code>.</li>
+<li><code>commitOqid</code>: the <a href="../index.html#g-oqid">origin queue ID</a> of the COMMIT log record, as raw bytes. This is the transaction's position in the ASE log and becomes the Kafka Connect source offset and the RepAgent truncation answer. Bytes (not hex) because it is compared with <code>Arrays.compareUnsigned</code>.</li>
+<li><code>commitTime</code>: ISO-formatted <code>origin_time</code> of the commit (ASE server local time, no time zone).</li>
+<li><code>user</code>: the ASE login that ran the transaction, when RepAgent sent it (<code>for</code> / <code>npw</code> clause of <code>begin transaction</code>); may be <code>null</code>.</li>
+<li><code>changes</code>: the INSERT/UPDATE/DELETE commands in log order.</li>
+</ul>
+<p><b>Why a record:</b> the object crosses threads (RepAgent session thread → queue → Connect task thread). Immutable values are safe to share without locks. <b>Caveat:</b> <code>byte[]</code> and <code>List</code> are still mutable objects inside; the code never modifies them after creation, which is a convention, not a guarantee. <b>If changed:</b> adding a component requires updating the one constructor call in <code>TransactionBuffer</code> and the mapper. <b>Alternative:</b> a hand-written final class. <b>Test:</b> <code>TransactionBufferTest</code> asserts the changes list and order.</p>
+@@ 22
+<p>End of the record body. A record may contain extra methods; this one needs none.</p>

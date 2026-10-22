@@ -1,0 +1,17 @@
+@file sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlValuesTest.java
+@summary
+<p><b>Role:</b> small unit tests for the value helpers in <a href="LtlValues.html">LtlValues</a>. The <code>"100."</code> case comes from test scenario 1, where <code>100.00</code> was first published as <code>"100."</code>.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3
+<p>JUnit annotation.</p>
+@@ 5
+<p>Static import of <code>assertEquals</code>.</p>
+@@ 7
+<p>Test class.</p>
+@@ 9-14
+<p>A trailing dot is removed; other decimals are unchanged (including trailing zeros, which carry scale).</p>
+@@ 16-22
+<p>ASE date/time text to ISO-8601: datetime with milliseconds, bigdatetime with microseconds, date and time.</p>
+@@ 23
+<p>End of class.</p>

@@ -1,0 +1,14 @@
+-- Discovery 3: values needing 3 length digits (>= 4096 bytes) for binary and unichar.
+use phoenix_test
+go
+if object_id('ltl_long3') is not null drop table ltl_long3
+go
+create table ltl_long3 (id int not null primary key, vb varbinary(6000) null, uv univarchar(3000) null)
+go
+sp_setreptable ltl_long3, true
+go
+declare @b varbinary(6000), @i int
+select @b = 0xab, @i = 1
+while @i < 5000 begin select @b = @b + 0xab, @i = @i + 1 end
+insert ltl_long3 values (1, @b, convert(univarchar(3000), replicate('U', 2100)))
+go

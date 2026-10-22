@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SybaseCdcSourceConnector.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>SybaseCdcSourceConnector.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java</code> · 51 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> the class Kafka Connect instantiates when you create a connector. In Kafka Connect a <em>Connector</em> does not move data itself; it validates configuration and decides how many <em>Tasks</em> to run and with which configuration. The worker finds this class through <code>META-INF/services/org.apache.kafka.connect.source.SourceConnector</code> (Java's ServiceLoader mechanism) when it scans <code>plugin.path</code>.</p>
+<p><b>API version:</b> <code>org.apache.kafka.connect.source.SourceConnector</code> from connect-api 3.8.0. All methods overridden here exist with the same signatures since Kafka 2.x. Optional newer hooks (<code>exactlyOnceSupport()</code>, <code>canDefineTransactionBoundaries()</code>, <code>alterOffsets()</code>) are <b>not</b> implemented.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.connect;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>connect</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> org.apache.kafka.common.config.<span class="t">ConfigDef</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> org.apache.kafka.connect.connector.<span class="t">Task</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> org.apache.kafka.connect.source.<span class="t">SourceConnector</span>;</code></pre><div class="note"><div class="range">Lines 3–5</div><p>Kafka Connect API types: <code>ConfigDef</code> (returned by <code>config()</code>), <code>Task</code> (the type of <code>taskClass()</code>) and <code>SourceConnector</code> (the base class).</p></div></section>
+<section class="blk" id="b7"><pre class="code"><code><span class="ln" id="L7">7</span><span class="k">import</span> java.util.<span class="t">List</span>;
+<span class="ln" id="L8">8</span><span class="k">import</span> java.util.<span class="t">Map</span>;</code></pre><div class="note"><div class="range">Lines 7–8</div><p>JDK collections.</p></div></section>
+<section class="blk" id="b10"><pre class="code"><code><span class="ln" id="L10">10</span><span class="c">/**</span>
+<span class="ln" id="L11">11</span><span class="c"> * Sybase ASE change-data-capture source connector. It plays the role of a</span>
+<span class="ln" id="L12">12</span><span class="c"> * Replication Server: ASE's RepAgent pushes the transaction log to it as LTL.</span>
+<span class="ln" id="L13">13</span><span class="c"> *</span>
+<span class="ln" id="L14">14</span><span class="c"> * Always exactly one task: RepAgent connects to one host:port per database.</span>
+<span class="ln" id="L15">15</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 10–15</div><p>Class comment: the architectural decision (impersonate a Replication Server) and why there is exactly one task.</p></div></section>
+<section class="blk" id="b16"><pre class="code"><code><span class="ln" id="L16">16</span><span class="k">public</span> <span class="k">class</span> <span class="t">SybaseCdcSourceConnector</span> <span class="k">extends</span> <span class="t">SourceConnector</span> {</code></pre><div class="note"><div class="range">Lines 16</div><p><code>public class</code> extending the abstract <code>SourceConnector</code>. It must be public and have a public no-argument constructor (Java supplies one implicitly), because the worker creates it by reflection.</p></div></section>
+<section class="blk" id="b18"><pre class="code"><code><span class="ln" id="L18">18</span>    <span class="k">static</span> <span class="k">final</span> <span class="t">String</span> <span class="t">VERSION</span> = <span class="s">"0.1.0"</span>;</code></pre><div class="note"><div class="range">Lines 18</div><p>Version string reported by <code>GET /connector-plugins</code> (evidence file <code>06-connect-rest.txt</code>). Package-private <code>static final</code> so the task can reuse it. Keep it equal to the Maven <code>version</code> when releasing.</p></div></section>
+<section class="blk" id="b20"><pre class="code"><code><span class="ln" id="L20">20</span>    <span class="k">private</span> <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">String</span>&gt; props;</code></pre><div class="note"><div class="range">Lines 20</div><p>The raw configuration, kept to hand to the task.</p></div></section>
+<section class="blk" id="b22"><pre class="code"><code><span class="ln" id="L22">22</span>    <span class="a">@Override</span>
+<span class="ln" id="L23">23</span>    <span class="k">public</span> <span class="k">void</span> start(<span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">String</span>&gt; props) {
+<span class="ln" id="L24">24</span>        <span class="k">new</span> <span class="t">SybaseCdcConfig</span>(props); <span class="c">// fail fast on bad config</span>
+<span class="ln" id="L25">25</span>        <span class="k">this</span>.props = props;
+<span class="ln" id="L26">26</span>    }</code></pre><div class="note"><div class="range">Lines 22–26</div><p><b><code>start(props)</code></b>, called by the worker when the connector is created or the worker restarts. Constructing <code>SybaseCdcConfig</code> validates the properties; an invalid configuration throws and the connector goes to state FAILED with the error text in <code>GET /connectors/{name}/status</code>. The object is thrown away; only validation matters here. <code>@Override</code> asks the compiler to check that the method really overrides a superclass method.</p></div></section>
+<section class="blk" id="b28"><pre class="code"><code><span class="ln" id="L28">28</span>    <span class="a">@Override</span>
+<span class="ln" id="L29">29</span>    <span class="k">public</span> <span class="t">Class</span>&lt;? <span class="k">extends</span> <span class="t">Task</span>&gt; taskClass() {
+<span class="ln" id="L30">30</span>        <span class="k">return</span> <span class="t">SybaseCdcSourceTask</span>.<span class="k">class</span>;
+<span class="ln" id="L31">31</span>    }</code></pre><div class="note"><div class="range">Lines 28–31</div><p><b><code>taskClass()</code></b>: which class the worker should instantiate for tasks. <code>Class&lt;? extends Task&gt;</code> is a generic wildcard meaning "the class object of some subtype of Task".</p></div></section>
+<section class="blk" id="b33"><pre class="code"><code><span class="ln" id="L33">33</span>    <span class="a">@Override</span>
+<span class="ln" id="L34">34</span>    <span class="k">public</span> <span class="t">List</span>&lt;<span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">String</span>&gt;&gt; taskConfigs(<span class="k">int</span> maxTasks) {
+<span class="ln" id="L35">35</span>        <span class="k">return</span> <span class="t">List</span>.of(props);
+<span class="ln" id="L36">36</span>    }</code></pre><div class="note"><div class="range">Lines 33–36</div><p><b><code>taskConfigs(maxTasks)</code></b>: returns one configuration map per task. It always returns a single-element list, whatever <code>tasks.max</code> says, because one RepAgent opens one connection to one host:port. Running two tasks would make two listeners compete for the same port on one worker. <code>List.of</code> creates an immutable list.</p></div></section>
+<section class="blk" id="b38"><pre class="code"><code><span class="ln" id="L38">38</span>    <span class="a">@Override</span>
+<span class="ln" id="L39">39</span>    <span class="k">public</span> <span class="k">void</span> stop() {
+<span class="ln" id="L40">40</span>    }</code></pre><div class="note"><div class="range">Lines 38–40</div><p><b><code>stop()</code></b>: nothing to release here; the task owns all resources.</p></div></section>
+<section class="blk" id="b42"><pre class="code"><code><span class="ln" id="L42">42</span>    <span class="a">@Override</span>
+<span class="ln" id="L43">43</span>    <span class="k">public</span> <span class="t">ConfigDef</span> config() {
+<span class="ln" id="L44">44</span>        <span class="k">return</span> <span class="t">SybaseCdcConfig</span>.<span class="t">CONFIG_DEF</span>;
+<span class="ln" id="L45">45</span>    }</code></pre><div class="note"><div class="range">Lines 42–45</div><p><b><code>config()</code></b>: returns the definition used by the REST validate endpoint and UIs.</p></div></section>
+<section class="blk" id="b47"><pre class="code"><code><span class="ln" id="L47">47</span>    <span class="a">@Override</span>
+<span class="ln" id="L48">48</span>    <span class="k">public</span> <span class="t">String</span> version() {
+<span class="ln" id="L49">49</span>        <span class="k">return</span> <span class="t">VERSION</span>;
+<span class="ln" id="L50">50</span>    }</code></pre><div class="note"><div class="range">Lines 47–50</div><p><b><code>version()</code></b>: plugin version string.</p></div></section>
+<section class="blk" id="b51"><pre class="code"><code><span class="ln" id="L51">51</span>}</code></pre><div class="note"><div class="range">Lines 51</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

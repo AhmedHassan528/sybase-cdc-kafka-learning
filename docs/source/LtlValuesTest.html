@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LtlValuesTest.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>LtlValuesTest.java</code></h1><p class="path"><code>sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlValuesTest.java</code> · 23 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> small unit tests for the value helpers in <a href="LtlValues.html">LtlValues</a>. The <code>"100."</code> case comes from test scenario 1, where <code>100.00</code> was first published as <code>"100."</code>.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.ltl;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>ltl</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> org.junit.jupiter.api.<span class="t">Test</span>;</code></pre><div class="note"><div class="range">Lines 3</div><p>JUnit annotation.</p></div></section>
+<section class="blk" id="b5"><pre class="code"><code><span class="ln" id="L5">5</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertEquals;</code></pre><div class="note"><div class="range">Lines 5</div><p>Static import of <code>assertEquals</code>.</p></div></section>
+<section class="blk" id="b7"><pre class="code"><code><span class="ln" id="L7">7</span><span class="k">class</span> <span class="t">LtlValuesTest</span> {</code></pre><div class="note"><div class="range">Lines 7</div><p>Test class.</p></div></section>
+<section class="blk" id="b9"><pre class="code"><code><span class="ln" id="L9">9</span>    <span class="a">@Test</span>
+<span class="ln" id="L10">10</span>    <span class="k">void</span> decimalsDropDanglingPoint() {
+<span class="ln" id="L11">11</span>        assertEquals(<span class="s">"100"</span>, <span class="t">LtlValues</span>.decimal(<span class="s">"100."</span>));
+<span class="ln" id="L12">12</span>        assertEquals(<span class="s">"100.5"</span>, <span class="t">LtlValues</span>.decimal(<span class="s">"100.5"</span>));
+<span class="ln" id="L13">13</span>        assertEquals(<span class="s">"-12.3400"</span>, <span class="t">LtlValues</span>.decimal(<span class="s">"-12.3400"</span>));
+<span class="ln" id="L14">14</span>    }</code></pre><div class="note"><div class="range">Lines 9–14</div><p>A trailing dot is removed; other decimals are unchanged (including trailing zeros, which carry scale).</p></div></section>
+<section class="blk" id="b16"><pre class="code"><code><span class="ln" id="L16">16</span>    <span class="a">@Test</span>
+<span class="ln" id="L17">17</span>    <span class="k">void</span> dateTimes() {
+<span class="ln" id="L18">18</span>        assertEquals(<span class="s">"2026-10-20T13:45:56.123"</span>, <span class="t">LtlValues</span>.dateTime(<span class="s">"20261020 13:45:56:123"</span>));
+<span class="ln" id="L19">19</span>        assertEquals(<span class="s">"2026-10-20T13:45:56.123456"</span>, <span class="t">LtlValues</span>.dateTime(<span class="s">"20261020 13:45:56.123456"</span>));
+<span class="ln" id="L20">20</span>        assertEquals(<span class="s">"2026-10-20"</span>, <span class="t">LtlValues</span>.date(<span class="s">"20261020"</span>));
+<span class="ln" id="L21">21</span>        assertEquals(<span class="s">"13:45:56.000"</span>, <span class="t">LtlValues</span>.time(<span class="s">"13:45:56:000"</span>));
+<span class="ln" id="L22">22</span>    }</code></pre><div class="note"><div class="range">Lines 16–22</div><p>ASE date/time text to ISO-8601: datetime with milliseconds, bigdatetime with microseconds, date and time.</p></div></section>
+<section class="blk" id="b23"><pre class="code"><code><span class="ln" id="L23">23</span>}</code></pre><div class="note"><div class="range">Lines 23</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

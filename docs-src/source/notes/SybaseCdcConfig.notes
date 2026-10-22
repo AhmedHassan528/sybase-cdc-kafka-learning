@@ -1,0 +1,56 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java
+@summary
+<p><b>Role:</b> declares every connector setting (name, type, default, validator, importance, help text) using Kafka's <code>ConfigDef</code>, and offers typed getters. Kafka Connect uses the same <code>ConfigDef</code> to validate a configuration (<code>PUT /connector-plugins/.../config/validate</code>) and to show settings in UIs. The full property reference is in the <a href="../index.html#ch-config">configuration chapter</a>.</p>
+<p><b>Security finding:</b> <code>Type.PASSWORD</code> hides the value in logs (<code>[hidden]</code>), but Kafka Connect's REST API still returns the configuration as submitted. Use a config provider (file or Kubernetes secret) so the stored configuration only contains a reference.</p>
+@@ 1
+<p>Package <code>connect</code>.</p>
+@@ 3-7
+<p>Kafka configuration classes from <code>kafka-clients</code> (pulled in by <code>connect-api</code>, provided by the worker at runtime): <code>AbstractConfig</code> (parses and stores values), <code>ConfigDef</code> (declarations), <code>Importance</code>/<code>Type</code> enums, and <code>Password</code> (a wrapper whose <code>toString()</code> prints <code>[hidden]</code>).</p>
+@@ 9-12
+<p>JDK types. <code>TreeMap</code> is a sorted map, used for the offset partition (see lines 84–94). <code>Collectors</code> belongs to the Streams API used in <code>tableIncludes()</code>.</p>
+@@ 14
+<p>Extends <code>AbstractConfig</code>: the superclass parses the raw <code>Map&lt;String,String&gt;</code> against the definition, applies defaults, converts types and throws <code>ConfigException</code> for invalid values.</p>
+@@ 16-29
+<p>Property names as constants, so a typo becomes a compile error instead of a silently ignored setting. The <code>ltl.</code> prefix groups RepAgent-side settings, <code>database.</code> the source identity, and the rest Kafka-side behaviour.</p>
+@@ 31
+<p>A <code>static final</code> definition built once with the fluent builder pattern (each <code>define()</code> returns the same <code>ConfigDef</code>).</p>
+@@ 32-33
+<p><code>ltl.listen.host</code>, string, default <code>0.0.0.0</code> = all network interfaces of the pod/container. Set a specific IP only if the worker has several networks.</p>
+@@ 34-35
+<p><code>ltl.listen.port</code>, int, default 11752, validated to the TCP range 1–65535. Must match the port in the ASE interfaces entry (or the Service/LoadBalancer port in OpenShift).</p>
+@@ 36-37
+<p><code>ltl.username</code>, no default (so required): the login RepAgent presents. This is <b>not</b> an ASE login; it is a name the DBA puts into <code>sp_config_rep_agent ... 'enable', 'CDC_RS', '&lt;user&gt;', '&lt;password&gt;'</code>.</p>
+@@ 38-39
+<p><code>ltl.password</code>, <code>Type.PASSWORD</code>, required. Compared in plain text, which is why RepAgent must run with <code>net password encryption = false</code>.</p>
+@@ 40-41
+<p><code>ltl.charset</code>: optional Java charset name used to decode <code>char</code>/<code>varchar</code> values. Empty means "take it from the RepAgent login" (<code>iso_1</code> locally). For an ASE server using <code>utf8</code> or an Arabic code page, verify the login's charset in the worker log and set this explicitly if needed.</p>
+@@ 42-43
+<p><code>ltl.trace</code>: logs every TDS packet header and the first 4,000 characters of every LTL message. Use only for troubleshooting; it logs data values (customer data) into the worker log.</p>
+@@ 44-45
+<p><code>database.server.name</code>, required: the ASE server name (<code>select @@servername</code>, here <code>MYSYBASE</code>). Part of the offset partition key; changing it later makes the connector forget its stored position.</p>
+@@ 46-47
+<p><code>database.name</code>, required. A RepAgent announcing a different database is refused at <code>connect source</code>. Also part of the offset key and the topic name.</p>
+@@ 48-49
+<p><code>database.maintenance.user</code>, default <code>cdc_maint</code>: returned to <code>get maintenance user</code>. Never set it to a login that runs business transactions, or those transactions will be filtered by RepAgent.</p>
+@@ 50-51
+<p><code>topic.prefix</code>, default <code>sybase</code>.</p>
+@@ 52-53
+<p><code>table.include.list</code>, a comma-separated list (<code>Type.LIST</code>), default empty = publish every table RepAgent sends. RepAgent already sends only tables marked with <code>sp_setreptable</code>; this is a second, connector-side filter.</p>
+@@ 54-55
+<p><code>queue.max.transactions</code>, default 1000, minimum 1: capacity of the queue between the RepAgent thread and <code>poll()</code>. When full, the RepAgent thread blocks and RepAgent waits; nothing is lost, the log simply holds the data. Memory use is bounded by this number times the size of the largest transactions.</p>
+@@ 56-57
+<p><code>poll.max.records</code>, default 10,000: <code>poll()</code> stops adding transactions after this many records. A single larger transaction is still returned whole (it cannot be split without breaking the offset rule).</p>
+@@ 58-59
+<p><code>large.transaction.warn.rows</code>, default 100,000: a warning, not a limit.</p>
+@@ 61-63
+<p>Constructor: parse and validate. A missing required property throws <code>ConfigException</code>, which the connector surfaces as a FAILED state with the message.</p>
+@@ 65-77
+<p>Typed getters, one per property. They read values already converted by <code>AbstractConfig</code>. <code>ltlPassword()</code> returns the <code>Password</code> wrapper; call <code>.value()</code> to read it (done only in <code>authenticate</code>).</p>
+@@ 79-82
+<p>Parses the include list into a lower-case set using the Streams API: trim spaces, drop empty entries, lower-case, collect. Matching in the task is therefore case-insensitive.</p>
+@@ 84-88
+<p>Comment recording a real defect found during testing: Kafka Connect looks up stored offsets by the <em>serialized bytes</em> of the partition map. <code>Map.of()</code> iterates in a different order in each JVM run, so after a restart the same partition serialized differently and the stored offset was not found (7 duplicates in tests 1 and 3).</p>
+@@ 89-94
+<p>The fix: a <code>TreeMap</code> always iterates keys in sorted order (<code>database</code>, then <code>server</code>), so the bytes are stable. <b>Evidence:</b> after the fix the task logged the stored OQID on every restart (tests 4–7). <b>Do not change</b> the keys or their values in a running system; that would reset the connector's position.</p>
+@@ 95
+<p>End of class.</p>

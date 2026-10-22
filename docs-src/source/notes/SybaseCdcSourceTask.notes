@@ -1,0 +1,96 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java
+@summary
+<p><b>Role:</b> the heart of the connector. It starts the LTL listener, receives committed transactions, turns them into Kafka <code>SourceRecord</code>s in <code>poll()</code>, and converts Kafka's acknowledgements into the truncation point returned to RepAgent. Read it together with diagrams <a href="../index.html#fig-01">01</a>, <a href="../index.html#fig-05">05</a> and <a href="../index.html#fig-17">17</a>.</p>
+<p><b>Threads:</b> (1) the Connect <em>task thread</em> calls <code>start</code>, <code>poll</code>, <code>stop</code>; (2) the <em>RepAgent session thread</em> (created by <code>LtlServer</code>) calls the inner <code>Listener</code>; (3) the Kafka <em>producer callback thread</em> calls <code>commitRecord</code>. The <code>BlockingQueue</code> is the only hand-over between (2) and (1); <code>AckTracker</code> is synchronized for (2) and (3).</p>
+<p><b>Delivery guarantee:</b> at-least-once, verified by tests 4b, 6b and P5. Not exactly-once: duplicates after hard failures are expected and carry the same <code>source.oqid</code>.</p>
+<p><b>Known limitation:</b> nothing prevents two RepAgent sessions at once (the listener accepts every connection). RepAgent opens one session per database, and a second session was never observed with a single task, but the <code>TransactionBuffer</code> is not thread-safe. A follow-up should refuse a second concurrent session.</p>
+@@ 1
+<p>Package <code>connect</code>.</p>
+@@ 3-9
+<p>The connector's own classes: transaction logic (<code>cdc</code>) and protocol (<code>ltl</code>).</p>
+@@ 10-13
+<p>Kafka types: <code>RecordMetadata</code> (broker acknowledgement: topic, partition, offset), <code>ConnectException</code> (the exception type Connect understands as a task failure), <code>SourceRecord</code> and <code>SourceTask</code>.</p>
+@@ 14-15
+<p>SLF4J logging (see <a href="TransactionBuffer.html#b3">TransactionBuffer</a>).</p>
+@@ 17-25
+<p>JDK types. <code>ArrayBlockingQueue</code> is a fixed-capacity, thread-safe queue whose <code>put()</code> waits when full and <code>poll(timeout)</code> waits when empty.</p>
+@@ 27-39
+<p>Class comment with the data and acknowledgement loop and the delivery guarantee.</p>
+@@ 40
+<p>Extends the abstract <code>SourceTask</code>. Public with an implicit no-argument constructor, because the worker creates it by reflection.</p>
+@@ 42-43
+<p>Logger, and the single key used inside the Connect source offset map: <code>{"commit_oqid": "&lt;hex&gt;"}</code>.</p>
+@@ 45-52
+<p>Task state created in <code>start()</code>: configuration, mapper, offset partition, include filter, the transaction buffer, the queue of committed transactions waiting for <code>poll()</code>, the acknowledgement tracker and the LTL server.</p>
+@@ 53-54
+<p><code>lastQueued</code>: commit OQID of the newest transaction put on the queue. Anything RepAgent re-sends at or before this position is a duplicate. <code>volatile</code> guarantees visibility across threads; in practice it is read and written by the session thread.</p>
+@@ 55-56
+<p><code>publishedOqid</code>: commit OQID of the last transaction turned into records by <code>poll()</code>. Used as the "safe" offset for the non-final records of the next transaction (lines 109–121). Only the task thread touches it.</p>
+@@ 58
+<p>A private record bundling a committed transaction, the rows to publish (after the include filter) and its <code>AckTracker.Pending</code> handle.</p>
+@@ 60-69
+<p><b>TrackedRecord.</b> A subclass of <code>SourceRecord</code> that also carries the transaction's <code>Pending</code> handle. Kafka Connect passes the original record object (before transformations) back to <code>commitRecord</code>, so the task can find which transaction a confirmation belongs to without a lookup map. The <code>super(...)</code> call uses the 8-argument constructor: source partition, source offset, topic, Kafka partition (<code>null</code> = let the producer choose by key), key schema, key, value schema, value. Schemas are <code>null</code> because the events are schemaless maps.</p>
+@@ 71-74
+<p>Task version, same as the connector's.</p>
+@@ 76-83
+<p><b><code>start(props)</code></b>, called on the task thread. Builds configuration and helper objects. The queue capacity comes from <code>queue.max.transactions</code>.</p>
+@@ 85-89
+<p><b>Restore position.</b> <code>context.offsetStorageReader()</code> reads the last committed source offset for this partition from the worker's offset store (topic <code>_connect-offsets</code> in distributed mode). That OQID initializes the tracker (first truncation answer), the duplicate filter and the safe offset. On the very first start there is no offset and all three start empty.</p>
+@@ 90-91
+<p>Logs the restored position; the line "last committed OQID in Kafka: …" is the first thing to check after a restart (see runbooks).</p>
+@@ 93-94
+<p>Optional charset override, then the LTL server with the inner <code>Listener</code> as callback.</p>
+@@ 95-99
+<p>Opens the listening socket. If the port is taken (e.g. a second task or an old probe), <code>ConnectException</code> fails the task with a clear message instead of running without a listener.</p>
+@@ 100
+<p>End of <code>start()</code>.</p>
+@@ 102-105
+<p><b><code>poll()</code></b>, called in a loop on the task thread. Waits up to 1 second for a committed transaction; returning <code>null</code> tells Connect "nothing now, call again". The short wait keeps the task responsive to <code>stop()</code>.</p>
+@@ 106-108
+<p>Collect records from the first transaction and any others already waiting.</p>
+@@ 109-114
+<p><b>The offset rule</b> (a fix made after the partial-publication analysis). Kafka Connect commits the offset of the newest record for which it and all earlier records are acknowledged. If every record carried its own transaction's commit OQID, a crash after only the first row of a 200,000-row transaction reached Kafka would store "this transaction is done", and the rest would be skipped as duplicates after restart. So the non-final records carry the previous transaction's position (<code>partialOffset</code>), and only the final record carries this transaction's commit OQID (<code>doneOffset</code>). Before the first-ever transaction completes, the safe offset is the empty string (read back as "no offset"). <b>Evidence:</b> test 6b: 53,822 of 200,000 records were in Kafka at the kill; the restarted task resumed from the previous transaction; all 200,000 rows arrived.</p>
+@@ 115-120
+<p>One <code>TrackedRecord</code> per row: topic, key and value from the mapper, and the shared <code>Pending</code> handle.</p>
+@@ 121
+<p>From now on this transaction is the safe position for the next one.</p>
+@@ 122-123
+<p>Stop after <code>poll.max.records</code>; otherwise take the next waiting transaction without blocking (<code>poll()</code> without timeout returns <code>null</code> when empty).</p>
+@@ 124-126
+<p>Return the batch. Connect sends the records with its producer and later calls <code>commitRecord</code> for each.</p>
+@@ 128-132
+<p><b><code>commitRecord(record, metadata)</code></b>, called by Connect from the producer callback after the broker acknowledged the record (two-argument form, Kafka 2.4+). Pattern matching <code>instanceof TrackedRecord t</code> (Java 16+) tests and casts in one step. Each acknowledgement decrements the transaction's counter in the tracker.</p>
+@@ 134-137
+<p><b><code>stop()</code></b>: closes the listener and all RepAgent sockets. RepAgent sees a disconnect and retries after its <code>retry timeout</code>. Queued but unpublished transactions are lost from memory but not from ASE: the truncation point never passed them.</p>
+@@ 139
+<p><b>Inner class <code>Listener</code></b> implementing <a href="LtlListener.html">LtlListener</a>. Non-static inner classes can read the outer task's fields (<code>config</code>, <code>buffer</code>, <code>acks</code>…). All its methods run on the RepAgent session thread.</p>
+@@ 141-144
+<p>Credential check: exact, case-sensitive comparison of user and password.</p>
+@@ 146-150
+<p>Refuse a RepAgent for another database (protects against a mis-pointed interfaces entry).</p>
+@@ 151-153
+<p>A different server name is only a warning, because server names differ between environments; the database name is the hard check.</p>
+@@ 154-156
+<p>Refuse LTL versions below 760: the parser only knows the LTL 760 encoding. RepAgent then logs the error and stops.</p>
+@@ 157-159
+<p>Clear partial transactions (RepAgent re-sends from the truncation point after every connect) and accept LTL 760. If RepAgent proposes a higher version (possible on newer ASE), 760 is answered and RepAgent is expected to speak 760; this negotiation is documented by SAP but was only tested with 760 = 760.</p>
+@@ 161-164
+<p>Maintenance user from configuration.</p>
+@@ 166-169
+<p><b>Truncation answer:</b> the acknowledged watermark, padded to 36 bytes (zeros if none).</p>
+@@ 171-175
+<p>For each parsed command: feed the buffer; continue unless it completed a transaction.</p>
+@@ 176-179
+<p><b>Duplicate filter.</b> After a reconnect or restart RepAgent re-sends from the truncation point. Transactions whose commit OQID is not after the last queued one were already handed to Kafka and are skipped. Remaining duplicates after hard crashes come from records published but not yet reflected in the stored offset.</p>
+@@ 180-181
+<p>Apply <code>table.include.list</code> (case-insensitive).</p>
+@@ 182-184
+<p>Register with the tracker in commit order, even with 0 rows, and remember the position.</p>
+@@ 185
+<p>Hand to <code>poll()</code>. <code>put()</code> blocks when the queue is full; the session thread stops reading the socket, RepAgent waits for its DONE, and the log holds the data: back-pressure without data loss.</p>
+@@ 186-187
+<p>End of loop and method.</p>
+@@ 189-193
+<p>On disconnect: drop half-received transactions and log the event (the "RepAgent for … disconnected" line in the worker log).</p>
+@@ 194-195
+<p>End of inner class and task.</p>

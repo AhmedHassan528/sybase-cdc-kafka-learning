@@ -1,0 +1,56 @@
+<h2 id="ch-intro" data-keywords="beginner introduction cdc kafka docker java concepts">Beginner's introduction to the technologies</h2>
+<p>Before any detail, here is the whole idea in plain language. A bank's application writes payments into a database. Other teams (fraud detection, reporting, notifications) want to react to every payment <em>as it happens</em>. Asking the database "what changed?" every few seconds (polling) is slow and expensive; adding triggers to tables slows down the banking application. Instead, we read the database's own diary of changes, the <em>transaction log</em>, and turn every committed change into a message in Kafka, a system built to deliver streams of messages to many readers.</p>
+
+<figure class="diagram" id="fig-canva">
+<div class="img"><img src="assets/img/canva-cdc-explained.png" alt="Five-step infographic: a customer pays, the database writes a diary, RepAgent reads the diary, our connector translates, Kafka delivers to everyone" loading="lazy"></div>
+<figcaption><span class="fig-title">Learning aid: CDC in five steps</span> (made with Canva; <a href="https://canva.link/so26tk0uh4y053z">editable design</a>, exported to <code>docs/assets/img/canva-cdc-explained.png</code>).
+<p><b>Simplification to be aware of:</b> step 3 says RepAgent "reads committed changes". In reality RepAgent forwards every logged change of replicated tables, including transactions that are still open or later rolled back; the connector holds them and publishes only after COMMIT (step 4). The safety rule at the bottom is exactly what the code implements (<a href="#fig-17">Figure 17</a>).</p></figcaption>
+</figure>
+
+<h3 id="intro-pieces">The pieces, one sentence each</h3>
+<div class="tbl"><table>
+<thead><tr><th>Piece</th><th>What it is</th><th>Role here</th><th>Chapter</th></tr></thead>
+<tbody>
+<tr><td>SAP ASE</td><td>A relational database server (Sybase heritage).</td><td>Stores Phoenix data; owns the transaction log.</td><td><a href="#ch-ase">ASE</a></td></tr>
+<tr><td>Transaction log</td><td>An append-only record of every change, written before the change is considered durable.</td><td>The source of truth the CDC reads.</td><td><a href="#ch-repagent">RepAgent</a></td></tr>
+<tr><td>RepAgent</td><td>A thread inside ASE that reads the log and sends it to a Replication Server in a language called LTL.</td><td>Pushes changes to our connector.</td><td><a href="#ch-repagent">RepAgent</a></td></tr>
+<tr><td>LTL</td><td>Log Transfer Language: text-like commands such as <code>distribute … applied … rs_insert</code>.</td><td>What the connector parses.</td><td><a href="#ltl-encoding">LTL 760</a></td></tr>
+<tr><td>TDS</td><td>Tabular Data Stream: Sybase's binary client/server protocol.</td><td>The envelope LTL travels in.</td><td><a href="#tds">TDS</a></td></tr>
+<tr><td>Kafka</td><td>A distributed, durable log of messages (topics) that many consumers can read independently.</td><td>Destination of the change events.</td><td><a href="#ch-kafka">Kafka</a></td></tr>
+<tr><td>Kafka Connect</td><td>A framework that runs plugins (connectors) to move data in or out of Kafka.</td><td>Hosts our connector, stores its position.</td><td><a href="#ch-connect">Connect</a></td></tr>
+<tr><td>Docker</td><td>Runs programs in isolated containers from images.</td><td>The whole local test environment.</td><td><a href="#ch-docker">Docker</a></td></tr>
+<tr><td>Java + Maven</td><td>The language of the connector and its build tool.</td><td>Source code and JAR.</td><td><a href="#ch-java">Java</a>, <a href="#ch-build">Build</a></td></tr>
+<tr><td>OpenShift</td><td>Red Hat's Kubernetes platform for running containers in production.</td><td>Target platform (IBM Cloud Pak for Integration).</td><td><a href="#ch-openshift">OpenShift</a></td></tr>
+</tbody></table></div>
+
+<h2 id="ch-architecture" data-keywords="architecture design data flow push repagent replication server">Final architecture and end-to-end data flow</h2>
+<p>The key design decision: <b>the connector pretends to be an SAP Replication Server.</b> RepAgent, which lives inside ASE, can only send its stream to "a Replication Server" named in the ASE <em>interfaces file</em> (a text file mapping server names to host:port). We register a server called <code>CDC_RS</code> whose address is the connector. RepAgent connects, logs in over TDS, and streams LTL. SAP Replication Server itself is <b>not installed and not needed</b>; no table triggers exist; no SQL polling happens. The connector never logs in to ASE at all: data only flows from RepAgent to the connector.</p>
+
+<figure-diagram src="01-system-architecture" n="01" title="System architecture (verified local build)">
+<p><b>Purpose:</b> shows every runtime component, where it runs, and the two loops that matter: data (solid) and acknowledgement (dashed).</p>
+<p><b>Legend:</b> blue = connector code; orange = vendor components (ASE, RepAgent, the application); green = data stores (log, topics); yellow = decision/control state; solid arrow = data; dashed brown = acknowledgement/control.</p>
+<p><b>How to read it:</b> (1) the application writes; (2) ASE logs; (3) RepAgent scans the log and pushes TDS+LTL to port 11752; (4) <code>LtlServer/LtlSession</code> receive it, <code>LtlParser</code> decodes it, <code>TransactionBuffer</code> holds rows until COMMIT; (5) the task's <code>poll()</code> turns them into records that <code>ChangeEventMapper</code> shapes, and the producer writes them to the topic; (6) each broker acknowledgement reaches <code>AckTracker</code>; (7) the next <code>get truncation</code> from RepAgent receives the acknowledged position, and RepAgent moves the database's <em>secondary truncation point</em>, which allows ASE to reuse that log space.</p>
+<p><b>Responsibilities:</b> ASE guarantees the log; RepAgent guarantees ordered delivery from the log and re-delivery after reconnects; the connector guarantees that nothing is acknowledged before Kafka has it; Kafka guarantees durability once acknowledged.</p>
+<p><b>Files:</b> <a href="source/SybaseCdcSourceTask.html">SybaseCdcSourceTask.java</a>, <a href="source/LtlSession.html">LtlSession.java</a>, <code>docker-compose.yml</code>, <code>sybase/02_repagent.sql</code>.</p>
+<p><b>Does not show:</b> the Kafka Connect REST API, worker internals, or the production network (see <a href="#fig-11">Figure 11</a>).</p>
+</figure-diagram>
+
+<figure-diagram src="02-cdc-data-flow" n="02" title="End-to-end flow of one committed row change">
+<p><b>Purpose:</b> the same journey as a numbered sequence, for readers who prefer steps to boxes.</p>
+<p><b>Key point:</b> nothing reaches Kafka before step 7 (COMMIT). A ROLLBACK ends the path at the red box: rows are discarded and nothing is published (test scenario 2 verified 0 events).</p>
+<p><b>Latency budget measured locally:</b> steps 1–4 are bounded by RepAgent's scan speed (1M rows: ≈ 8,600 rows/s average, ≈ 12,900 rows/s in the best 11-second sample, on this Windows PC); steps 5–11 kept pace with it. See <a href="#t6">test 6</a>.</p>
+<p><b>Does not show:</b> batching (many commands per TDS message, many records per <code>poll()</code>).</p>
+</figure-diagram>
+
+<figure-diagram src="03-repagent-transaction-flow" n="03" title="How one ASE transaction becomes LTL commands">
+<p><b>Purpose:</b> connects the database concept (log records) to the wire format (LTL commands) and to the code that handles each.</p>
+<p><b>Read across each row:</b> the log record ASE writes, the <code>distribute</code> command RepAgent sends for it (real syntax, abbreviated), and what <a href="source/TransactionBuffer.html">TransactionBuffer</a> does. Note the update row: the after image carries only changed columns; <a href="source/LtlParser.html#b121">LtlParser</a> rebuilds the full row.</p>
+<p><b>Does not show:</b> system transactions (e.g. <code>rs_logexec</code>, <code>_dmpxact</code>) that RepAgent also sends; they are committed transactions with no rows and only move the position.</p>
+</figure-diagram>
+
+<figure-diagram src="04-replication-architecture" n="04" title="Classic SAP replication vs. this project">
+<p><b>Purpose:</b> answers "do we need SAP Replication Server?" No. RepAgent's peer is replaced by the connector.</p>
+<p><b>What changes:</b> the stable queues, replication definitions, subscriptions and SQL application of Replication Server disappear; the connector writes JSON events to Kafka instead. <b>What stays:</b> RepAgent, its configuration procedures, the secondary truncation point and the interfaces-file entry.</p>
+<p><b>Precedent:</b> Qlik Replicate's "RepAgent CDC" mode (Preview) uses the same pattern: RepAgent is pointed at the product's own listener through an interfaces entry, with <code>net password encryption</code> set to <code>false</code> because encrypted passwords are not supported (<a href="#ref-qlik">Qlik documentation</a>).</p>
+<p><b>Implication:</b> SAP does not document LTL beyond version 700 and does not support third-party Replication Server emulation. The protocol knowledge in this handbook comes from captures; see the risks in <a href="#ch-readiness">production readiness</a>.</p>
+</figure-diagram>

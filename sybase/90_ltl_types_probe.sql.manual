@@ -1,0 +1,43 @@
+-- Discovery table: one column per common ASE type, to learn how LTL 760 encodes each value.
+-- Run manually: isql -Usa -PmyPassword -SMYSYBASE -i /scripts/90_ltl_types_probe.sql.manual
+use phoenix_test
+go
+if object_id('ltl_types') is not null drop table ltl_types
+go
+create table ltl_types (
+  id        int not null primary key,
+  c_tiny    tinyint null, c_small smallint null, c_big bigint null, c_bit bit default 0 not null,
+  c_num     numeric(18,4) null, c_dec decimal(10,0) null, c_money money null, c_smoney smallmoney null,
+  c_float   float null, c_real real null,
+  c_char    char(10) null, c_vchar varchar(2000) null, c_uvchar univarchar(100) null,
+  c_dt      datetime null, c_sdt smalldatetime null, c_date date null, c_time time null, c_bdt bigdatetime null,
+  c_bin     binary(4) null, c_vbin varbinary(300) null)
+go
+sp_setreptable ltl_types, true
+go
+insert ltl_types values (1, 255, -32768, 9223372036854775807, 1, 12345.6789, 42, 1234.5678, -12.34,
+  3.14159265358979, 2.5, 'abc', 'it''s ~ "quoted" ~"x', 'uni', '2026-10-20 13:45:56.123', '2026-10-20 13:45',
+  '2026-10-20', '13:45:56', '2026-10-20 13:45:56.123456', 0x01020304, 0xdeadbeef)
+go
+insert ltl_types (id, c_vchar) values (2, replicate('A', 90))
+go
+insert ltl_types (id, c_vchar) values (3, replicate('B', 94))
+go
+insert ltl_types (id, c_vchar) values (4, replicate('C', 200))
+go
+insert ltl_types (id, c_vchar, c_vbin) values (5, replicate('D', 1500), 0x00)
+go
+update ltl_types set c_money = 99.99, c_vchar = 'updated' where id = 1
+go
+delete ltl_types where id = 2
+go
+begin tran
+insert ltl_types (id, c_vchar) values (6, 'rolled back')
+rollback tran
+go
+begin tran
+insert ltl_types (id, c_vchar) values (7, 'multi 1')
+insert ltl_types (id, c_vchar) values (8, 'multi 2')
+update ltl_types set c_vchar = 'multi 3' where id = 7
+commit tran
+go

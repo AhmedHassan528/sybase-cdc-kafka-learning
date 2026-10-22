@@ -1,0 +1,27 @@
+@file sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/cdc/TransactionBufferTest.java
+@summary
+<p><b>Role:</b> unit test for <a href="TransactionBuffer.html">TransactionBuffer</a>: two interleaved transactions, one rolled back and one committed. Proves "publish only on COMMIT, in log order, discard on ROLLBACK" without a database.</p>
+@@ 1
+<p>Same package as the class under test.</p>
+@@ 3-5
+<p>Imports the command record and its enum, and JUnit.</p>
+@@ 7-9
+<p>JDK types.</p>
+@@ 11-12
+<p>Static assertion imports.</p>
+@@ 14
+<p>Test class.</p>
+@@ 16-19
+<p>Helper building a fake command: the transaction id and OQID are single bytes; INSERT commands get an after image <code>{id: oqid}</code> so the test can check which rows were released.</p>
+@@ 21-22
+<p>The test method.</p>
+@@ 23-29
+<p>Feed: BEGIN 1, BEGIN 2, INSERT in 1, INSERT in 2 (interleaved, as in a real log), INSERT in 1, ROLLBACK 2. Nothing is released yet.</p>
+@@ 30-31
+<p>COMMIT 1 releases a transaction.</p>
+@@ 32
+<p>It contains exactly transaction 1's rows (ids 3 and 5) in log order; transaction 2's row (id 4) is gone.</p>
+@@ 33
+<p>No transactions remain open.</p>
+@@ 34-35
+<p>End of test and class.</p>

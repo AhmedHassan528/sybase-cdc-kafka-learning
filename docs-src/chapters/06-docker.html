@@ -1,0 +1,126 @@
+<h2 id="ch-docker" data-keywords="docker compose image container volume network port healthcheck entrypoint seccomp dockerfile">Docker fundamentals and environment setup</h2>
+<p><b>Plain definition:</b> Docker runs programs in <em>containers</em>: isolated processes with their own file system, network address and installed software, created from a read-only template called an <em>image</em>. <b>Why it exists:</b> the same image runs identically on every machine, so "works on my laptop" becomes reproducible. <b>Here:</b> four containers (ASE, Kafka, Kafka Connect, Kafka UI) form the whole test environment; one-off containers build the JAR, compile the kernel shim and render diagrams.</p>
+
+<h3 id="docker-concepts">Concepts you need</h3>
+<dl class="kv">
+<dt>Container vs virtual machine</dt><dd>A VM emulates a whole computer with its own kernel; a container shares the host's Linux kernel (on Windows, the WSL2 kernel). That is why the 2015 ASE binary met the 2026 kernel and crashed (<a href="#hist-snap">history 3</a>).</dd>
+<dt>Image vs container</dt><dd>Image = template (layers of files + metadata). Container = a running (or stopped) instance with a writable layer on top. Deleting the container deletes that layer, including the ASE database here.</dd>
+<dt>Tag vs digest</dt><dd><code>apache/kafka:3.8.0</code> is a tag (a movable name); <code>@sha256:c89f…</code> is a digest (an immutable content hash). <code>latest</code> tags (used for the ASE and UI images) can change at any time; the digests that were tested are in the <a href="#ch-inventory">inventory</a>.</dd>
+<dt>Registry</dt><dd>Server storing images (Docker Hub here; an approved internal registry in a bank).</dd>
+<dt>Dockerfile, build context, layers, cache</dt><dd>A Dockerfile lists build steps; each step creates a cached layer; the build context is the folder sent to the builder (here the project root, so <code>plugins/</code> is visible).</dd>
+<dt>Volumes and bind mounts</dt><dd>A bind mount maps a host folder into a container (<code>./plugins:/opt/connectors</code>); a named volume is storage managed by Docker (<code>cdc-m2-cache</code> keeps the Maven download cache between builds).</dd>
+<dt>Networks and published ports</dt><dd>Compose creates one bridge network; containers reach each other by service name. <code>ports: ["8083:8083"]</code> publishes a container port on the host.</dd>
+<dt>Entrypoint, command, health check, restart policy</dt><dd>What runs at start, its arguments, how Docker decides a container is healthy, and whether Docker restarts it.</dd>
+</dl>
+
+<figure-diagram src="08-docker-topology" n="08" title="Local Docker topology">
+<p><b>Purpose:</b> which container talks to which, by which name and port. <b>Direction:</b> RepAgent (in <code>cdc-sybase</code>) connects to <code>connect:11752</code>; Connect produces to <code>kafka:9092</code>; Kafka UI reads Kafka and the Connect REST API; you use the published <code>localhost</code> ports.</p>
+<p><b>Persistence warning:</b> no named volume holds ASE data. <code>docker compose stop/start/restart</code> keeps the database; <code>docker compose down</code> (or deleting <code>cdc-sybase</code>) erases it, and the next start re-runs the init scripts. Kafka data is also inside its container.</p>
+<p><b>Network name</b> is derived from the project folder (<code>&lt;folder&gt;_default</code>), so it changes if the folder is renamed. <b>Files:</b> <code>docker-compose.yml</code>.</p>
+</figure-diagram>
+
+<h3 id="compose">docker-compose.yml, explained line by line</h3>
+<div class="tbl"><table>
+<thead><tr><th>Lines</th><th>Content</th><th>Meaning and reason</th></tr></thead>
+<tbody>
+<tr><td>1–3</td><td><code>services: sybase: image: datagrip/sybase:latest</code></td><td>A freely downloadable image containing SAP ASE 16.0 SP02 PL02 Developer Edition (license type DT, for development and testing). Image created 2019; ASE build from 2015. Tested digest <code>sha256:72f1e825…</code>.</td></tr>
+<tr><td>4–5</td><td><code>container_name: cdc-sybase</code>, <code>hostname: sybase</code></td><td>Fixed names; <code>cdc-</code> prefix avoids clashing with unrelated containers (<a href="#hist-env">history 2.1</a>). The hostname is what ASE prints in its errorlog.</td></tr>
+<tr><td>6</td><td><code>ports: ["5000:5000"]</code></td><td>ASE listens on 5000 (interfaces entry <code>MYSYBASE</code>); published for host SQL tools.</td></tr>
+<tr><td>7–10</td><td><code>SYBASE_USER/PASSWORD/DB</code></td><td>Read by the image's original entrypoint, which is replaced; <code>start.sh</code> only uses <code>SYBASE_PASSWORD</code> (the <code>sa</code> password, public image default). Kept for compatibility.</td></tr>
+<tr><td>11–12</td><td><code>./sybase:/scripts:ro</code></td><td>Mounts startup script, shim and SQL scripts read-only.</td></tr>
+<tr><td>13</td><td><code>entrypoint: ["/bin/bash", "/scripts/start.sh"]</code></td><td>Replaces the image's entrypoint (<a href="#hist-env">history 2.2</a>).</td></tr>
+<tr><td>14</td><td><code>stop_grace_period: 30s</code></td><td>Gives ASE time for a clean <code>shutdown with nowait</code> on <code>docker stop</code> (default 10 s).</td></tr>
+<tr><td>15</td><td><code>restart: unless-stopped</code></td><td>If ASE dies, <code>start.sh</code> exits and Docker restarts the container; used to simulate and recover from crashes (test 5).</td></tr>
+<tr><td>16–18</td><td><code>security_opt: ["seccomp=unconfined"]</code></td><td>Disables Docker's system-call filter for this one container so the shim can call <code>personality(READ_IMPLIES_EXEC)</code>. <b>Local test database only</b>: it weakens isolation.</td></tr>
+<tr><td>20–24</td><td><code>kafka: image: apache/kafka:3.8.0</code>, ports 29092</td><td>Official Apache Kafka image. 29092 is the host listener.</td></tr>
+<tr><td>26–27</td><td><code>KAFKA_NODE_ID: 1</code>, <code>KAFKA_PROCESS_ROLES: broker,controller</code></td><td><b>KRaft mode</b> (no ZooKeeper): one process is both the broker and the metadata controller.</td></tr>
+<tr><td>28–31</td><td>listeners, advertised listeners, protocol map, inter-broker listener</td><td>Three listeners: <code>PLAINTEXT</code> on 9092 advertised as <code>kafka:9092</code> (containers), <code>CONTROLLER</code> on 9093 (KRaft internal), <code>PLAINTEXT_HOST</code> on 29092 advertised as <code>localhost:29092</code> (your PC). Clients connect, then use the <em>advertised</em> address the broker returns, which must be reachable from where they are.</td></tr>
+<tr><td>32–33</td><td>controller listener name, quorum voters</td><td>Node 1 at <code>kafka:9093</code> is the only controller voter.</td></tr>
+<tr><td>34–36</td><td>replication factor 1, min ISR 1</td><td>Required with a single broker (defaults expect 3). Production uses 3.</td></tr>
+<tr><td>37</td><td><code>KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0</code></td><td>Faster consumer-group start in tests.</td></tr>
+<tr><td>38–42</td><td><code>healthcheck</code></td><td>Healthy when <code>kafka-broker-api-versions.sh</code> can reach the broker; Connect waits for it.</td></tr>
+<tr><td>44–47</td><td><code>connect: image: apache/kafka:3.8.0</code>, hostname <code>connect</code></td><td>Same image, different program. The hostname <code>connect</code> is what the ASE interfaces entry <code>CDC_RS</code> points at.</td></tr>
+<tr><td>48–50</td><td><code>depends_on</code></td><td>Start after Kafka is healthy and ASE has started (started ≠ ready; RepAgent retries anyway).</td></tr>
+<tr><td>51</td><td><code>ports: ["8083:8083", "11752:11752"]</code></td><td>REST API and the LTL listener (published only for host-side experiments; RepAgent uses the internal network).</td></tr>
+<tr><td>52–54</td><td>bind mounts</td><td><code>./plugins</code> → <code>/opt/connectors</code> (the <code>plugin.path</code>); the worker properties file, read-only.</td></tr>
+<tr><td>55</td><td><code>command: …connect-distributed.sh …</code></td><td>Start Kafka Connect in distributed mode with that file.</td></tr>
+<tr><td>57–66</td><td><code>kafka-ui</code></td><td>Optional web UI on http://localhost:8080 showing topics, messages and connectors. Not part of the data path.</td></tr>
+</tbody></table></div>
+
+<h3 id="worker-props">connect-distributed.properties</h3>
+<p>The file exactly as used (in <code>.properties</code> files a <code>#</code> starts a comment only at the beginning of a line; never append comments after a value):</p>
+<pre data-lang="properties"><code>bootstrap.servers=kafka:9092
+group.id=sybase-cdc-connect
+key.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
+config.storage.topic=_connect-configs
+offset.storage.topic=_connect-offsets
+status.storage.topic=_connect-status
+config.storage.replication.factor=1
+offset.storage.replication.factor=1
+status.storage.replication.factor=1
+listeners=http://0.0.0.0:8083
+rest.advertised.host.name=connect
+rest.advertised.port=8083
+plugin.path=/opt/connectors
+# Commit source offsets every 5 s (default 60 s): fewer re-sent events after a crash
+offset.flush.interval.ms=5000</code></pre>
+<div class="tbl"><table>
+<thead><tr><th>Property</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>bootstrap.servers</code></td><td>Where the worker finds Kafka (internal listener).</td></tr>
+<tr><td><code>group.id</code></td><td>Workers with the same id form one Connect cluster and share connectors.</td></tr>
+<tr><td><code>key.converter</code>, <code>value.converter</code></td><td>Default serialization; the connector configuration overrides <code>schemas.enable=false</code> for its own records.</td></tr>
+<tr><td><code>config/offset/status.storage.topic</code></td><td>Kafka topics where the worker stores connector configurations, source offsets (the connector's ASE log position) and states.</td></tr>
+<tr><td><code>*.replication.factor=1</code></td><td>One broker locally; use 3 in production.</td></tr>
+<tr><td><code>listeners</code>, <code>rest.advertised.*</code></td><td>REST API address and the name other workers use to reach this one.</td></tr>
+<tr><td><code>plugin.path</code></td><td>Folder scanned for plugins; each sub-folder gets an isolated class loader.</td></tr>
+<tr><td><code>offset.flush.interval.ms=5000</code></td><td>Commit offsets every 5 s instead of 60 s, which shrinks the window of re-sent events after a crash. Added before test 6.</td></tr>
+</tbody></table></div>
+
+<h3 id="startsh">sybase/start.sh, explained</h3>
+<div class="tbl"><table>
+<thead><tr><th>Lines</th><th>What and why</th></tr></thead>
+<tbody>
+<tr><td>5–8</td><td>Load the ASE environment; build the <code>isql</code> command line (<code>-Usa</code> user, <code>-P</code> password, <code>-SMYSYBASE</code> server, <code>-w300</code> width).</td></tr>
+<tr><td>10–12</td><td>Start the server script <code>RUN_MYSYBASE</code> in the background with three additions: <code>LD_PRELOAD=/scripts/rie_shim.so</code> (enables READ_IMPLIES_EXEC, required), <code>MALLOC_ARENA_MAX=1</code> and <code>setarch x86_64 -R</code> (no address randomisation; added during the 4047 investigation, <b>not proven necessary</b>, kept because the tested state includes them).</td></tr>
+<tr><td>14–19</td><td>Append the <code>CDC_RS</code> entry (master/query lines: protocol <code>tcp</code>, host <code>connect</code>, port 11752) to the interfaces file, once. The tab-indented two-line format is the Sybase interfaces syntax on Unix.</td></tr>
+<tr><td>21–25</td><td>Wait until <code>select 1</code> succeeds; if <code>dataserver</code> died, print the errorlog tail and exit (Docker restarts the container).</td></tr>
+<tr><td>28–32</td><td>First boot only (marker file in the data folder): run <code>/scripts/*.sql</code> in name order (<code>00</code>, <code>01</code>, <code>02</code>, <code>03</code>). <code>*.sql.manual</code> files are not run automatically.</td></tr>
+<tr><td>35</td><td>On <code>docker stop</code> (SIGTERM) shut ASE down cleanly.</td></tr>
+<tr><td>36–39</td><td>Stay alive while <code>dataserver</code> runs; exit 1 when it dies so the restart policy applies.</td></tr>
+</tbody></table></div>
+
+<h3 id="shim">sybase/rie_shim.c, explained</h3>
+<p>A 21-line C library loaded into ASE with <code>LD_PRELOAD</code> (a Linux feature that loads a library before all others). Its constructor (a function the loader runs automatically) reads the process <em>personality</em> and adds <code>READ_IMPLIES_EXEC</code>; its own <code>personality()</code> function makes sure a later call by ASE cannot remove the flag. It uses the raw <code>syscall(SYS_personality, …)</code> to avoid calling itself. It only uses symbols from GLIBC 2.2.5, so a library built with <code>gcc:13</code> loads in the CentOS 7 based ASE image. Build command (run once; the <code>.so</code> is in the workspace):</p>
+<pre data-lang="bash"><code>docker run --rm -v "$(pwd -W)/sybase:/src" -w /src gcc:13 \
+  sh -c 'gcc -O2 -shared -fPIC -o rie_shim.so rie_shim.c && objdump -T rie_shim.so | grep -i glibc'</code></pre>
+
+<h3 id="dockerfile">deploy/docker/Dockerfile.connect, explained</h3>
+<p>The instructions of the file (its comment lines are omitted here; in Dockerfiles, too, a <code>#</code> comment must be on its own line):</p>
+<pre data-lang="dockerfile"><code>FROM apache/kafka:3.8.0
+COPY plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar /opt/connectors/sybase-cdc/
+COPY connect-distributed.properties /opt/kafka/config/connect-distributed.properties
+EXPOSE 8083 11752
+CMD ["/opt/kafka/bin/connect-distributed.sh", "/opt/kafka/config/connect-distributed.properties"]</code></pre>
+<ul>
+<li><code>FROM</code>: base image, the same runtime as the tested worker.</li>
+<li>First <code>COPY</code>: the plugin goes into its own folder under the plugin path.</li>
+<li>Second <code>COPY</code>: the worker configuration (for local use; on OpenShift the operator generates its own).</li>
+<li><code>EXPOSE</code>: documents the ports; it does not publish them.</li>
+<li><code>CMD</code>: start Connect in distributed mode. The base image's user (<code>appuser</code>) is kept.</li>
+</ul>
+<p>Build and verify (both executed):</p>
+<pre data-lang="bash"><code>docker build -f deploy/docker/Dockerfile.connect -t sybase-cdc-connect:0.1.0 .
+docker run --rm --entrypoint sh sybase-cdc-connect:0.1.0 -c 'id; sha256sum /opt/connectors/sybase-cdc/*.jar'</code></pre>
+<pre><code>uid=1000(appuser) gid=1000(appuser) groups=1000(appuser)
+7e1e5bc225e035a79c925612c22ca2fb3cc34172e1c9a8a301566f0726b3f61b  /opt/connectors/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code></pre>
+<p>Plugin discovery was verified by starting the image in <em>standalone</em> mode (so it could not join the running cluster) and calling <code>GET /connector-plugins</code>; evidence <code>docs/evidence/10-custom-image-plugin-discovery.txt</code>. For IBM Event Streams use IBM's base image instead (<a href="#es-image">OpenShift chapter</a>).</p>
+
+<h3 id="image-archive">Exporting images: save vs export</h3>
+<p><code>docker save</code> writes an <em>image</em> (all layers, tags and metadata) to a tar file that <code>docker load</code> restores exactly. <code>docker export</code> writes a <em>container's</em> flattened file system without history, entrypoint or environment, so it is not a faithful copy of an image. The connector image was saved and checksummed:</p>
+<pre data-lang="bash"><code>docker save sybase-cdc-connect:0.1.0 | gzip -6 &gt; deliverables/images/sybase-cdc-connect-0.1.0.tar.gz
+sha256sum sybase-cdc-connect-0.1.0.tar.gz &gt; sybase-cdc-connect-0.1.0.tar.gz.sha256
+# restore elsewhere:
+sha256sum -c sybase-cdc-connect-0.1.0.tar.gz.sha256 &amp;&amp; gunzip -c sybase-cdc-connect-0.1.0.tar.gz | docker load</code></pre>
+<p><b>Not archived:</b> the ASE image (3.3 GB, SAP Developer Edition licence: obtain it yourself with <code>docker pull datagrip/sybase@sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f</code> and accept SAP's terms; do not redistribute it) and the public Apache Kafka, Kafka UI and Maven images (pull them by the digests in the inventory).</p>

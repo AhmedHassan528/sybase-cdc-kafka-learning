@@ -1,0 +1,57 @@
+### setup as sa
+New user added.
+(return status = 0)
+New user added.
+(return status = 0)
+### as cdc_repl_test (replication_role only)
+ ------------------------------ ------------------------------
+	 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ cdc_repl_test                  cdc_repl_test
+	 replication_role
+(1 row affected)
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ----------
+ phoenix_test   13 (94612,64)   (94612,84) (94612,84)     not sleeping sleeping           0          0
+(1 row affected)
+(return status = 0)
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ scan timeout   15            15           15
+(1 row affected)
+Replication Agent configuration changed for database 'phoenix_test'. The changes will take effect the next time the Replication Agent thread is started.
+(return status = 0)
+The replication status for 'payment' is currently true, owner_off, primary key = 'payment_paymen_5920021091'.
+(return status = 0)
+### as cdc_app_test (table DML only)
+ ------------------------------ ------------------------------
+	 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ cdc_app_test                   cdc_app_test
+	 NULL
+(1 row affected)
+(1 row affected)
+Msg 10364, Level 14, State 1:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 116:
+Permission denied. You must either be the database/object owner or possess any of the following roles in order to perform this operation: 'sa_role, replication_role'.
+Msg 9222, Level 14, State 2:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 116:
+You must be SA, DBO, or have REPLICATION role to execute the builtin function, 'rep_agent_config'. Please check your current roles.
+Msg 567, Level 16, State 1:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 157:
+You must have the following role(s) to execute this command/procedure: 'sa_role'. Please contact a user with the appropriate role for help.
+Msg 567, Level 16, State 1:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 158:
+You must have the following role(s) to execute this command/procedure: 'replication_role'. Please contact a user with the appropriate role for help.
+Msg 18375, Level 16, State 1:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 166:
+You are not authorized to execute this stored procedure. Only the System Administrator (SA), the Database Owner (DBO) or a user with replication_role authorization can execute this stored procedure.
+(return status = 1)
+User has been dropped from current database.
+(return status = 0)
+User has been dropped from current database.
+(return status = 0)
+ name
+ ------------------------------
+ probe
+ sa
+(2 rows affected)

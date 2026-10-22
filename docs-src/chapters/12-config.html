@@ -1,0 +1,99 @@
+<h2 id="ch-config" data-keywords="configuration properties reference connector worker broker repagent openshift secrets matrix">Connector configuration reference</h2>
+<p>Defaults below are the real ones from <a href="source/SybaseCdcConfig.html">SybaseCdcConfig</a>; "required" means no default exists and the connector fails to start without it.</p>
+
+<figure-diagram src="07-config-dependencies" n="07" title="Settings that must agree across ASE and the connector">
+<p><b>Purpose:</b> the most common setup failure is a mismatch between what the DBA configured in ASE and what the connector expects. Each double arrow joins two settings that must be equal; the red boxes are the symptom you see when they differ.</p>
+<p><b>Does not show:</b> Kafka-side settings, which fail independently (topic ACLs, bootstrap servers).</p>
+</figure-diagram>
+
+<h3 id="cfg-connector">1. Connector settings (<code>connectors/sybase-cdc-phoenix.json</code> or KafkaConnector CR)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Valid values</th><th>Meaning, source, env-specific?, security, failure</th></tr></thead>
+<tbody>
+<tr><td><code>connector.class</code></td><td>string</td><td>required (Connect)</td><td><code>com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector</code></td><td>Plugin class. Static. Wrong value: <code>Failed to find any class that implements Connector</code>.</td></tr>
+<tr><td><code>tasks.max</code></td><td>int</td><td>1 (Connect)</td><td>any ≥ 1</td><td>Ignored: always one task (one RepAgent endpoint).</td></tr>
+<tr><td><code>ltl.listen.host</code></td><td>string</td><td><code>0.0.0.0</code></td><td>IP of the worker</td><td>Bind address. Usually unchanged.</td></tr>
+<tr><td><code>ltl.listen.port</code></td><td>int</td><td><code>11752</code></td><td>1–65535</td><td>Port RepAgent connects to; must match the interfaces entry / Service. Port in use: task FAILED <code>Cannot listen on …</code>.</td></tr>
+<tr><td><code>ltl.username</code></td><td>string</td><td><b>required</b></td><td>any</td><td>Must equal the user in <code>sp_config_rep_agent … 'enable'</code>. Env-specific. Mismatch: RepAgent <code>Login failed</code> (Msg 4002) and thread abort.</td></tr>
+<tr><td><code>ltl.password</code></td><td>password</td><td><b>required</b></td><td>≤ 30 chars (longer untested)</td><td>Secret: supply as <code>${file:…}</code> config-provider reference in production. Requires <code>net password encryption=false</code> in RepAgent. Shown in clear by the REST API if given literally.</td></tr>
+<tr><td><code>ltl.charset</code></td><td>string</td><td>"" (from login)</td><td>Java charset name</td><td>Decode char/varchar. Env-specific: set to the production server's charset (<code>sp_helpsort</code>). Wrong: garbled non-ASCII text (no error).</td></tr>
+<tr><td><code>ltl.trace</code></td><td>boolean</td><td><code>false</code></td><td>true/false</td><td>Logs packets and LTL text, including customer data. Troubleshooting only.</td></tr>
+<tr><td><code>database.server.name</code></td><td>string</td><td><b>required</b></td><td><code>@@servername</code></td><td>Offset partition and event <code>source.server</code>. Changing it later loses the stored position (restart from zeros = RepAgent's own truncation point).</td></tr>
+<tr><td><code>database.name</code></td><td>string</td><td><b>required</b></td><td>database name</td><td>RepAgent for another database is refused. Part of offset partition and topic name.</td></tr>
+<tr><td><code>database.maintenance.user</code></td><td>string</td><td><code>cdc_maint</code></td><td>login name</td><td>Transactions of this login are not forwarded by RepAgent. Must not be a business login.</td></tr>
+<tr><td><code>topic.prefix</code></td><td>string</td><td><code>sybase</code></td><td>topic-name characters</td><td>Topic = prefix.database.table. Env-specific (naming standard).</td></tr>
+<tr><td><code>table.include.list</code></td><td>list</td><td>"" (all)</td><td>comma list, case-insensitive</td><td>Publish only these tables (RepAgent still sends all marked tables).</td></tr>
+<tr><td><code>queue.max.transactions</code></td><td>int</td><td>1000</td><td>≥ 1</td><td>Back-pressure buffer between RepAgent and Kafka. Memory ≈ this × average transaction size.</td></tr>
+<tr><td><code>poll.max.records</code></td><td>int</td><td>10000</td><td>≥ 1</td><td>Soft cap per <code>poll()</code>; one transaction is never split.</td></tr>
+<tr><td><code>large.transaction.warn.rows</code></td><td>int</td><td>100000</td><td>≥ 1</td><td>Warning threshold; not a limit.</td></tr>
+<tr><td><code>key.converter</code>, <code>value.converter</code></td><td>class</td><td>worker default</td><td><code>org.apache.kafka.connect.json.JsonConverter</code></td><td>Serialization of keys/values.</td></tr>
+<tr><td><code>key.converter.schemas.enable</code>, <code>value.converter.schemas.enable</code></td><td>boolean</td><td>true (JsonConverter)</td><td><b>false</b></td><td>The connector emits schemaless maps; with <code>true</code> every message is wrapped in a <code>{"schema":null,"payload":…}</code> envelope.</td></tr>
+<tr><td><code>errors.tolerance</code></td><td>string</td><td><code>none</code></td><td><b>keep <code>none</code></b></td><td>With <code>all</code>, failed records would be treated as delivered and could release ASE log for data that never reached Kafka.</td></tr>
+</tbody></table></div>
+
+<h3 id="cfg-worker">2. Kafka Connect worker settings</h3>
+<div class="tbl"><table>
+<thead><tr><th>Setting</th><th>Local</th><th>Production guidance</th></tr></thead>
+<tbody>
+<tr><td><code>bootstrap.servers</code></td><td><code>kafka:9092</code> (PLAINTEXT)</td><td>TLS listener; with SASL/SCRAM or mTLS (<code>security.protocol</code>, <code>sasl.*</code>, <code>ssl.*</code>, also with <code>producer.</code> prefix).</td></tr>
+<tr><td><code>group.id</code></td><td><code>sybase-cdc-connect</code></td><td>A dedicated Connect cluster for this connector.</td></tr>
+<tr><td>internal topics + replication factor</td><td><code>_connect-*</code>, 1</td><td>Dedicated names, replication factor 3.</td></tr>
+<tr><td><code>offset.flush.interval.ms</code></td><td>5000</td><td>5000 (fewer duplicates after crashes).</td></tr>
+<tr><td><code>plugin.path</code></td><td><code>/opt/connectors</code></td><td>Image-specific (<code>/opt/kafka/plugins</code> on Event Streams images).</td></tr>
+<tr><td><code>config.providers</code></td><td>none</td><td><code>file</code> → <code>org.apache.kafka.common.config.provider.DirectoryConfigProvider</code> (Event Streams pattern).</td></tr>
+<tr><td>Producer durability</td><td>Kafka 3.x defaults (<code>acks=all</code>, idempotence on)</td><td>Keep <code>acks=all</code>; the safety argument depends on acknowledgements meaning "replicated".</td></tr>
+<tr><td>Heap</td><td>2 GB (connect-distributed.sh default <code>-Xmx2G</code>); peak RSS 1.95 GiB</td><td>Size for the largest transaction; container limit above heap.</td></tr>
+</tbody></table></div>
+
+<h3 id="cfg-broker">3. Kafka broker / topic settings</h3>
+<p>Local: KRaft single node, replication factor 1, auto-created topics (1 partition). Production: pre-create <code>&lt;prefix&gt;.&lt;db&gt;.&lt;table&gt;</code> topics with replication factor 3, <code>min.insync.replicas=2</code>, a deliberate partition count (more partitions = parallel consumers, but order only per key) and a retention that covers the longest consumer outage. Grant the Connect principal <code>Write</code>/<code>Describe</code> on these topics and full access to its internal topics.</p>
+
+<h3 id="cfg-ase">4. ASE settings</h3>
+<div class="tbl"><table>
+<thead><tr><th>Setting</th><th>Command</th><th>Local</th><th>Production</th></tr></thead>
+<tbody>
+<tr><td>RepAgent threads</td><td><code>sp_configure 'enable rep agent threads', 1</code></td><td>1</td><td>1 (server-wide; DBA)</td></tr>
+<tr><td>Table marking</td><td><code>sp_setreptable &lt;t&gt;, true</code></td><td><code>payment</code> + discovery tables</td><td>Only tables in scope; each with a primary key</td></tr>
+<tr><td>Interfaces entry</td><td>file <code>$SYBASE/interfaces</code> (Unix) or <code>sql.ini</code> (Windows)</td><td><code>CDC_RS → connect 11752</code></td><td><code>CDC_RS → &lt;LB address&gt; 11752</code></td></tr>
+<tr><td>Log threshold</td><td><code>sp_addthreshold db, logsegment, &lt;pages&gt;, &lt;proc&gt;</code></td><td>24,576 pages, <code>sp_cdc_log_alert</code></td><td>Per the bank's monitoring standard</td></tr>
+<tr><td>Log truncation</td><td><code>sp_dboption … 'trunc log on chkpt'</code></td><td>true</td><td>Unchanged from the bank's backup policy</td></tr>
+</tbody></table></div>
+
+<h3 id="cfg-repagent">5. RepAgent settings</h3>
+<p>See the <a href="#ra-config">RepAgent configuration reference</a>. Must-have values: <code>rs servername</code> = interfaces entry name, user/password = connector credentials, <code>net password encryption=false</code>, <code>retry timeout</code> small (10 s locally), and the defaults <code>short ltl keywords=false</code>, <code>send structured oqids=false</code>, <code>stream replication=false</code>, <code>multithread rep agent=false</code>.</p>
+
+<h3 id="cfg-docker">6. Docker settings</h3>
+<p>See <a href="#compose">docker-compose.yml explained</a>. Environment-specific: published ports, bind-mount paths, and <code>seccomp=unconfined</code> (only needed for the 2015 ASE image on new kernels).</p>
+
+<h3 id="cfg-openshift">7. OpenShift / Kubernetes settings</h3>
+<p>KafkaConnect CR (replicas 1, image or build, config, resources, external configuration), KafkaConnector CR (connector settings), Service (LoadBalancer/NodePort on 11752), NetworkPolicy (ASE source IP only), Secret (LTL credentials). Templates in <code>deploy/openshift/</code>, explained in the <a href="#ch-openshift">OpenShift chapter</a>.</p>
+
+<figure-diagram src="12-secret-config-flow" n="12" title="Configuration and secret management flow">
+<p><b>Purpose:</b> where every secret value lives and how it reaches the running task without passing through Git, images, or the Connect REST API.</p>
+<p><b>Flow:</b> the bank's secret store syncs an OpenShift Secret; the KafkaConnect CR mounts it; the connector configuration references it as <code>${file:/opt/kafka/external-configuration/ltl-credentials:password}</code>, which the DirectoryConfigProvider resolves at runtime. The DBA sets the same value in ASE through a change ticket.</p>
+<p><b>Rotation:</b> change both sides in one change window (ASE first with RepAgent stopped, then the Secret, then restart the task); otherwise RepAgent's login fails and its thread aborts. <b>Proposed, not tested.</b></p>
+</figure-diagram>
+
+<h3 id="cfg-security">8. Security settings</h3>
+<ul>
+<li>No passwords in Git: CRs reference Secrets; JSON configs use <code>${file:…}</code> references.</li>
+<li>LTL traffic is unencrypted TDS with a clear-text password: restrict with NetworkPolicy/firewall; consider TLS termination in front of the pod as a follow-up (RepAgent supports SSL-filtered interfaces entries; not tested).</li>
+<li>Kafka: TLS and SASL/mTLS, ACLs on topics.</li>
+<li>Connect REST API: reachable only inside the cluster (operator default); manage connectors through CRs.</li>
+</ul>
+
+<h3 id="cfg-matrix">9. Local vs enterprise comparison</h3>
+<div class="tbl"><table>
+<thead><tr><th>Item</th><th>Local Docker</th><th>OpenShift</th><th>Same / must change / re-validate</th></tr></thead>
+<tbody>
+<tr><td>Connector JAR</td><td>bind-mounted folder</td><td>baked into image / operator build</td><td>same file (verify SHA-256)</td></tr>
+<tr><td>Connector config</td><td>REST JSON</td><td>KafkaConnector CR</td><td>same keys; credentials via Secret</td></tr>
+<tr><td>Database identity</td><td><code>MYSYBASE</code>/<code>phoenix_test</code></td><td>production names</td><td>must change</td></tr>
+<tr><td>Charset</td><td><code>iso_1</code></td><td>production charset</td><td>must change, re-validate</td></tr>
+<tr><td>RepAgent target</td><td><code>connect:11752</code></td><td>LB/NodePort address</td><td>must change</td></tr>
+<tr><td>Kafka security</td><td>PLAINTEXT</td><td>TLS + SASL/mTLS</td><td>must change</td></tr>
+<tr><td>Replication factors</td><td>1</td><td>3</td><td>must change</td></tr>
+<tr><td>Worker count</td><td>1</td><td>1 (dedicated cluster)</td><td>same</td></tr>
+<tr><td>ASE version / LTL</td><td>SP02 / 760</td><td>SP04 PL07 / unknown</td><td><b>re-validate</b></td></tr>
+<tr><td>Kernel workaround</td><td>shim + seccomp</td><td>not applicable</td><td>local only</td></tr>
+</tbody></table></div>

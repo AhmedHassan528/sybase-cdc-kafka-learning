@@ -1,0 +1,1 @@
+[{"class":"com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector","type":"source","version":"0.1.0"

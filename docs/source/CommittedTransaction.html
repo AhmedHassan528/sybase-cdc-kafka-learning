@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CommittedTransaction.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>CommittedTransaction.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/CommittedTransaction.java</code> · 22 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> an immutable value that carries one finished (committed) database transaction from the <a href="TransactionBuffer.html">TransactionBuffer</a> to the Kafka task. It is the hand-over object between "we understood the log" and "we publish to Kafka".</p>
+<p><b>Created by:</b> <code>TransactionBuffer.accept()</code> when a COMMIT arrives. <b>Used by:</b> <code>SybaseCdcSourceTask</code> (queue, offsets) and <code>ChangeEventMapper</code> (event <code>source</code> block). <b>Tests:</b> <code>TransactionBufferTest</code>.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.cdc;</code></pre><div class="note"><div class="range">Lines 1</div><p><b>Package declaration.</b> Every Java file starts by saying which package (namespace) it belongs to. The folder path <code>com/phoenix/cdc/sybase/cdc</code> must match it, otherwise <code>javac</code> refuses to compile. The <code>cdc</code> package holds the transaction logic that knows nothing about TDS sockets or Kafka.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlCommand</span>;</code></pre><div class="note"><div class="range">Lines 3</div><p><b>Import.</b> Lets the file write <code>LtlCommand</code> instead of the full name <code>com.phoenix.cdc.sybase.ltl.LtlCommand</code>. Imports have no runtime cost; they only help the compiler resolve names. This is the only dependency of this class on the LTL package: a committed transaction is a list of parsed LTL row commands.</p></div></section>
+<section class="blk" id="b5"><pre class="code"><code><span class="ln" id="L5">5</span><span class="k">import</span> java.util.<span class="t">List</span>;</code></pre><div class="note"><div class="range">Lines 5</div><p>Imports <code>java.util.List</code>, the standard ordered-collection interface from the JDK (Java Development Kit).</p></div></section>
+<section class="blk" id="b7"><pre class="code"><code><span class="ln" id="L7">7</span><span class="c">/**</span>
+<span class="ln" id="L8">8</span><span class="c"> * A transaction RepAgent reported as committed, with its row changes in log order.</span>
+<span class="ln" id="L9">9</span><span class="c"> *</span>
+<span class="ln" id="L10">10</span><span class="c"> * @param tranId     ASE transaction id (hex)</span>
+<span class="ln" id="L11">11</span><span class="c"> * @param commitOqid origin queue ID of the commit record: our position in the log</span>
+<span class="ln" id="L12">12</span><span class="c"> * @param commitTime origin_time of the commit record, as sent by RepAgent</span>
+<span class="ln" id="L13">13</span><span class="c"> * @param user       login that ran the transaction (from "begin transaction ... for 'user'")</span>
+<span class="ln" id="L14">14</span><span class="c"> * @param changes    INSERT/UPDATE/DELETE commands, in the order they were logged</span>
+<span class="ln" id="L15">15</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 7–15</div><p><b>Javadoc comment.</b> <code>/** ... */</code> comments are documentation that tools (IDEs, the <code>javadoc</code> tool) read. The <code>@param</code> tags document each record component. Comments never change behaviour.</p></div></section>
+<section class="blk" id="b16"><pre class="code"><code><span class="ln" id="L16">16</span><span class="k">public</span> <span class="k">record</span> <span class="t">CommittedTransaction</span>(
+<span class="ln" id="L17">17</span>        <span class="t">String</span> tranId,
+<span class="ln" id="L18">18</span>        <span class="k">byte</span>[] commitOqid,
+<span class="ln" id="L19">19</span>        <span class="t">String</span> commitTime,
+<span class="ln" id="L20">20</span>        <span class="t">String</span> user,
+<span class="ln" id="L21">21</span>        <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; changes) {</code></pre><div class="note"><div class="range">Lines 16–21</div><p><b>What:</b> a Java <em>record</em> (Java 16+). One line declares an immutable class with five private final fields, a constructor taking all five, accessor methods named like the fields (<code>tranId()</code>, <code>commitOqid()</code>, …), and <code>equals</code>/<code>hashCode</code>/<code>toString</code>.</p>
+<ul>
+<li><code>tranId</code>: the ASE transaction id as hex text. Hex is used because the raw id is binary (e.g. <code>0000000000001c6d001a4d59...</code>) and must be printable in the event's <code>source.xid</code>.</li>
+<li><code>commitOqid</code>: the <a href="../index.html#g-oqid">origin queue ID</a> of the COMMIT log record, as raw bytes. This is the transaction's position in the ASE log and becomes the Kafka Connect source offset and the RepAgent truncation answer. Bytes (not hex) because it is compared with <code>Arrays.compareUnsigned</code>.</li>
+<li><code>commitTime</code>: ISO-formatted <code>origin_time</code> of the commit (ASE server local time, no time zone).</li>
+<li><code>user</code>: the ASE login that ran the transaction, when RepAgent sent it (<code>for</code> / <code>npw</code> clause of <code>begin transaction</code>); may be <code>null</code>.</li>
+<li><code>changes</code>: the INSERT/UPDATE/DELETE commands in log order.</li>
+</ul>
+<p><b>Why a record:</b> the object crosses threads (RepAgent session thread → queue → Connect task thread). Immutable values are safe to share without locks. <b>Caveat:</b> <code>byte[]</code> and <code>List</code> are still mutable objects inside; the code never modifies them after creation, which is a convention, not a guarantee. <b>If changed:</b> adding a component requires updating the one constructor call in <code>TransactionBuffer</code> and the mapper. <b>Alternative:</b> a hand-written final class. <b>Test:</b> <code>TransactionBufferTest</code> asserts the changes list and order.</p></div></section>
+<section class="blk" id="b22"><pre class="code"><code><span class="ln" id="L22">22</span>}</code></pre><div class="note"><div class="range">Lines 22</div><p>End of the record body. A record may contain extra methods; this one needs none.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

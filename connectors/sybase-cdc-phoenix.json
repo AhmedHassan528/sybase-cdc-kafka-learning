@@ -1,0 +1,19 @@
+{
+  "name": "sybase-cdc-phoenix",
+  "config": {
+    "connector.class": "com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector",
+    "tasks.max": "1",
+    "ltl.listen.port": "11752",
+    "ltl.username": "rs_user",
+    "ltl.password": "rs_password",
+    "database.server.name": "MYSYBASE",
+    "database.name": "phoenix_test",
+    "topic.prefix": "sybase",
+    "table.include.list": "payment",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "errors.tolerance": "none"
+  }
+}

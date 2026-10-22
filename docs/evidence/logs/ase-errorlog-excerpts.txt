@@ -1,0 +1,85 @@
+1215:00:0002:00000:00023:2026/10/20 19:23:12.67 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+1216:00:0002:00000:00023:2026/10/20 19:23:12.77 server  RepAgent(4): Received the following error message from the Replication Server: Msg 4002. Login failed for user 'rs_user'.
+1217:00:0002:00000:00023:2026/10/20 19:23:12.77 server  RepAgent(4): Received the following communications error message: Msg 0401042C: ct_connect(): protocol specific layer: external error: The attempt to connect to the server failed..
+1222:00:0002:00000:00023:2026/10/20 19:23:12.77 server  Rep Agent Thread for database 'phoenix_test' (dbid = 4) terminated abnormally with error. (major 92, minor 61)
+1223:00:0002:00000:00026:2026/10/20 19:24:01.62 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+1225:00:0002:00000:00026:2026/10/20 19:24:16.58 server  RepAgent(4): Fatal error from CT-Lib. (CT-Lib command = usctresults, return status = 4047).
+1226:00:0002:00000:00026:2026/10/20 19:24:16.58 server  Rep Agent Thread for database 'phoenix_test' (dbid = 4) terminated abnormally with error. (major 92, minor 10)
+1227:00:0002:00000:00026:2026/10/20 19:24:16.58 kernel  Current process (0x35001b) infected with signal 11 (SIGSEGV)
+1228:00:0002:00000:00026:2026/10/20 19:24:16.58 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+1234:00:0002:00000:00026:2026/10/20 19:24:16.58 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+1257:00:0002:00000:00026:2026/10/20 19:24:16.59 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+1258:00:0002:00000:00026:2026/10/20 19:24:16.59 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+1557:00:0006:00000:00013:2026/10/20 19:28:26.07 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+1558:00:0006:00000:00013:2026/10/20 19:28:54.17 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+1559:00:0006:00000:00013:2026/10/20 19:28:55.08 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+1560:00:0006:00000:00013:2026/10/20 19:28:55.08 kernel  Current process (0x1b000e) infected with signal 11 (SIGSEGV)
+1561:00:0006:00000:00013:2026/10/20 19:28:55.08 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+1567:00:0006:00000:00013:2026/10/20 19:28:55.08 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+1590:00:0006:00000:00013:2026/10/20 19:28:55.08 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+1591:00:0006:00000:00013:2026/10/20 19:28:55.08 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+1889:00:0006:00000:00017:2026/10/20 19:30:10.01 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+1891:00:0006:00000:00017:2026/10/20 19:30:24.92 server  RepAgent(4): Fatal error from CT-Lib. (CT-Lib command = usctresults, return status = 4047).
+1892:00:0006:00000:00017:2026/10/20 19:30:24.92 server  Rep Agent Thread for database 'phoenix_test' (dbid = 4) terminated abnormally with error. (major 92, minor 10)
+1893:00:0006:00000:00021:2026/10/20 19:31:06.28 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+1894:00:0006:00000:00021:2026/10/20 19:32:55.98 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+1895:00:0006:00000:00021:2026/10/20 19:32:55.98 kernel  Current process (0x2b0016) infected with signal 11 (SIGSEGV)
+1896:00:0006:00000:00021:2026/10/20 19:32:55.98 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+1902:00:0006:00000:00021:2026/10/20 19:32:55.98 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+1925:00:0006:00000:00021:2026/10/20 19:32:55.98 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+1926:00:0006:00000:00021:2026/10/20 19:32:55.98 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+2225:00:0006:00000:00015:2026/10/20 19:35:35.06 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+2227:00:0006:00000:00015:2026/10/20 19:35:50.11 server  RepAgent(4): Fatal error from CT-Lib. (CT-Lib command = usctresults, return status = 4047).
+2228:00:0006:00000:00015:2026/10/20 19:35:50.11 server  Rep Agent Thread for database 'phoenix_test' (dbid = 4) terminated abnormally with error. (major 92, minor 10)
+2229:00:0006:00000:00015:2026/10/20 19:35:50.12 kernel  Current process (0x1f0010) infected with signal 11 (SIGSEGV)
+2230:00:0006:00000:00015:2026/10/20 19:35:50.12 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+2236:00:0006:00000:00015:2026/10/20 19:35:50.12 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+2259:00:0006:00000:00015:2026/10/20 19:35:50.12 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+2260:00:0006:00000:00015:2026/10/20 19:35:50.12 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+2558:00:0006:00000:00013:2026/10/20 19:38:10.15 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+2560:00:0006:00000:00013:2026/10/20 19:38:25.11 server  RepAgent(4): Fatal error from CT-Lib. (CT-Lib command = usctresults, return status = 4047).
+2561:00:0006:00000:00013:2026/10/20 19:38:25.11 server  Rep Agent Thread for database 'phoenix_test' (dbid = 4) terminated abnormally with error. (major 92, minor 10)
+2562:00:0006:00000:00013:2026/10/20 19:38:25.11 kernel  Current process (0x1b000e) infected with signal 11 (SIGSEGV)
+2563:00:0006:00000:00013:2026/10/20 19:38:25.11 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+2569:00:0006:00000:00013:2026/10/20 19:38:25.11 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+2592:00:0006:00000:00013:2026/10/20 19:38:25.11 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+2593:00:0006:00000:00013:2026/10/20 19:38:25.11 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+2891:00:0006:00000:00012:2026/10/20 19:38:29.23 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+2892:00:0006:00000:00012:2026/10/20 19:39:50.92 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+2893:00:0006:00000:00012:2026/10/20 19:39:51.41 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+2894:00:0006:00000:00018:2026/10/20 19:40:20.76 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+2895:00:0006:00000:00018:2026/10/20 19:42:52.53 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+2896:00:0006:00000:00018:2026/10/20 19:42:52.67 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+2897:00:0006:00000:00018:2026/10/20 19:42:52.67 kernel  Current process (0x250013) infected with signal 11 (SIGSEGV)
+2898:00:0006:00000:00018:2026/10/20 19:42:52.67 kernel  Address 0x0x0000000001d5a247 (ubffreef+0xf7), siginfo (code, address) = (128, 0x(nil))
+2904:00:0006:00000:00018:2026/10/20 19:42:52.67 kernel  	PC : 0x0000000001d5a247 (ubffreef+0xf7)
+2927:00:0006:00000:00018:2026/10/20 19:42:52.67 kernel  pc: 0x0000000001d5a247 ubffreef+0xf7()
+2928:00:0006:00000:00018:2026/10/20 19:42:52.67 kernel  pc: 0x0000000000e074cc ra_free_mempool+0x16f()
+3226:00:0006:00000:00014:2026/10/20 19:42:57.14 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3227:00:0006:00000:00014:2026/10/20 19:46:51.47 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3228:00:0006:00000:00014:2026/10/20 19:46:52.13 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+3229:00:0006:00000:00020:2026/10/20 19:46:56.17 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3230:00:0006:00000:00020:2026/10/20 19:50:55.81 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3231:00:0006:00000:00020:2026/10/20 19:50:56.13 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+3232:00:0006:00000:00029:2026/10/20 19:51:00.46 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3233:00:0006:00000:00029:2026/10/20 19:56:10.72 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3234:00:0006:00000:00029:2026/10/20 19:56:11.38 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+3235:00:0006:00000:00041:2026/10/20 19:56:15.45 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3236:00:0006:00000:00041:2026/10/20 19:59:00.97 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3237:00:0006:00000:00041:2026/10/20 20:04:25.24 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3238:00:0006:00000:00041:2026/10/20 20:06:30.77 server  Shutting down Rep Agent for database, 'phoenix_test' (dbid = 4).
+3239:00:0006:00000:00052:2026/10/20 20:06:44.55 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3240:00:0006:00000:00052:2026/10/20 20:07:30.02 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3241:00:0006:00000:00052:2026/10/20 20:07:56.57 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+3530:00:0006:00000:00012:2026/10/20 20:11:06.18 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3818:00:0006:00000:00012:2026/10/20 20:12:30.34 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+3819:00:0006:00000:00012:2026/10/20 20:13:38.59 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4107:00:0006:00000:00013:2026/10/20 20:13:42.10 server  Started Rep Agent on database, 'phoenix_test' (dbid = 4)  
+4108:00:0006:00000:00013:2026/10/20 20:13:42.10 server  RepAgent(4): Received the following communications error message: Msg 05030504: ct_connect(): network packet layer: internal net library error: Net-Lib protocol driver call to connect two endpoints failed
+4110:00:0006:00000:00013:2026/10/20 20:15:19.10 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4111:00:0006:00000:00013:2026/10/20 20:28:57.99 server  RepAgent(4): Received the following communications error message: Msg 05030507: ct_sendpassthru(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4112:00:0006:00000:00013:2026/10/20 20:43:13.45 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4113:00:0006:00000:00013:2026/10/20 20:48:39.90 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4115:00:0006:00000:00013:2026/10/20 20:52:39.49 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4117:00:0006:00000:00013:2026/10/20 20:56:10.95 server  RepAgent(4): Received the following communications error message: Msg 05030506: ct_results(): network packet layer: internal net library error: Net-Library operation terminated due to disconnect.
+4119:00:0006:00000:00057:2026/10/20 20:57:27.62 server  background task message: CDC ALERT: phoenix_test logsegment below 24576 free pages - check the CDC connector / RepAgent (secondary truncation point)

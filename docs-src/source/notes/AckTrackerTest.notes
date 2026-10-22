@@ -1,0 +1,23 @@
+@file sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/cdc/AckTrackerTest.java
+@summary
+<p><b>Role:</b> unit test proving the watermark rule of <a href="AckTracker.html">AckTracker</a>: acknowledgements may arrive out of order, but the watermark only moves past a transaction when it and all earlier transactions are complete. Run with <code>mvn test</code> (JUnit 5).</p>
+@@ 1
+<p>Same package as the class under test, so the test can use package-private members.</p>
+@@ 3
+<p>JUnit 5's <code>@Test</code> annotation marks a method as a test case.</p>
+@@ 5-6
+<p><em>Static imports</em> let the test call <code>assertNull(...)</code> instead of <code>Assertions.assertNull(...)</code>.</p>
+@@ 8
+<p>Test classes need not be public in JUnit 5.</p>
+@@ 10-11
+<p>One test method; the name states the property.</p>
+@@ 12-16
+<p>Three transactions in commit order with 1-byte fake OQIDs: <code>a</code> has 2 records, <code>b</code> 1, <code>c</code> 0 (a transaction whose rows were all filtered out).</p>
+@@ 18-19
+<p>The later transaction <code>b</code> is acknowledged first: the watermark must not move (still <code>null</code>).</p>
+@@ 20-21
+<p>One of <code>a</code>'s two records: still not complete.</p>
+@@ 22-23
+<p>The last record of <code>a</code>: now <code>a</code>, <code>b</code> and the empty <code>c</code> are all complete, so the watermark jumps straight to <code>c</code>.</p>
+@@ 24-25
+<p>End of test and class.</p>

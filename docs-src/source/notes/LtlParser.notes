@@ -1,0 +1,58 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java
+@summary
+<p><b>Role:</b> turns the token list of one LTL message into <a href="LtlCommand.html">LtlCommand</a> objects. It is a small <em>recursive-descent</em> parser: a cursor <code>p</code> walks through the tokens, and helper methods (<code>atBare</code>, <code>next</code>, <code>skipSym</code>) consume them according to the grammar in the class comment.</p>
+<p><b>Robustness rule:</b> anything not understood becomes <code>Kind.OTHER</code> and is skipped up to the next <code>distribute</code>; anything structurally broken throws <code>IllegalArgumentException</code>, which makes the session drop the connection without acknowledging (RepAgent re-sends after reconnecting). <b>Tests:</b> <code>LtlParserTest</code> (7 tests on 8 real captures).</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-5
+<p>Imports nested types so they can be written without the outer class name (<code>Kind</code> instead of <code>LtlCommand.Kind</code>).</p>
+@@ 7-13
+<p>JDK imports.</p>
+@@ 15-27
+<p><b>Grammar</b> in BNF-like notation. Command tags are numbered, comma-separated pairs; seen in captures: 1 = origin_time, 4 = origin_qid, 6 = tran_id. <code>begin</code> carries an optional name, user (<code>for user - password</code> or <code>npw user</code>) and <code>osid</code>.</p>
+@@ 28
+<p>Final class; instances live only for one message.</p>
+@@ 30-33
+<p>Parser state: the raw message (to cut each command's raw text), the charset for string values, the tokens and the cursor.</p>
+@@ 35-39
+<p>Private constructor: tokenizes immediately.</p>
+@@ 41-43
+<p>Public entry point: <code>LtlParser.parse(bytes, charset)</code>.</p>
+@@ 45-49
+<p>Every LTL data message from RepAgent starts with <code>distribute</code> (verified once the TDS packet size was negotiated correctly; see the <a href="../index.html#hist-4047">4047 incident</a>). Anything else means the stream is misaligned, so parsing stops.</p>
+@@ 50-56
+<p>One command per <code>distribute</code>; remember where each starts.</p>
+@@ 58-61
+<p>Parse one command; tag values default to <code>null</code>.</p>
+@@ 63-75
+<p><b>Command tags.</b> While the next token is a bare number followed by a value, read the pair. Tag 1 is an encoded datetime (converted to ISO), tags 4 and 6 are bare <code>0x…</code> hex. Unknown tag numbers are skipped (<code>default -&gt; { }</code>), so new tags on a newer ASE would not break parsing. Tags end when no comma follows.</p>
+@@ 77-80
+<p>Result variables for the rest of the command.</p>
+@@ 82-92
+<p><b>begin [system] transaction [name] [for|npw user]</b>. The password hash after <code>for user -</code> is deliberately not read. <code>npw</code> ("no password") was discovered in real data; without it, <code>user</code> was <code>null</code> for normal application transactions.</p>
+@@ 93-96
+<p><b>commit / rollback</b>: the kind is enough; the tags already identify the transaction.</p>
+@@ 97-106
+<p><b>applied owner = 'dbo' 'table' . function</b>. The owner, table and function name are encoded values (<code>~"$dbo</code>, <code>~"(payment</code>, <code>~!*rs_insert</code>).</p>
+@@ 107-112
+<p>Map the function to a row operation. Other functions (replicated stored procedures, <code>rs_truncate</code>, <code>rs_datarow_for_writetext</code>, <code>rs_writetext</code>) become <code>OTHER</code>, so <b><code>truncate table</code> and LOB writes are not published</b>.</p>
+@@ 113-120
+<p><b>yielding before … after …</b>: parse each image into a map, collecting primary-key column names.</p>
+@@ 121-126
+<p><b>Update merge.</b> RepAgent sends every column in the before image but only changed columns in the after image (observed: the after image of <code>update … set c_money, c_vchar</code> had exactly those two columns). The merged map gives consumers a complete new row. <b>Limit:</b> a column changed to the same value is indistinguishable from an unchanged column.</p>
+@@ 127-128
+<p>End of applied handling.</p>
+@@ 130-135
+<p>Skip anything left until the next command and keep the command's raw text (decoded with the session charset) for logging. <code>List.copyOf</code> makes the key list immutable.</p>
+@@ 136
+<p>End of <code>command()</code>.</p>
+@@ 138-149
+<p><b>Parameter list:</b> <code>name = value</code> pairs separated by commas. A <code>G</code> flag adds the column to the key list once. Values are converted by <a href="LtlValues.html">LtlValues</a>. <code>LinkedHashMap</code> keeps column order as sent (table column order).</p>
+@@ 151-154
+<p>True if the token is all digits (command tag numbers).</p>
+@@ 156-162
+<p>Parse a bare <code>0x…</code> token to bytes, padding an odd number of hex digits with a leading zero.</p>
+@@ 164-180
+<p>Cursor helpers: test the current keyword, take the next token (throwing at end of message), require or optionally skip a symbol.</p>
+@@ 181
+<p>End of class.</p>

@@ -1,0 +1,82 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java
+@summary
+<p><b>Role:</b> one RepAgent connection, playing the part of a Replication Server. It reads TDS messages, answers the login and the three control commands (<code>connect source</code>, <code>get maintenance user</code>, <code>get truncation</code>) exactly as a Replication Server does, and hands LTL data to the listener. This is the class where most of the protocol discoveries live; every rule below was learned from a real failure (see the <a href="../index.html#ch-history">development history</a>).</p>
+<p><b>Protocol rules encoded here</b> (all verified on ASE 16.0 SP02 PL02): (1) confirm the client's packet size in the login reply; (2) answer every LTL data message with exactly one DONE; (3) answer <code>connect source</code> with two result sets; (4) never acknowledge a message you could not parse: drop the connection instead.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-8
+<p>TDS layer classes and logging.</p>
+@@ 10-22
+<p>JDK classes: sockets, byte order, charsets, files (for raw dumps), hex formatting, an atomic counter and regular expressions.</p>
+@@ 24-34
+<p>Class comment: the conversation in order.</p>
+@@ 35
+<p>Package-private, implements <code>Runnable</code> so <code>LtlServer</code> can run it on a thread.</p>
+@@ 37-40
+<p>Logger; the server name used in error messages; the optional raw-dump directory read from the JVM system property <code>ltl.dump.dir</code> (set with <code>-Dltl.dump.dir=…</code>, e.g. via <code>KAFKA_OPTS</code>); and a counter for dump file names shared by all sessions. <b>Caution:</b> dumps contain customer data; use only in test environments.</p>
+@@ 42-45
+<p>Constants for the Replication Server impersonation: the system version we claim (1600 = RS 16.0), the 36-byte upgrade locater, and the TDS ENVCHANGE type number for packet size (4).</p>
+@@ 46-47
+<p>Regular expression for <code>connect source lti "MYSYBASE"."phoenix_test" 760 passthru</code>: captures server, database and proposed version, with or without double quotes, case-insensitive. In Java source <code>\\s</code> is the regex <code>\s</code> (whitespace).</p>
+@@ 49-54
+<p>Result-set layouts (<em>row formats</em>) for the control answers: <code>VERSION</code> int; <code>Sysversion</code> int + <code>UpgradeLocater</code> binary(36); maintenance user varchar(30); truncation binary(36). The two-result-set answer to <code>connect source</code> matches the example in SAP's Replication Server Design Guide; answering with one result set was suspected of contributing to the early RepAgent failures.</p>
+@@ 56-65
+<p>Per-connection state. Defaults (little-endian, ISO-8859-1) apply until the login packet says otherwise.</p>
+@@ 67-72
+<p>Constructor.</p>
+@@ 74-80
+<p><b>Session loop start.</b> try-with-resources closes the channel (and socket) however the loop ends. "RepAgent connected from …" is logged for every connection.</p>
+@@ 81-86
+<p>Read whole TDS messages until the peer closes (<code>null</code>). Each message is optionally dumped and traced.</p>
+@@ 87-97
+<p><b>Dispatch by TDS packet type:</b> login (0x02), old-style language (0x01, used by RepAgent in passthru mode for all LTL and control commands after <code>connect source</code>), TDS 5.0 token stream (0x0F, used for <code>connect source</code> itself), attention/cancel (0x06, answered with DONE_ATTN). Unknown types are logged in hex and answered with DONE.</p>
+@@ 98-99
+<p>Clean end of stream.</p>
+@@ 100-108
+<p>Error handling: restore the interrupt flag if interrupted; log any other error as "ended with error" (e.g. a parse failure or a closed socket); always notify the listener.</p>
+@@ 109
+<p>End of <code>run()</code>.</p>
+@@ 111-116
+<p><b>Login.</b> Parse the login record; adopt the client's byte order and character set (or the configured override). The log line shows user, app ("Replication Agent"), server ("CDC_RS"), charset and packet size; the password is not logged (unless trace is on, which dumps the whole packet).</p>
+@@ 118-127
+<p><b>Rejected login:</b> an error message (EED token, Msg 4002 "Login failed"), a failed LOGINACK and a DONE with the error bit. RepAgent logs "Login failed for user 'rs_user'" in the ASE errorlog and stops its thread (seen in capture 1, when password encryption was still on).</p>
+@@ 128-135
+<p><b>Accepted login:</b> LOGINACK (success, TDS 5.0, program "Replication Server" 16.0.0.0), the client's own capability token echoed back, and an ENVCHANGE confirming the requested packet size. <b>Why ENVCHANGE matters:</b> without it CT-Lib (RepAgent's client library) fell back to 512-byte packets and split RepAgent's 2,048-byte buffers so that an end-of-message flag landed mid-batch. The connector then answered twice; RepAgent read the extra DONE as its <code>get truncation</code> result (CT-Lib result type <code>CS_CMD_SUCCEED</code> = 4047) and aborted.</p>
+@@ 136
+<p>End of <code>login()</code>.</p>
+@@ 138-148
+<p><b>TDS 5.0 token stream.</b> Only the LANGUAGE token (0x21) is expected: 4-byte length in the client's byte order, 1 status byte, then the text. The length includes the status byte, hence <code>len - 1</code>.</p>
+@@ 149-152
+<p>Anything else is logged and answered with DONE.</p>
+@@ 154-158
+<p><b>Language command.</b> ISO-8859-1 maps bytes one-to-one, so the decoded text has the same offsets as the bytes (needed to detect the command type safely regardless of the database charset).</p>
+@@ 160-164
+<p><b>LTL data</b> (everything that is not a control command): parse with the session charset.</p>
+@@ 165-170
+<p><b>Parse failure:</b> throw, which ends the session and closes the socket without replying. LTL data messages are only acknowledged by the DONE below; not sending it means not acknowledging. RepAgent reports a communications error, waits <code>retry timeout</code> and re-sends from the last truncation point. If the data really is unparsable, this repeats until a fixed connector is deployed, while the log grows: monitor for it.</p>
+@@ 171
+<p>Hand the commands to the listener (the task). This call may block on the full queue: back-pressure.</p>
+@@ 172-176
+<p><b>Exactly one DONE per message</b>, sent only after the commands were buffered.</p>
+@@ 177-183
+<p><b>connect source:</b> extract server, database and proposed LTL version with the regex.</p>
+@@ 184-191
+<p>Let the listener accept or refuse. Refusal answers with an error message (EED, Msg 32001) and DONE_ERROR.</p>
+@@ 192-198
+<p>Answer with two result sets: the negotiated version (DONE with MORE|COUNT flags = "a row was returned and more results follow"), then Sysversion and a zero UpgradeLocater (final DONE with COUNT).</p>
+@@ 199-202
+<p><b>get maintenance user:</b> one varchar row.</p>
+@@ 203-207
+<p><b>get truncation:</b> one binary(36) row with the listener's watermark. <code>(Object) tp</code> makes the byte array one argument of the varargs <code>row(...)</code> call instead of being spread.</p>
+@@ 208-212
+<p>Any other <code>get …</code> command: log and answer DONE (none was observed).</p>
+@@ 214-227
+<p><b>Raw dump</b> helper: writes each message to <code>NNNNNN-TT.bin</code> (sequence, packet type). This is how the LTL 760 encoding was decoded, and how the encoding of a new ASE version (SP04) should be checked before production. Failures to write only log a warning.</p>
+@@ 229-231
+<p>Factory for a response builder using this session's byte order and charset.</p>
+@@ 233-245
+<p><b>Sybase → Java charset names.</b> Known names are mapped explicitly (<code>cp1256</code> = Windows Arabic), others are tried as Java names. <b>Risk:</b> an unrecognised name silently falls back to ISO-8859-1, which garbles non-Latin text. The chosen charset is logged at every login; check it, and set <code>ltl.charset</code> explicitly in production.</p>
+@@ 247-250
+<p>Hex helper for logs, truncated to <code>max</code> bytes.</p>
+@@ 251
+<p>End of class.</p>

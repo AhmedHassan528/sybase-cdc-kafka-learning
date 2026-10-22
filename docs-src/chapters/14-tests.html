@@ -1,0 +1,148 @@
+<h2 id="ch-tests" data-keywords="test report results pass fail evidence load performance failure recovery duplicates not run inconclusive">Test report with evidence</h2>
+<p>All tests ran on 2026-10-20/21 in the local Docker environment (ASE 16.0 SP02 PL02, Kafka/Connect 3.8.0, connector 0.1.0). <b>Verdicts:</b> <span class="pill pass">PASS</span> = measured result equals the expected result, with evidence; <span class="pill warn">PARTIAL</span> = passed with a stated limitation; <span class="pill na">NOT RUN</span> = not executed, so no claim is made; <span class="pill warn">INCONCLUSIVE</span> = executed but the result does not prove the point. A PASS here means "works in the local environment"; it is <b>not</b> evidence of production readiness (<a href="#ch-readiness">readiness chapter</a>).</p>
+
+<div class="cards">
+<div class="card"><div class="v">11 / 11</div><div class="l">unit tests passed</div></div>
+<div class="card"><div class="v">15</div><div class="l">integration scenarios: 14 PASS, 1 PARTIAL</div></div>
+<div class="card"><div class="v">0</div><div class="l">committed rows missing in any scenario</div></div>
+<div class="card"><div class="v">≈12.9k/s</div><div class="l">highest 11-second average into Kafka (run 3)</div></div>
+<div class="card"><div class="v">25.4%</div><div class="l">max log used, connector stopped, 1.05M rows held</div></div>
+</div>
+
+<h3 id="t-method">How results were measured</h3>
+<ul>
+<li><b>Missing rows:</b> every scenario uses a unique <code>account_no</code> prefix (for example <code>T6B-</code>); <code>captures/analyze-topic.sh</code> reads the topic from a recorded start offset and counts events, distinct <code>payment_id</code>s, duplicate <code>source.oqid</code>s and distinct <code>xid</code>s, and the same prefix is counted in ASE.</li>
+<li><b>Duplicates:</b> two events with the same <code>source.oqid</code> are the same row change published twice.</li>
+<li><b>Monitoring (test 6):</b> parallel samplers every 5 s (<code>captures/monitor2.sh</code>): blocked processes, locks, free log pages, secondary truncation page, RepAgent state, Kafka end offset, task state, ERROR lines, <code>docker stats</code>. Real interval: ASE ≈ 6.5 s (query time), Kafka ≈ 11 s (each read starts a JVM tool).</li>
+<li><b>Acknowledgement order:</b> the secondary truncation page (<code>master..syslogshold</code>) and the <code>_connect-offsets</code> topic were read directly, never inferred.</li>
+</ul>
+
+<h3 id="t-unit">Unit tests</h3>
+<div class="tbl"><table>
+<thead><tr><th>Class</th><th>Tests</th><th>What it proves</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td><a href="source/LtlParserTest.html">LtlParserTest</a></td><td class="num">7</td><td>Real captured RepAgent commands parse into the right operations, values, OQIDs and transaction ids</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td><a href="source/LtlValuesTest.html">LtlValuesTest</a></td><td class="num">2</td><td>Value lexer: length digits, markers, numeric formatting</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td><a href="source/TransactionBufferTest.html">TransactionBufferTest</a></td><td class="num">1</td><td>Commit releases, rollback discards</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td><a href="source/AckTrackerTest.html">AckTrackerTest</a></td><td class="num">1</td><td>Watermark does not pass an unacknowledged transaction</td><td><span class="pill pass">PASS</span></td></tr>
+</tbody></table></div>
+<p class="small">Evidence: <code>evidence/tests/unit-tests.txt</code> (<code>Tests run: 11, Failures: 0, Errors: 0, Skipped: 0</code>, <code>BUILD SUCCESS</code>).</p>
+
+<h3 id="t-results">Integration scenarios</h3>
+<div class="tbl"><table>
+<thead><tr><th>ID</th><th>Objective</th><th>Steps</th><th>Expected</th><th>Actual (measured)</th><th>Evidence</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td>T1</td><td>Insert, update, delete</td><td>One row inserted, updated, deleted</td><td>3 events c/u/d, key = primary key</td><td>3 events <code>c</code>, <code>u</code> (full before/after), <code>d</code>; key <code>payment_id</code></td><td><code>tests/small-scenarios-kafka-records.txt</code></td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T2</td><td>Rollback is not published</td><td><code>begin tran … rollback</code></td><td>0 events</td><td>0 events</td><td>same</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T3</td><td>Multi-row transaction</td><td>2 inserts + 1 update, one commit</td><td>3 events, one xid, after commit</td><td>3 events, same <code>xid</code>, <code>seq</code> 0-1-2, <code>txn_rows</code>=3</td><td>same</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T4a</td><td>Connector down during writes</td><td>3,000 inserts while Connect was down, then start</td><td>all delivered after restart</td><td>3,000 / 3,000, 0 duplicates</td><td>analysis output in the test log</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T4b</td><td>Hard kill while streaming</td><td><code>docker kill cdc-connect</code> 16 s into a live session of 20,000 one-row transactions; start again</td><td>none lost; duplicates allowed</td><td>20,000 / 20,000 distinct; 495 duplicates (same <code>oqid</code>); RepAgent reconnected 1 s after the listener returned</td><td>analysis output in the test log</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T5</td><td>ASE crash after commit</td><td>Connector stopped (port closed); commit; <code>kill -9</code> the dataserver; ASE recovery; connector resumed</td><td>row replayed from the ASE log</td><td>Row delivered after recovery</td><td>ASE errorlog excerpts</td><td><span class="pill pass">PASS</span></td></tr>
+<tr id="t6"><td>T6.1</td><td>1M rows</td><td>100 transactions × 10,000 rows</td><td>1,000,000 events, 100 xids</td><td>1,000,000 / 1,000,000, 0 dup, 100 xids</td><td><code>tests/t6-run1-monitor.txt</code></td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T6.2</td><td>1M rows, monitored</td><td>Same + 5 s monitor</td><td>same</td><td>1,000,000, 0 dup; ASE load 22 s, end-to-end 107 s</td><td><code>tests/t6-run2-monitor.csv</code></td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T6.3</td><td>1M rows, parallel samplers</td><td>Same, baseline/peak/final</td><td>same; no blocking; log bounded</td><td>1,000,000; ASE load 25 s; end-to-end 122 s; 0 blocked; log max 17.8%</td><td><code>tests/t6-run3-monitor/*.csv</code></td><td><span class="pill pass">PASS</span> see notes</td></tr>
+<tr><td>P5</td><td>ASE acknowledgement only after Kafka confirms</td><td><code>docker pause cdc-kafka</code> 44 s; commit a 3-row transaction; unpause</td><td>truncation point and offsets do not move while Kafka is paused</td><td>Both held; advanced after unpause; 3 duplicates because the worker restarted the task</td><td>syslogshold + <code>_connect-offsets</code> readings</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T6a</td><td>Real stop/resume</td><td>REST <code>PUT /stop</code> 3 s into a 20,000-transaction load; <code>PUT /resume</code></td><td>none lost</td><td>20,000 / 20,000, 0 duplicates</td><td>analysis output</td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T6b</td><td>Crash during partial publication of one transaction</td><td>One transaction of 200,000 rows; <code>docker kill</code> Connect with 53,822 of them in Kafka</td><td>stored offset stays at the previous transaction; the whole transaction is re-sent</td><td>200,000 / 200,000 distinct; 53,822 duplicates (= the partial count); stored offset = previous transaction</td><td><code>logs/connect-offsets-topic.txt</code></td><td><span class="pill pass">PASS</span></td></tr>
+<tr><td>T7</td><td>Log growth while the connector is down</td><td>Connector stopped; 1,050,000 rows in steps; read-only sampling; resume</td><td>threshold alert, no suspended process, full drain</td><td>Alert at 25.4% used; 0 processes waiting on log space; drained 1,050,000 in 99 s; 0 dup</td><td><code>tests/t7-log-growth.txt</code></td><td><span class="pill pass">PASS</span> no recovery command run</td></tr>
+<tr><td>T8</td><td>Least privilege for RepAgent admin</td><td>Login with only <code>replication_role</code> runs <code>sp_help_rep_agent</code>, <code>sp_config_rep_agent</code></td><td>allowed</td><td>Allowed (start/stop, <code>sp_setreptable</code> not tried)</td><td><code>evidence/12-ase-privilege-test.txt</code></td><td><span class="pill warn">PARTIAL</span></td></tr>
+<tr><td>T9</td><td>Custom image plugin discovery</td><td>Run <code>sybase-cdc-connect:0.1.0</code>, list plugins</td><td>class listed</td><td>listed, version 0.1.0</td><td><code>evidence/10-custom-image-plugin-discovery.txt</code></td><td><span class="pill pass">PASS</span></td></tr>
+</tbody></table></div>
+
+<h3 id="t-notrun">Not run, partial or inconclusive</h3>
+<div class="tbl"><table>
+<thead><tr><th>Area</th><th>Status</th><th>Why it matters / what to do</th></tr></thead>
+<tbody>
+<tr><td>ASE 16.0 SP04 PL07 HF1 (production version)</td><td><span class="pill na">NOT RUN</span></td><td>LTL version and encoding may differ. Procedure in <a href="#ch-migration">migration</a>.</td></tr>
+<tr><td>OpenShift / Event Streams deployment</td><td><span class="pill na">NOT RUN</span></td><td>YAML only syntax-checked (<code>evidence/11-openshift-yaml-syntax.txt</code>).</td></tr>
+<tr><td>Invalid configuration (missing required keys, port in use, wrong DB name)</td><td><span class="pill na">NOT RUN</span></td><td>Behaviour inferred from code only (<a href="source/SybaseCdcConfig.html">SybaseCdcConfig</a>).</td></tr>
+<tr><td>Security: TLS, Kafka SASL/ACLs, secret provider, password rotation</td><td><span class="pill na">NOT RUN</span></td><td>Local Kafka is PLAINTEXT; LTL is clear text.</td></tr>
+<tr><td>Every ASE data type end to end</td><td><span class="pill warn">PARTIAL</span></td><td>Types were captured from RepAgent and parsed in unit tests (<code>captures/ltl-types.txt</code>); only <code>payment</code> columns were compared in Kafka. LOB (text/image) not supported.</td></tr>
+<tr><td>Multiple tables, tables without primary key, owners other than <code>dbo</code></td><td><span class="pill na">NOT RUN</span></td><td>Known code behaviours listed in <a href="#ch-security">security &amp; reliability</a>.</td></tr>
+<tr><td>Long run / soak (hours/days), memory leak</td><td><span class="pill na">NOT RUN</span></td><td>All tests were short (minutes each); behaviour over days is unknown.</td></tr>
+<tr><td>Transactions larger than 200,000 rows</td><td><span class="pill na">NOT RUN</span></td><td>Heap reached 1,954 MiB at 10,000-row transactions under load.</td></tr>
+<tr><td>Log full / emergency truncation</td><td><span class="pill na">NOT RUN (deliberately)</span></td><td>Destructive; see <a href="#rb-log-emergency">runbook</a>.</td></tr>
+<tr><td>Exactly-once delivery</td><td><span class="pill na">NOT RUN</span></td><td>Not implemented.</td></tr>
+<tr><td>Kafka UI</td><td><span class="pill na">not a test</span></td><td>Used for viewing only.</td></tr>
+</tbody></table></div>
+
+<h3 id="t6-charts">Test 6.3 in charts (1,000,000 rows)</h3>
+<p>Seconds from load start (23:37:28). The shaded band is the 25 s during which ASE was committing; RepAgent's log scan was the bottleneck and kept reading for about 2 minutes after that.</p>
+<div class="legend"><span><i style="background:var(--accent)"></i>events in Kafka (cumulative)</span><span><i style="background:var(--warn);opacity:.4;height:10px"></i>ASE load running</span></div>
+<line-chart spec='{"w":620,"h":260,"label":"Cumulative events in Kafka during test 6.3","x":[-20,140,[0,30,60,90,120]],"xu":"s","xl":"seconds from load start","y":[0,1000000,[0,250000,500000,750000,1000000]],"fy":"{v}","bands":[[0,25]],"series":[{"c":"s1","pts":[[-20,0],[-11,0],[-3,0],[6,50000],[15,92272],[27,199501],[38,332920],[49,454012],[60,595757],[74,741222],[86,870000],[97,950000],[116,1000000],[125,1000000],[134,1000000]]}]}'></line-chart>
+<p class="small">Source: <code>tests/t6-run3-monitor/kafka.csv</code> (end offset minus 2,032,513). Highest rate between two samples: 141,745 events in 11 s ≈ 12.9k/s (23:38:17 → 23:38:28). Average: all 1,000,000 events were in Kafka by the 116 s sample, ≈ 8.6k/s from load start.</p>
+<div class="legend"><span><i style="background:var(--accent)"></i>transaction log used (% of 32,768 pages)</span></div>
+<line-chart spec='{"w":620,"h":240,"label":"Transaction log used during test 6.3","x":[-20,145,[0,30,60,90,120]],"xu":"s","xl":"seconds from load start","y":[0,20,[0,5,10,15,20]],"fy":"{v}%","bands":[[0,25]],"series":[{"c":"s1","step":true,"pts":[[-20,0.4],[-1,0.4],[5,5.0],[12,10.8],[19,13.8],[26,17.8],[76,17.8],[83,6.4],[135,6.4],[141,0.4]]}]}'></line-chart>
+<p class="small">Source: <code>tests/t6-run3-monitor/ase.csv</code>, used % = 1 − free/32,768. Space frees in steps at checkpoints after the connector acknowledges.</p>
+
+<div class="tbl"><table>
+<thead><tr><th>Metric (test 6.3)</th><th>Baseline</th><th>Peak</th><th>Final</th></tr></thead>
+<tbody>
+<tr><td>Blocked processes</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>Locks in phoenix_test</td><td>0</td><td>45 (the loader's own)</td><td>0</td></tr>
+<tr><td>Free log pages (of 32,768)</td><td>32,633</td><td>26,935 min (17.8% used)</td><td>32,633</td></tr>
+<tr><td>RepAgent state</td><td>sleeping</td><td>scanning</td><td>sleeping</td></tr>
+<tr><td>Connector task / ERROR lines</td><td>RUNNING / 0</td><td>RUNNING / 0</td><td>RUNNING / 0</td></tr>
+<tr><td>CPU sybase / connect / kafka</td><td>0.3% / 1.0% / 2%</td><td>117% / 192% / 381%</td><td>0.3% / 0.9% / 3.4%</td></tr>
+<tr><td>Memory sybase / connect / kafka</td><td>208 MiB / 1.67 GiB / 1.67 GiB</td><td>211 MiB / 1,954 MiB / 1,804 MiB</td><td>211 MiB / 1.89 GiB / 1.64 GiB</td></tr>
+</tbody></table></div>
+<p class="small">Source: <code>tests/t6-run3-monitor/stats.csv</code>, <code>repagent.csv</code>, <code>connector.csv</code>.</p>
+
+<h3 id="t7-charts">Test 7 in charts (log growth with the connector stopped)</h3>
+<div class="legend"><span><i style="background:var(--accent)"></i>log used</span><span><i style="background:var(--fail)"></i>alert threshold (24,576 free pages = 25% used)</span></div>
+<line-chart spec='{"w":620,"h":240,"label":"Log used while 1.05M rows are held","x":[0,1050,[0,250,500,750,1000]],"xu":"k","xl":"rows loaded with the connector stopped","y":[0,30,[0,10,20,30]],"fy":"{v}%","thr":[25],"series":[{"c":"s1","pts":[[0,4.4],[100,6.4],[200,8.4],[300,10.4],[400,12.4],[500,14.4],[600,16.4],[700,18.4],[800,20.4],[900,22.4],[1000,24.4],[1050,25.4]]}]}'></line-chart>
+<p class="small">About 655 log pages (≈ 10 MB) per 100,000 rows. Page size: the log device is 512 MB and holds 32,768 pages, and <code>sp_helpdb</code> reports 522,128 free KB for 32,633 free pages, so one page is 16 KB (<code>@@pagesize</code> in <code>evidence/08-ase-facts.txt</code> prints 2048 because it returns the 2 KB virtual page size, not the logical page size). The secondary truncation page stayed frozen at 86,398 until resume. Source: <code>tests/t7-log-growth.txt</code>.</p>
+<div class="legend"><span><i style="background:var(--accent)"></i>events delivered after resume (thousands)</span></div>
+<line-chart spec='{"w":620,"h":240,"label":"Drain after resume","x":[0,125,[0,25,50,75,100,125]],"xu":"s","xl":"seconds after resume","y":[0,1100,[0,250,500,750,1000]],"fy":"{v}k","series":[{"c":"s1","pts":[[0,0],[8,8.3],[23,138.6],[39,317.1],[55,490],[69,680],[85,870.2],[99,1050],[124,1050]]}]}'></line-chart>
+<div class="legend"><span><i style="background:var(--accent)"></i>log used after resume</span></div>
+<line-chart spec='{"w":620,"h":200,"label":"Log released after resume","x":[0,125,[0,25,50,75,100,125]],"xu":"s","xl":"seconds after resume","y":[0,30,[0,10,20,30]],"fy":"{v}%","series":[{"c":"s1","step":true,"pts":[[0,25.4],[55,25.4],[69,11.4],[99,11.4],[124,0.4]]}]}'></line-chart>
+<pre><code>20:57:27.62 server  background task message: CDC ALERT: phoenix_test logsegment below 24576 free pages
+ - check the CDC connector / RepAgent (secondary truncation point)
+processes waiting on log space: 0</code></pre>
+<p class="small">Alert text from the ASE errorlog during test 7; the threshold procedure only records and prints, it never truncates.</p>
+
+<h3 id="t-notes">Measurement notes and limits</h3>
+<ul>
+<li>Scenario 4 had two earlier attempts that did not exercise a live session (RepAgent still reconnecting, or the load finished first). They are not counted; T4b is the valid run.</li>
+<li>Kafka end offsets were sampled only every ≈ 11 s, so the peak rate is an 11-second average, not an instantaneous rate.</li>
+<li>The REST <code>/offsets</code> view shows a stale record from before the <code>TreeMap</code> fix (<a href="#ts-offsets">why</a>); offsets were verified from <code>_connect-offsets</code>.</li>
+<li>All numbers are from one PC (Docker Desktop on Windows 11). Production throughput depends on ASE log I/O, network latency and Kafka replication, and must be measured there.</li>
+</ul>
+
+<h2 id="ch-recovery" data-keywords="failure handling error retry offsets recovery acknowledgement watermark truncation at least once duplicates restart">Failure handling, offsets and recovery</h2>
+<p>This chapter explains <em>why</em> the failure tests behaved as they did. The rule that makes the system safe: <b>ASE may discard log only for transactions whose every record Kafka has confirmed.</b></p>
+
+<figure-diagram src="17-ack-watermark" n="17" title="Acknowledgement watermark: when the ASE log may be released">
+<p><b>Purpose:</b> how <a href="source/AckTracker.html">AckTracker</a> turns per-record Kafka acknowledgements into one safe position. Each committed transaction is registered with its record count; <code>commitRecord()</code> decrements it; the watermark moves to a transaction's commit OQID only when it and every earlier transaction reach zero. <code>get truncation</code> from RepAgent returns the watermark.</p>
+<p><b>Proved by:</b> P5 (Kafka paused → watermark stopped) and T6b (crash after 53,822 of 200,000 records → stored offset was still the previous transaction).</p>
+</figure-diagram>
+
+<h3 id="rec-positions">The three positions</h3>
+<div class="tbl"><table>
+<thead><tr><th>Position</th><th>Stored where</th><th>Moves when</th><th>Read with</th></tr></thead>
+<tbody>
+<tr><td>ASE secondary truncation point</td><td>ASE (<code>syslogshold</code>)</td><td>RepAgent receives a newer OQID from <code>get truncation</code> (about every 15 s, and at reconnect)</td><td><code>captures/truncpage.sql</code></td></tr>
+<tr><td>Connector watermark</td><td>Task memory</td><td>All records of the oldest pending transaction acknowledged</td><td>trace log only</td></tr>
+<tr><td>Kafka Connect source offset <code>{commit_oqid}</code></td><td><code>_connect-offsets</code></td><td>Flush every 5 s, for the last record of a fully acknowledged transaction</td><td><code>kafka-console-consumer</code> on <code>_connect-offsets</code></td></tr>
+</tbody></table></div>
+<p>After a restart the task reads the stored offset and answers RepAgent's first <code>get truncation</code> with it. RepAgent then re-sends everything after that point, which is why duplicates appear and nothing is lost. The connector also skips transactions whose commit OQID is not newer than the last one it queued in the same session.</p>
+
+<figure-diagram src="13-error-retry-flow" n="13" title="Error, retry and restart paths">
+<p><b>Purpose:</b> what happens for each failure class: RepAgent disconnect (task keeps running, RepAgent retries after <code>retry timeout</code>), Kafka unreachable (producer retries; after the group session timeout the worker restarts the task), task exception (task FAILED, manual restart), worker crash (restart, resume from stored offset), ASE crash (ASE recovery, RepAgent restarts from the truncation point).</p>
+<p><b>Does not show:</b> log-full handling, which is an operational decision (<a href="#rb-log-emergency">runbook</a>).</p>
+</figure-diagram>
+
+<h3 id="rec-matrix">Failure matrix</h3>
+<div class="tbl"><table>
+<thead><tr><th>Failure</th><th>Data lost?</th><th>Duplicates?</th><th>Recovers by itself?</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Connect worker killed</td><td>No</td><td>Yes (since the last flushed offset)</td><td>Yes once the worker runs again</td><td>T4b, T6b</td></tr>
+<tr><td>Connector stopped via REST</td><td>No</td><td>None observed</td><td>After <code>/resume</code></td><td>T6a</td></tr>
+<tr><td>Connector paused via REST</td><td>No</td><td>Possible</td><td>After <code>/resume</code>; listener stays open and buffers up to <code>queue.max.transactions</code></td><td>code + lifecycle</td></tr>
+<tr><td>Kafka unavailable</td><td>No</td><td>Yes (task restart)</td><td>Yes</td><td>P5</td></tr>
+<tr><td>ASE crash</td><td>No</td><td>Possible</td><td>Yes after ASE recovery</td><td>T5</td></tr>
+<tr><td>Connector down for a long time</td><td>No, until the log is full</td><td>No</td><td>Yes, if the log does not fill</td><td>T7</td></tr>
+<tr><td>Log full while connector down</td><td><b>Writes to the database stop</b> (or data loss if someone truncates)</td><td>-</td><td>No: needs a DBA decision</td><td>not run</td></tr>
+<tr><td>Poison record (unparseable LTL)</td><td>Task FAILED, nothing acknowledged past it</td><td>-</td><td>No: fix and redeploy</td><td>code review only</td></tr>
+</tbody></table></div>
+<p><b>Consumers must be idempotent:</b> de-duplicate on <code>source.oqid</code> (unique per row change) or make writes upserts keyed by primary key.</p>

@@ -1,0 +1,22 @@
+# UNTESTED TEMPLATE. Only the ASE host(s) may open the LTL port. NetworkPolicies are additive: this allows
+# 11752 from the ASE CIDR in addition to whatever the operator already allows (REST API from the operator).
+# The connector authenticates RepAgent with a plain password over unencrypted TDS, so this network
+# restriction is a primary control, not an optional extra.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sybase-cdc-ltl-from-ase
+  namespace: cdc
+spec:
+  podSelector:
+    matchLabels:
+      eventstreams.ibm.com/cluster: sybase-cdc
+      eventstreams.ibm.com/kind: KafkaConnect
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: <ase-host-ip>/32
+      ports:
+        - protocol: TCP
+          port: 11752

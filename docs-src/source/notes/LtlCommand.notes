@@ -1,0 +1,28 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlCommand.java
+@summary
+<p><b>Role:</b> the parsed form of one LTL <code>distribute</code> command. The parser (<a href="LtlParser.html">LtlParser</a>) creates these; the <a href="TransactionBuffer.html">TransactionBuffer</a> groups them by transaction; the <a href="ChangeEventMapper.html">ChangeEventMapper</a> turns row changes into Kafka events.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-4
+<p>Imports the JDK collection interfaces used by the fields.</p>
+@@ 6-19
+<p>Javadoc with real LTL 760 examples (as captured from RepAgent; HTML-escaped with <code>&amp;lt;</code> so Javadoc renders <code>&lt;</code>). It also documents two decisions made by the parser: an update's <code>after</code> map is already merged with <code>before</code> (RepAgent sends only changed columns), and <code>keyColumns</code> are the columns RepAgent flags with <code>G</code> (primary key).</p>
+@@ 20-32
+<p><b>A record with twelve components.</b> Not every command uses every field; unused ones are <code>null</code>:</p>
+<ul>
+<li><code>kind</code>: what the command is (enum below).</li>
+<li><code>originTime</code>: ISO time from command tag 1; present on begin/commit only (row commands carry only tags 4 and 6; this was a test assumption that the real data corrected).</li>
+<li><code>oqid</code>: command tag 4, the 32-byte position. <code>tranId</code>: tag 6, the transaction id.</li>
+<li><code>owner</code>, <code>table</code>: e.g. <code>dbo</code>, <code>payment</code> (applied commands only).</li>
+<li><code>before</code>, <code>after</code>: column name → Java value (see <a href="LtlValues.html">LtlValues</a> for the type mapping). <code>Map&lt;String,Object&gt;</code> because the values have different types.</li>
+<li><code>keyColumns</code>: primary-key column names, used as the Kafka message key.</li>
+<li><code>tranName</code>, <code>user</code>: from <code>begin transaction</code> (e.g. <code>_ins</code>, <code>sa</code>).</li>
+<li><code>raw</code>: the original command text, kept for debugging unknown commands.</li>
+</ul>
+<p><b>If a component is added:</b> update the single constructor call in <code>LtlParser.command()</code> and the test helper in <code>TransactionBufferTest</code>.</p>
+@@ 34
+<p><b>Nested enum.</b> A fixed set of named constants. <code>OTHER</code> covers everything the connector does not publish: <code>purge open_xact</code>, DDL markers, <code>rs_marker</code>, unsupported functions. They are parsed (to keep the stream aligned) but ignored.</p>
+@@ 36-38
+<p>A convenience method on the record: true for INSERT, UPDATE and DELETE. Used by the probe's output and readable in the task. <code>==</code> is correct for enums because each constant exists exactly once.</p>
+@@ 39
+<p>End of record.</p>

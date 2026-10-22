@@ -1,0 +1,27 @@
+-- Discovery 2: long values (length encodings), unicode, table without primary key.
+use phoenix_test
+go
+if object_id('ltl_long') is not null drop table ltl_long
+go
+create table ltl_long (k1 int not null, k2 varchar(10) not null, big varchar(8000) null,
+  vb varbinary(300) null, uv univarchar(200) null, primary key (k1, k2))
+go
+if object_id('ltl_nopk') is not null drop table ltl_nopk
+go
+create table ltl_nopk (a int null, b varchar(10) null)
+go
+sp_setreptable ltl_long, true
+go
+sp_setreptable ltl_nopk, true
+go
+insert ltl_long values (1, 'x', replicate('E', 5000), 0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff0011,
+  convert(univarchar(200), replicate('W', 40)))
+go
+insert ltl_long values (2, 'y', replicate('F', 63), 0x01, convert(univarchar(10), 'a'))
+go
+insert ltl_long values (3, 'z', replicate('G', 64), 0x02, convert(univarchar(10), 'b'))
+go
+insert ltl_nopk values (1, 'nopk')
+go
+update ltl_nopk set b = 'nopk2' where a = 1
+go

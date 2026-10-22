@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LtlLexer.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>LtlLexer.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlLexer.java</code> · 123 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> splits one raw LTL 760 message (bytes) into tokens. A <em>lexer</em> (tokenizer) is the first stage of every parser: it turns a stream of characters into meaningful pieces (words, symbols, values) so the parser can reason about structure.</p>
+<p><b>Why bytes, not text:</b> LTL 760 length prefixes count <em>bytes</em>. With a multi-byte character set (UTF-8, or UTF-16 for <code>univarchar</code>), decoding first would make the lengths wrong. The lexer therefore works on <code>byte[]</code> and decoding happens later per value.</p>
+<p><b>Source of truth for the encoding:</b> captures of the real RepAgent (ASE 16.0 SP02 PL02), not SAP documentation (which stops at LTL 700). The marker table is in the <a href="../index.html#ch-repagent">RepAgent chapter</a>. <b>Known gaps:</b> 4-digit lengths (values of 256 KB or more, i.e. <code>text</code>/<code>image</code> LOBs sent via <code>rs_writetext</code>) are not supported; the line 9 comment refers to a <code>GUIDE.md</code> that does not exist (this handbook replaces it).</p>
+<p><b>Tests:</b> all <code>LtlParserTest</code> cases run through this lexer with real captured messages.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.ltl;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>ltl</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> java.nio.charset.<span class="t">Charset</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> java.util.<span class="t">ArrayList</span>;
+<span class="ln" id="L5">5</span><span class="k">import</span> java.util.<span class="t">Arrays</span>;
+<span class="ln" id="L6">6</span><span class="k">import</span> java.util.<span class="t">List</span>;</code></pre><div class="note"><div class="range">Lines 3–6</div><p>JDK imports. <code>Arrays.copyOfRange</code> extracts token bytes.</p></div></section>
+<section class="blk" id="b8"><pre class="code"><code><span class="ln" id="L8">8</span><span class="c">/**</span>
+<span class="ln" id="L9">9</span><span class="c"> * Tokenizer for LTL 760 as sent by ASE 16 RepAgent (learned from captures, see GUIDE.md).</span>
+<span class="ln" id="L10">10</span><span class="c"> *</span>
+<span class="ln" id="L11">11</span><span class="c"> * &lt;pre&gt;</span>
+<span class="ln" id="L12">12</span><span class="c"> * BARE   words and plain values, ended by whitespace or , = . ~</span>
+<span class="ln" id="L13">13</span><span class="c"> *        distribute  applied  rs_insert  NULL  255  -32768  0x0000...</span>
+<span class="ln" id="L14">14</span><span class="c"> * SYM    one of  ,  =  .</span>
+<span class="ln" id="L15">15</span><span class="c"> * VALUE  ~ marker length data   length-prefixed literal, e.g. ~"(payment  (char, 7 bytes)</span>
+<span class="ln" id="L16">16</span><span class="c"> * NAME   ~ flag length name     column name in a yielding list, e.g. ~G#id (flag G = primary key)</span>
+<span class="ln" id="L17">17</span><span class="c"> * &lt;/pre&gt;</span>
+<span class="ln" id="L18">18</span><span class="c"> *</span>
+<span class="ln" id="L19">19</span><span class="c"> * Lengths are base-64 digits starting at '!' (0x21): '(' = 7, '"!' = 1*64+0 = 64.</span>
+<span class="ln" id="L20">20</span><span class="c"> * Most markers take one length digit; the variable-length types switch marker</span>
+<span class="ln" id="L21">21</span><span class="c"> * as the value grows (see {@link #lengthDigits}). Lengths count bytes, so the</span>
+<span class="ln" id="L22">22</span><span class="c"> * lexer works on the raw message, not on decoded text.</span>
+<span class="ln" id="L23">23</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 8–23</div><p>Class comment: the four token types and the length encoding. Length digits are base-64 numbers whose digit 0 is the character <code>!</code> (0x21): <code>(</code> = 0x28 − 0x21 = 7, and the two-digit <code>"!</code> = 1×64 + 0 = 64. (Line 9 refers to <code>GUIDE.md</code>; that file does not exist.)</p></div></section>
+<section class="blk" id="b24"><pre class="code"><code><span class="ln" id="L24">24</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">LtlLexer</span> {</code></pre><div class="note"><div class="range">Lines 24</div><p>Final utility class.</p></div></section>
+<section class="blk" id="b26"><pre class="code"><code><span class="ln" id="L26">26</span>    <span class="k">public</span> <span class="k">enum</span> <span class="t">Type</span> { <span class="t">BARE</span>, <span class="t">SYM</span>, <span class="t">VALUE</span>, <span class="t">NAME</span> }</code></pre><div class="note"><div class="range">Lines 26</div><p>Token types: <code>BARE</code> keywords and plain values (<code>distribute</code>, <code>255</code>, <code>NULL</code>, <code>0x…</code>), <code>SYM</code> punctuation (<code>, = .</code>), <code>VALUE</code> length-prefixed literals, <code>NAME</code> column names in yielding lists.</p></div></section>
+<section class="blk" id="b28"><pre class="code"><code><span class="ln" id="L28">28</span>    <span class="c">/** A token. For VALUE, {@code marker} is the datatype marker; for NAME it is the column flag. */</span>
+<span class="ln" id="L29">29</span>    <span class="k">public</span> <span class="k">record</span> <span class="t">Token</span>(<span class="t">Type</span> type, <span class="k">char</span> marker, <span class="k">byte</span>[] data, <span class="k">int</span> pos) {</code></pre><div class="note"><div class="range">Lines 28–29</div><p>A token record: type, marker (datatype marker for VALUE, column flag for NAME, the symbol for SYM), the raw bytes, and the byte position in the message (used to cut the raw text of each command).</p></div></section>
+<section class="blk" id="b31"><pre class="code"><code><span class="ln" id="L31">31</span>        <span class="k">public</span> <span class="t">String</span> text(<span class="t">Charset</span> cs) {
+<span class="ln" id="L32">32</span>            <span class="k">return</span> <span class="k">new</span> <span class="t">String</span>(data, cs);
+<span class="ln" id="L33">33</span>        }</code></pre><div class="note"><div class="range">Lines 31–33</div><p>Decode the token's bytes with a given charset.</p></div></section>
+<section class="blk" id="b35"><pre class="code"><code><span class="ln" id="L35">35</span>        <span class="k">public</span> <span class="k">boolean</span> isBare(<span class="t">String</span> w) {
+<span class="ln" id="L36">36</span>            <span class="k">return</span> type == <span class="t">Type</span>.<span class="t">BARE</span> &amp;&amp; <span class="k">new</span> <span class="t">String</span>(data, java.nio.charset.<span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>).equalsIgnoreCase(w);
+<span class="ln" id="L37">37</span>        }</code></pre><div class="note"><div class="range">Lines 35–37</div><p>Case-insensitive keyword test. ISO-8859-1 maps each byte to one character, so it is safe for ASCII keywords whatever the database charset.</p></div></section>
+<section class="blk" id="b39"><pre class="code"><code><span class="ln" id="L39">39</span>        <span class="k">public</span> <span class="k">boolean</span> isSym(<span class="k">char</span> c) {
+<span class="ln" id="L40">40</span>            <span class="k">return</span> type == <span class="t">Type</span>.<span class="t">SYM</span> &amp;&amp; marker == c;
+<span class="ln" id="L41">41</span>        }</code></pre><div class="note"><div class="range">Lines 39–41</div><p>Symbol test.</p></div></section>
+<section class="blk" id="b43"><pre class="code"><code><span class="ln" id="L43">43</span>        <span class="a">@Override</span>
+<span class="ln" id="L44">44</span>        <span class="k">public</span> <span class="t">String</span> toString() {
+<span class="ln" id="L45">45</span>            <span class="t">String</span> d = <span class="k">new</span> <span class="t">String</span>(data, java.nio.charset.<span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>);
+<span class="ln" id="L46">46</span>            <span class="k">return</span> type + (marker != <span class="n">0</span> ? <span class="s">"("</span> + marker + <span class="s">")"</span> : <span class="s">""</span>) + <span class="s">"["</span> + (d.length() &gt; <span class="n">40</span> ? d.substring(<span class="n">0</span>, <span class="n">40</span>) + <span class="s">"..."</span> : d) + <span class="s">"]@"</span> + pos;
+<span class="ln" id="L47">47</span>        }</code></pre><div class="note"><div class="range">Lines 43–47</div><p>Readable form for error messages, truncated to 40 characters (so a parse error never dumps a whole customer row into the log).</p></div></section>
+<section class="blk" id="b48"><pre class="code"><code><span class="ln" id="L48">48</span>    }</code></pre><div class="note"><div class="range">Lines 48</div><p>End of the record.</p></div></section>
+<section class="blk" id="b50"><pre class="code"><code><span class="ln" id="L50">50</span>    <span class="k">private</span> <span class="t">LtlLexer</span>() {}</code></pre><div class="note"><div class="range">Lines 50</div><p>Private constructor: utility class.</p></div></section>
+<section class="blk" id="b52"><pre class="code"><code><span class="ln" id="L52">52</span>    <span class="c">/**</span>
+<span class="ln" id="L53">53</span><span class="c">     * Number of base-64 length digits after a value marker. char/varchar, binary and</span>
+<span class="ln" id="L54">54</span><span class="c">     * unichar use a different marker for 1, 2 and 3 digits; every other type uses one digit.</span>
+<span class="ln" id="L55">55</span><span class="c">     */</span>
+<span class="ln" id="L56">56</span>    <span class="k">static</span> <span class="k">int</span> lengthDigits(<span class="k">char</span> marker) {
+<span class="ln" id="L57">57</span>        <span class="k">return</span> <span class="k">switch</span> (marker) {
+<span class="ln" id="L58">58</span>            <span class="k">case</span> <span class="s">'#'</span>, <span class="s">'-'</span>, <span class="s">'7'</span> -&gt; <span class="n">2</span>;
+<span class="ln" id="L59">59</span>            <span class="k">case</span> <span class="s">'9'</span>, <span class="s">':'</span>, <span class="s">'&lt;'</span> -&gt; <span class="n">3</span>;
+<span class="ln" id="L60">60</span>            <span class="k">default</span> -&gt; <span class="n">1</span>;
+<span class="ln" id="L61">61</span>        };
+<span class="ln" id="L62">62</span>    }</code></pre><div class="note"><div class="range">Lines 52–62</div><p><b>How many length digits follow a marker.</b> Learned from captures: <code>char</code>/<code>varchar</code> use <code>"</code>, <code>#</code>, <code>9</code> for 1, 2 and 3 digits (up to 63, 4,095 and 262,143 bytes); <code>binary</code> uses <code>,</code> <code>-</code> <code>:</code>; <code>unichar</code> uses <code>6</code> <code>7</code> <code>&lt;</code>. All other types (numbers, dates) always use one digit. <b>Evidence:</b> 63 vs 64 characters (<code>~"`</code> vs <code>~#"!</code>), 5,000 characters (<code>~9"/)</code>), 5,000 binary bytes (<code>~:"/)</code>), 4,200 unicode bytes (<code>~&lt;""I</code>). <b>If ASE SP04 sends another marker</b>, the token length would be misread and parsing fails loudly (the session drops the connection, nothing is acknowledged); add the marker here and a fixture test.</p></div></section>
+<section class="blk" id="b64"><pre class="code"><code><span class="ln" id="L64">64</span>    <span class="k">public</span> <span class="k">static</span> <span class="t">List</span>&lt;<span class="t">Token</span>&gt; tokenize(<span class="k">byte</span>[] b) {
+<span class="ln" id="L65">65</span>        <span class="t">List</span>&lt;<span class="t">Token</span>&gt; out = <span class="k">new</span> <span class="t">ArrayList</span>&lt;&gt;();
+<span class="ln" id="L66">66</span>        <span class="k">int</span> i = <span class="n">0</span>;
+<span class="ln" id="L67">67</span>        <span class="k">int</span> n = b.length;
+<span class="ln" id="L68">68</span>        <span class="k">boolean</span> inYielding = <span class="k">false</span>;   <span class="c">// between "yielding" and the next "distribute"</span>
+<span class="ln" id="L69">69</span>        <span class="k">while</span> (i &lt; n) {</code></pre><div class="note"><div class="range">Lines 64–69</div><p>Tokenizer state: output list, position, length and a flag telling whether we are inside a <code>yielding</code> clause, where column names occur.</p></div></section>
+<section class="blk" id="b70"><pre class="code"><code><span class="ln" id="L70">70</span>            <span class="k">int</span> c = b[i] &amp; <span class="n">0xff</span>;
+<span class="ln" id="L71">71</span>            <span class="k">if</span> (c == <span class="s">' '</span> || c == <span class="s">'\t'</span> || c == <span class="s">'\r'</span> || c == <span class="s">'\n'</span> || c == <span class="n">0</span>) { i++; <span class="k">continue</span>; }</code></pre><div class="note"><div class="range">Lines 70–71</div><p>Read one unsigned byte (<code>&amp; 0xff</code> converts Java's signed byte to 0–255). Skip whitespace and NUL bytes.</p></div></section>
+<section class="blk" id="b72"><pre class="code"><code><span class="ln" id="L72">72</span>            <span class="k">int</span> start = i;
+<span class="ln" id="L73">73</span>            <span class="k">if</span> (c == <span class="s">','</span> || c == <span class="s">'='</span> || c == <span class="s">'.'</span>) {
+<span class="ln" id="L74">74</span>                out.add(<span class="k">new</span> <span class="t">Token</span>(<span class="t">Type</span>.<span class="t">SYM</span>, (<span class="k">char</span>) c, <span class="k">new</span> <span class="k">byte</span>[] {(<span class="k">byte</span>) c}, start));
+<span class="ln" id="L75">75</span>                i++;</code></pre><div class="note"><div class="range">Lines 72–75</div><p>Punctuation becomes a <code>SYM</code> token.</p></div></section>
+<section class="blk" id="b76"><pre class="code"><code><span class="ln" id="L76">76</span>            } <span class="k">else</span> <span class="k">if</span> (c == <span class="s">'~'</span>) {
+<span class="ln" id="L77">77</span>                <span class="k">if</span> (i + <span class="n">2</span> &gt;= n) <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"truncated ~ token at "</span> + i);
+<span class="ln" id="L78">78</span>                <span class="k">char</span> marker = (<span class="k">char</span>) (b[i + <span class="n">1</span>] &amp; <span class="n">0xff</span>);</code></pre><div class="note"><div class="range">Lines 76–78</div><p>A <code>~</code> starts an encoded token; the next byte is the marker (or column flag). A message ending right after <code>~</code> is malformed: throw.</p></div></section>
+<section class="blk" id="b79"><pre class="code"><code><span class="ln" id="L79">79</span>                <span class="k">if</span> (expectsName(out, inYielding)) {
+<span class="ln" id="L80">80</span>                    <span class="c">// ~&lt;flag&gt;&lt;1 digit&gt;&lt;name&gt; followed by '='</span>
+<span class="ln" id="L81">81</span>                    <span class="k">int</span> len = (b[i + <span class="n">2</span>] &amp; <span class="n">0xff</span>) - <span class="n">0x21</span>;
+<span class="ln" id="L82">82</span>                    <span class="k">int</span> end = i + <span class="n">3</span> + len;
+<span class="ln" id="L83">83</span>                    <span class="k">if</span> (len &gt;= <span class="n">0</span> &amp;&amp; end &lt; n &amp;&amp; b[end] == <span class="s">'='</span>) {
+<span class="ln" id="L84">84</span>                        out.add(<span class="k">new</span> <span class="t">Token</span>(<span class="t">Type</span>.<span class="t">NAME</span>, marker, <span class="t">Arrays</span>.copyOfRange(b, i + <span class="n">3</span>, end), start));
+<span class="ln" id="L85">85</span>                        i = end;
+<span class="ln" id="L86">86</span>                        <span class="k">continue</span>;
+<span class="ln" id="L87">87</span>                    }
+<span class="ln" id="L88">88</span>                }</code></pre><div class="note"><div class="range">Lines 79–88</div><p><b>Column names.</b> Inside a yielding list, after <code>before</code>, <code>after</code> or a comma, the token is <code>~&lt;flag&gt;&lt;1 length digit&gt;&lt;name&gt;</code> followed by <code>=</code>. Flags seen: <code>G</code> (primary-key column) and <code>$</code> (other columns). The check <code>b[end] == '='</code> guards against misreading a value as a name; if it fails, the token is read as a value instead. Names are limited to 63 bytes by the one-digit length (ASE identifiers can be longer; not tested).</p></div></section>
+<section class="blk" id="b89"><pre class="code"><code><span class="ln" id="L89">89</span>                <span class="k">int</span> digits = lengthDigits(marker);
+<span class="ln" id="L90">90</span>                <span class="k">if</span> (i + <span class="n">2</span> + digits &gt; n) <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"truncated length at "</span> + i);
+<span class="ln" id="L91">91</span>                <span class="k">int</span> len = <span class="n">0</span>;
+<span class="ln" id="L92">92</span>                <span class="k">for</span> (<span class="k">int</span> d = <span class="n">0</span>; d &lt; digits; d++) {
+<span class="ln" id="L93">93</span>                    <span class="k">int</span> v = (b[i + <span class="n">2</span> + d] &amp; <span class="n">0xff</span>) - <span class="n">0x21</span>;
+<span class="ln" id="L94">94</span>                    <span class="k">if</span> (v &lt; <span class="n">0</span> || v &gt; <span class="n">63</span>) <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"bad length digit at "</span> + (i + <span class="n">2</span> + d));
+<span class="ln" id="L95">95</span>                    len = len * <span class="n">64</span> + v;
+<span class="ln" id="L96">96</span>                }</code></pre><div class="note"><div class="range">Lines 89–96</div><p><b>Values.</b> Read 1–3 base-64 length digits; each digit must be 0–63 or the message is rejected.</p></div></section>
+<section class="blk" id="b97"><pre class="code"><code><span class="ln" id="L97">97</span>                <span class="k">int</span> from = i + <span class="n">2</span> + digits;
+<span class="ln" id="L98">98</span>                <span class="k">if</span> (from + len &gt; n) <span class="k">throw</span> <span class="k">new</span> <span class="t">IllegalArgumentException</span>(<span class="s">"value runs past end of message at "</span> + i);
+<span class="ln" id="L99">99</span>                out.add(<span class="k">new</span> <span class="t">Token</span>(<span class="t">Type</span>.<span class="t">VALUE</span>, marker, <span class="t">Arrays</span>.copyOfRange(b, from, from + len), start));
+<span class="ln" id="L100">100</span>                i = from + len;</code></pre><div class="note"><div class="range">Lines 97–100</div><p>Copy exactly <code>len</code> bytes as the value. Because the length is explicit, values may contain any byte, including spaces, quotes, <code>~</code>, newlines or the word <code>distribute</code>, without escaping (verified with <code>it's ~ "quoted" ~"x</code>).</p></div></section>
+<section class="blk" id="b101"><pre class="code"><code><span class="ln" id="L101">101</span>            } <span class="k">else</span> {
+<span class="ln" id="L102">102</span>                <span class="k">while</span> (i &lt; n) {
+<span class="ln" id="L103">103</span>                    <span class="k">int</span> d = b[i] &amp; <span class="n">0xff</span>;
+<span class="ln" id="L104">104</span>                    <span class="k">if</span> (d == <span class="s">' '</span> || d == <span class="s">'\t'</span> || d == <span class="s">'\r'</span> || d == <span class="s">'\n'</span> || d == <span class="n">0</span> || d == <span class="s">','</span> || d == <span class="s">'='</span> || d == <span class="s">'~'</span>) <span class="k">break</span>;
+<span class="ln" id="L105">105</span>                    <span class="k">if</span> (d == <span class="s">'.'</span> &amp;&amp; !(i &gt; start &amp;&amp; <span class="t">Character</span>.isDigit(b[i - <span class="n">1</span>]) &amp;&amp; i + <span class="n">1</span> &lt; n &amp;&amp; <span class="t">Character</span>.isDigit(b[i + <span class="n">1</span>]))) <span class="k">break</span>;
+<span class="ln" id="L106">106</span>                    i++;
+<span class="ln" id="L107">107</span>                }</code></pre><div class="note"><div class="range">Lines 101–107</div><p><b>Bare tokens</b> run until whitespace or <code>, = ~</code>. A dot ends the token unless it sits between two digits (so <code>3.5</code> stays one token while <code>payment.rs_insert</code> splits).</p></div></section>
+<section class="blk" id="b108"><pre class="code"><code><span class="ln" id="L108">108</span>                <span class="t">Token</span> t = <span class="k">new</span> <span class="t">Token</span>(<span class="t">Type</span>.<span class="t">BARE</span>, (<span class="k">char</span>) <span class="n">0</span>, <span class="t">Arrays</span>.copyOfRange(b, start, i), start);
+<span class="ln" id="L109">109</span>                <span class="k">if</span> (t.isBare(<span class="s">"yielding"</span>)) inYielding = <span class="k">true</span>;
+<span class="ln" id="L110">110</span>                <span class="k">else</span> <span class="k">if</span> (t.isBare(<span class="s">"distribute"</span>)) inYielding = <span class="k">false</span>;
+<span class="ln" id="L111">111</span>                out.add(t);</code></pre><div class="note"><div class="range">Lines 108–111</div><p>Track the <code>yielding</code> state: on until the next <code>distribute</code>.</p></div></section>
+<section class="blk" id="b112"><pre class="code"><code><span class="ln" id="L112">112</span>            }
+<span class="ln" id="L113">113</span>        }
+<span class="ln" id="L114">114</span>        <span class="k">return</span> out;
+<span class="ln" id="L115">115</span>    }</code></pre><div class="note"><div class="range">Lines 112–115</div><p>End of loop; return the tokens.</p></div></section>
+<section class="blk" id="b117"><pre class="code"><code><span class="ln" id="L117">117</span>    <span class="c">/** Column names follow "before"/"after", or a comma inside a yielding list (not in command tags). */</span>
+<span class="ln" id="L118">118</span>    <span class="k">private</span> <span class="k">static</span> <span class="k">boolean</span> expectsName(<span class="t">List</span>&lt;<span class="t">Token</span>&gt; out, <span class="k">boolean</span> inYielding) {
+<span class="ln" id="L119">119</span>        <span class="k">if</span> (out.isEmpty() || !inYielding) <span class="k">return</span> <span class="k">false</span>;
+<span class="ln" id="L120">120</span>        <span class="t">Token</span> prev = out.get(out.size() - <span class="n">1</span>);
+<span class="ln" id="L121">121</span>        <span class="k">return</span> prev.isBare(<span class="s">"before"</span>) || prev.isBare(<span class="s">"after"</span>) || prev.isSym(<span class="s">','</span>);
+<span class="ln" id="L122">122</span>    }</code></pre><div class="note"><div class="range">Lines 117–122</div><p>Name-position rule used above. Outside yielding lists, commas separate command tags (<code>1 ~*6…,4 0x…</code>) and must not be read as names.</p></div></section>
+<section class="blk" id="b123"><pre class="code"><code><span class="ln" id="L123">123</span>}</code></pre><div class="note"><div class="range">Lines 123</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

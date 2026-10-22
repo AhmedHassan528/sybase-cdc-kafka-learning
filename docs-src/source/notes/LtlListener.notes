@@ -1,0 +1,24 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlListener.java
+@summary
+<p><b>Role:</b> the contract between the protocol layer (<a href="LtlSession.html">LtlSession</a>, which speaks TDS/LTL to RepAgent) and whoever owns it. Two implementations exist: the inner class <code>Listener</code> in <a href="SybaseCdcSourceTask.html">SybaseCdcSourceTask</a> (production) and an anonymous class in <a href="LtlProbe.html">LtlProbe</a> (discovery tool, no Kafka). This separation is why the protocol code could be developed and debugged against the real RepAgent before any Kafka code existed.</p>
+<p><b>Threading:</b> every method is called on the RepAgent session thread, never on the Kafka Connect task thread.</p>
+@@ 1
+<p>Package <code>ltl</code>: everything about the Log Transfer Language protocol.</p>
+@@ 3
+<p>Imports <code>List</code> for the batch parameter of <code>onCommands</code>.</p>
+@@ 5-6
+<p><b>What:</b> a Java <em>interface</em>, a set of method signatures without (most) bodies. A class that writes <code>implements LtlListener</code> must provide them. <b>Why:</b> dependency inversion: <code>LtlSession</code> depends on this small interface, not on Kafka Connect classes, so the protocol layer has no Kafka dependency and can run inside the probe.</p>
+@@ 8-9
+<p>Called once per connection with the user and password from the TDS login record. Returning <code>false</code> makes the session send "Login failed" (Msg 4002), which RepAgent logs and then stops its thread. <b>Important:</b> the password is only readable because the DBA set <code>net password encryption</code> to <code>false</code>; with encryption on, RepAgent leaves the password field empty (seen in capture 1).</p>
+@@ 11-15
+<p>Called for <code>connect source lti "SERVER"."db" 760 passthru</code>. The implementation returns the LTL version to use, or throws to refuse (the session then answers with an error message). The production listener accepts only 760 and above, because the parser understands only the LTL 760 encoding.</p>
+@@ 17-18
+<p>Answer to <code>get maintenance user</code>. RepAgent does not forward transactions executed by this login (that is how Replication Server avoids replicating its own applied changes back). The connector returns a login that should never run business transactions (<code>cdc_maint</code> by default). <b>Risk:</b> if this returned the login used by Phoenix, its changes would be filtered out.</p>
+@@ 20-25
+<p>The most safety-critical method: the 36-byte value RepAgent uses to move the database's <em>secondary truncation point</em>. Returning a position the connector has not safely stored in Kafka would let ASE discard log records that were never delivered. The production implementation returns the <a href="AckTracker.html">AckTracker</a> watermark.</p>
+@@ 27-28
+<p>Receives each parsed LTL batch in log order. <code>throws InterruptedException</code> allows the implementation to block (the production task blocks on a bounded queue), which simply stops reading from RepAgent: natural back-pressure, because RepAgent waits for the DONE reply before sending more.</p>
+@@ 30-31
+<p>A <em>default</em> method (Java 8+): implementations may override it, but do not have to. Called when the socket closes, with the exception if any. Used to clear partially buffered transactions, because RepAgent re-sends them after reconnecting.</p>
+@@ 32
+<p>End of interface.</p>

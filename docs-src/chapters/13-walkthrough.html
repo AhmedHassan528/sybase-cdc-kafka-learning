@@ -1,0 +1,108 @@
+<h2 id="ch-walkthrough" data-keywords="walkthrough step by step reproduce local docker compose build start repagent connector verify cleanup tutorial">Local reproduction: step-by-step walkthrough</h2>
+<p>These 28 steps rebuild the whole local environment from the project folder and prove it works end to end. They follow the order that was actually used, including the manual steps the scripts do not perform (<a href="#manual-steps">history 7.6</a>). Each step says <b>where</b> it runs: <span class="where host">HOST</span> = a Git Bash / Linux shell on your PC in the project folder; <span class="where ctr">CONTAINER</span> = inside a container; <span class="where sql">SQL</span> = an ASE <code>isql</code> session.</p>
+
+<figure-diagram src="09-local-workflow" n="09" title="Local development and test workflow">
+<p><b>Purpose:</b> the loop a developer goes through: edit code → build in the Maven container → copy to the plugin folder → restart the worker → generate ASE changes → read Kafka → compare. The left column is one-time setup (steps 1–17 below); the right column is the edit/test loop (steps 18–26).</p>
+<p><b>Does not show:</b> the performance and failure tests, which are in the <a href="#ch-tests">test chapter</a>.</p>
+</figure-diagram>
+
+<div class="callout warn"><span class="t">Credentials in this walkthrough</span>
+The local environment uses fixed <b>local test values</b> from the public <code>datagrip/sybase</code> image and from <code>sybase/02_repagent.sql</code>. They protect nothing and must never be reused anywhere else. The commands below refer to them as <code>${SYBASE_PASSWORD}</code> (ASE <code>sa</code>) and <code>${LTL_PASSWORD}</code> (RepAgent → connector). Set them once per shell from the project files, so they are not typed into your shell history:
+<pre data-lang="bash"><code>export SYBASE_PASSWORD="$(sed -n 's/^ *SYBASE_PASSWORD: *//p' docker-compose.yml)"
+export LTL_PASSWORD="$(sed -n "s/.*'enable', 'CDC_RS', 'rs_user', '\([^']*\)'.*/\1/p" sybase/02_repagent.sql)"</code></pre>
+The helper scripts in <code>captures/</code> contain the same local values in clear text; that is acceptable only because they are local test values.</div>
+
+<h3 id="wt-prereq">A. Prerequisites (steps 1–4)</h3>
+<ol class="steps">
+<li><span class="where host">HOST</span><b>Docker.</b> Purpose: everything runs in containers. Command: <code>docker version</code> and <code>docker compose version</code>.
+<br><b>Expected:</b> both client and server versions print (tested: engine and client 29.6.1, Docker Compose v5.3.0; <code>evidence/01-tooling.txt</code>). <b>Error:</b> <code>Cannot connect to the Docker daemon</code> → start Docker Desktop.</li>
+<li><span class="where host">HOST</span><b>Resources.</b> Docker Desktop needs about 6 GB RAM for the four containers (Connect alone peaked at 1.95 GiB in test 6) and about 10 GB of free disk (image sizes from <code>evidence/02-images.txt</code>: ASE 3.3 GB, Kafka 0.2 GB shared by two containers, Kafka UI 0.15 GB, Maven 0.23 GB, plus the ASE devices and Kafka data inside the containers). Check with <code>docker info --format '{{.MemTotal}}'</code>.</li>
+<li><span class="where host">HOST</span><b>Shell.</b> On Windows use Git Bash. The helper scripts set <code>MSYS_NO_PATHCONV=1</code> so that paths like <code>/opt/kafka</code> are not rewritten to <code>C:/Program Files/Git/opt/kafka</code>. <b>Symptom if forgotten:</b> <code>No such file or directory</code> for a path that exists inside the container.</li>
+<li><span class="where host">HOST</span><b>Project folder.</b> Confirm the expected files: <code>ls docker-compose.yml connect-distributed.properties sybase/ connectors/ plugins/ sybase-cdc-connector/</code>. The full list is in the <a href="#ch-files">file inventory</a>.</li>
+</ol>
+
+<h3 id="wt-build">B. Build the connector (steps 5–7)</h3>
+<ol class="steps" start="5">
+<li><span class="where host">HOST</span><b>Build and unit-test.</b> <code>./sybase-cdc-connector/build.sh</code>. Purpose: compile, run the 11 unit tests, copy the JAR to <code>plugins/sybase-cdc/</code>. First run downloads Maven dependencies (a few minutes). <b>Expected:</b> no <code>[ERROR]</code> lines; details in <a href="#build-commands">Build commands</a>.</li>
+<li><span class="where host">HOST</span><b>Verify the artifact.</b> <code>ls -l plugins/sybase-cdc/ &amp;&amp; sha256sum plugins/sybase-cdc/*.jar</code>. <b>Expected:</b> one JAR of about 66 KB. Record the hash.</li>
+<li><span class="where host">HOST</span><b>(Optional) Build the shim.</b> <code>sybase/rie_shim.so</code> is already built. Rebuild only if you changed <code>rie_shim.c</code> (command in <a href="#shim">the shim section</a>).</li>
+</ol>
+
+<h3 id="wt-start">C. Start the environment (steps 8–13)</h3>
+<ol class="steps" start="8">
+<li><span class="where host">HOST</span><b>Start.</b> <code>docker compose up -d</code>. Purpose: pull images on first run, create the network <code>…_default</code>, start the four containers. Compose waits for the Kafka health check before starting Connect.
+<br><b>Expected:</b> four <code>Started</code>/<code>Healthy</code> lines. <b>Error:</b> <code>port is already allocated</code> → another program uses 5000, 8080, 8083, 11752 or 29092; stop it or change the left side of the port mapping.</li>
+<li><span class="where host">HOST</span><b>Watch ASE initialise.</b> <code>docker logs -f cdc-sybase</code> (Ctrl+C to stop following).
+<br><b>Expected, first boot:</b> <code>Waiting for ASE to accept logins...</code>, <code>SYBASE STARTED</code>, <code>INIT (first boot)</code>, one <code>--&gt; /scripts/0N_*.sql</code> line per script, then <code>READY</code>. Creating the 1 GB + 512 MB devices takes a minute or two. <b>Error:</b> <code>dataserver died; tail of errorlog</code> followed by <code>Snap::Validate</code> → the kernel workaround is not active (check <code>security_opt</code> and the <code>LD_PRELOAD</code> line, <a href="#ts-catalog">troubleshooting</a>).</li>
+<li><span class="where host">HOST</span><b>Check containers.</b> <code>docker ps --format '{{.Names}} | {{.Status}}'</code>.
+<br><b>Expected</b> (from <code>evidence/03-containers.txt</code>): <code>cdc-connect | Up …</code>, <code>cdc-kafka | Up … (healthy)</code>, <code>cdc-kafka-ui | Up …</code>, <code>cdc-sybase | Up …</code>.</li>
+<li><span class="where host">HOST</span><b>Check the worker and the plugin.</b>
+<pre data-lang="bash"><code>curl -s localhost:8083/
+curl -s localhost:8083/connector-plugins</code></pre>
+<b>Expected:</b> <code>{"version":"3.8.0",…}</code>, and a plugin list that contains <code>{"class":"com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector","type":"source","version":"0.1.0"}</code>. <b>Missing plugin:</b> the JAR was not in <code>plugins/sybase-cdc/</code> when the worker started → step 5, then <code>docker restart cdc-connect</code>.</li>
+<li><span class="where sql">SQL</span><b>Check ASE.</b> <code>echo -e "select @@servername, @@version\ngo" | captures/isql.sh</code>.
+<br><b>Expected:</b> <code>MYSYBASE</code> and <code>Adaptive Server Enterprise/16.0 SP02 PL02/…</code> (<code>evidence/08-ase-facts.txt</code>).</li>
+<li><span class="where sql">SQL</span><b>Check the RepAgent configuration made by the init scripts.</b> <code>echo -e "sp_help_rep_agent phoenix_test, 'config'\ngo" | captures/isql.sh</code>.
+<br><b>Expected:</b> <code>rs servername</code> = <code>CDC_RS</code>, <code>rs username</code> = <code>rs_user</code>, <code>net password encryption</code> = <code>false</code>. Also check the interfaces entry: <code>docker exec cdc-sybase grep -A2 CDC_RS /opt/sybase/interfaces</code> → two lines <code>tcp ether connect 11752</code>.</li>
+</ol>
+
+<h3 id="wt-connector">D. Create the connector and start RepAgent (steps 14–17)</h3>
+<ol class="steps" start="14">
+<li><span class="where host">HOST</span><b>Create the connector.</b> Purpose: start the task, which opens port 11752.
+<pre data-lang="bash"><code>curl -s -X POST -H 'Content-Type: application/json' --data @connectors/sybase-cdc-phoenix.json localhost:8083/connectors</code></pre>
+<b>Expected:</b> the configuration echoed back with <code>"tasks":[]</code> or <code>[{"connector":"sybase-cdc-phoenix","task":0}]</code>. <b>Note:</b> the echo contains the LTL password in clear text, one reason production must use a config-provider reference (<a href="#cfg-security">security settings</a>). <b>Error:</b> <code>409 Conflict</code> → it exists already; use <code>PUT /connectors/sybase-cdc-phoenix/config</code> with only the inner <code>config</code> object.</li>
+<li><span class="where host">HOST</span><b>Confirm RUNNING and listening.</b>
+<pre data-lang="bash"><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/status
+docker logs cdc-connect 2>&amp;1 | grep -E "Starting Sybase CDC task|LTL server listening" | tail -3</code></pre>
+<b>Expected:</b> connector and task <code>"state":"RUNNING"</code>; log lines <code>Starting Sybase CDC task for MYSYBASE.phoenix_test; last committed OQID in Kafka: none (first start)</code> and <code>LTL server listening on 0.0.0.0:11752</code>.</li>
+<li><span class="where sql">SQL</span><b>Shorten RepAgent's retry timeout</b> (manual, once). <code>echo -e "sp_config_rep_agent phoenix_test, 'retry timeout', '10'\ngo" | captures/isql.sh</code>. Purpose: after a connector restart RepAgent retries every 10 s instead of 60 s. Takes effect at the next RepAgent start.</li>
+<li><span class="where sql">SQL</span><b>Start RepAgent</b> (manual, first time only; later boots start it automatically). <code>echo -e "sp_start_rep_agent phoenix_test\ngo" | captures/isql.sh</code>.
+<br><b>Expected:</b> in the Connect log within a few seconds: <code>RepAgent connected from /172.x.x.x:…</code> and <code>connect source MYSYBASE.phoenix_test proposed LTL 760 -&gt; using 760</code>. <b>Error:</b> ASE errorlog <code>Login failed for user 'rs_user'</code> → user/password mismatch or <code>net password encryption</code> still true (<a href="#ts-catalog">troubleshooting</a>). <b>Order matters:</b> start RepAgent only after step 15; otherwise it fails to connect and keeps retrying.</li>
+</ol>
+
+<h3 id="wt-verify">E. Verify end to end (steps 18–24)</h3>
+<ol class="steps" start="18">
+<li><span class="where sql">SQL</span><b>RepAgent status.</b> <code>echo -e "sp_help_rep_agent phoenix_test, 'process'\ngo" | captures/isql.sh</code>. <b>Expected:</b> a row for <code>phoenix_test</code> whose state is <code>sleeping</code> when idle or <code>scanning</code> while reading the log (values recorded every 5 s in test 6, <code>evidence/tests/t6-run2-monitor.csv</code>).</li>
+<li><span class="where sql">SQL</span><b>Insert a row</b> (test 1 pattern):
+<pre data-lang="sql"><code>insert payment (account_no, amount, currency) values ('WT-ACC', 100.00, 'EGP')
+go</code></pre>
+Run it with <code>captures/isql.sh</code> (paste the two lines into its standard input).</li>
+<li><span class="where host">HOST</span><b>Read Kafka.</b> <code>captures/consume.sh sybase.phoenix_test.payment 8000 | grep WT-ACC</code>.
+<br><b>Expected:</b> one line <code>{"payment_id":"…"} | {"op":"c","before":null,"after":{… "account_no":"WT-ACC","amount":"100",…},"source":{… "table":"payment",… "seq":0,"txn_rows":1},…}</code>. The shape matches the real test 1 record in <a href="#kafka-inspect">the Kafka chapter</a>.</li>
+<li><span class="where sql">SQL</span><b>Update and delete, then a rollback.</b> <code>update payment set amount = 175.25 where account_no = 'WT-ACC'</code>, then <code>delete payment where account_no = 'WT-ACC'</code>, then <code>begin tran insert payment … rollback</code>. <b>Expected in Kafka:</b> one <code>"op":"u"</code> (with <code>before</code> and <code>after</code>), one <code>"op":"d"</code> (with <code>before</code>, <code>after</code> null), and <b>nothing</b> for the rolled-back insert.</li>
+<li><span class="where host">HOST</span><b>Kafka UI.</b> Open <a href="http://localhost:8080">http://localhost:8080</a> → Topics → <code>sybase.phoenix_test.payment</code> → Messages. Purpose: the same records, browsable. Kafka Connect → <code>sybase-cdc-phoenix</code> shows the task state.</li>
+<li><span class="where host">HOST</span><b>Offsets advance.</b> After 5–10 s: <code>docker logs cdc-connect 2&gt;&amp;1 | grep "Committing offsets" | tail -1</code>. <b>Expected:</b> <code>Committing offsets for N acknowledged messages</code>. Read the stored position from the internal topic (the REST <code>/offsets</code> view can be stale, <a href="#ts-offsets">see why</a>):
+<pre data-lang="bash"><code>MSYS_NO_PATHCONV=1 docker exec cdc-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 \
+  --topic _connect-offsets --from-beginning --timeout-ms 5000 --property print.key=true 2&gt;/dev/null | tail -1</code></pre></li>
+<li><span class="where sql">SQL</span><b>ASE log is released.</b> <code>captures/isql.sh &lt; captures/truncpage.sql</code> (read-only: <code>select page from master..syslogshold where name like '%replication_truncation%'</code>). <b>Expected:</b> the secondary truncation page moves forward after the connector acknowledges; log usage stays low. If the page never moves, see <a href="#rb-log-emergency">the log runbook</a> before doing anything else.</li>
+</ol>
+
+<h3 id="wt-loop">F. Development loop (step 25)</h3>
+<ol class="steps" start="25">
+<li><span class="where host">HOST</span><b>Change, rebuild, reload.</b> After editing Java code: <code>./sybase-cdc-connector/deploy-local.sh</code> (build + <code>docker restart cdc-connect</code> + wait for RUNNING). RepAgent reconnects by itself within the retry timeout; the task resumes from its stored offset. Re-run steps 19–23.</li>
+</ol>
+
+<h3 id="wt-stop">G. Stop, clean up, reset (steps 26–28)</h3>
+<ol class="steps" start="26">
+<li><span class="where host">HOST</span><b>Pause the environment, keeping all data.</b> <code>docker compose stop</code>, later <code>docker compose start</code>. ASE shuts down cleanly (the <code>trap</code> in <code>start.sh</code>), RepAgent restarts automatically at the next boot. While the connector is down, ASE <b>keeps</b> the unreplicated log; a long stop with write activity fills the log (test 7 measured this).</li>
+<li><span class="where host">HOST</span><b>Remove the connector only.</b> <code>curl -s -X DELETE localhost:8083/connectors/sybase-cdc-phoenix</code>. Its stored offset remains in <code>_connect-offsets</code>; creating it again with the same name and <code>database.*</code> values resumes from there. RepAgent stays configured and keeps holding the log until a connector listens again, so also run <code>sp_stop_rep_agent phoenix_test</code> if you stop for long.</li>
+<li><span class="where host">HOST</span><b>Full reset.</b>
+<div class="callout danger"><span class="t">DESTRUCTIVE: deletes all local data</span>
+<code>docker compose down</code> removes the containers. Because no named volume is used, this <b>erases the ASE database <code>phoenix_test</code> and all Kafka topics and offsets</b>. The next <code>up</code> re-runs the init scripts and steps 14–17 are needed again. Do this only on the local test environment, never against shared or production systems. To keep data, use step 26 instead.</div>
+<pre data-lang="bash"><code># DESTRUCTIVE (local only): containers, ASE database and Kafka data are deleted
+docker compose down</code></pre>
+<code>docker compose down</code> does not delete images or the Maven cache volume <code>cdc-m2-cache</code>.</li>
+</ol>
+
+<h3 id="wt-checklist">Quick success checklist</h3>
+<div class="tbl"><table>
+<thead><tr><th>Check</th><th>Command</th><th>Pass when</th></tr></thead>
+<tbody>
+<tr><td>Plugin discovered</td><td><code>GET /connector-plugins</code></td><td>class listed, version 0.1.0</td></tr>
+<tr><td>Task running</td><td><code>GET /connectors/sybase-cdc-phoenix/status</code></td><td>both RUNNING</td></tr>
+<tr><td>RepAgent connected</td><td>Connect log</td><td><code>RepAgent connected from</code> + <code>using 760</code></td></tr>
+<tr><td>Insert visible</td><td><code>captures/consume.sh</code></td><td><code>"op":"c"</code> with the new values</td></tr>
+<tr><td>Rollback invisible</td><td><code>captures/consume.sh</code></td><td>no event for rolled-back row</td></tr>
+<tr><td>Offsets committed</td><td><code>_connect-offsets</code></td><td>new <code>commit_oqid</code></td></tr>
+<tr><td>Log released</td><td><code>captures/truncpage.sql</code></td><td>truncation page advances</td></tr>
+</tbody></table></div>

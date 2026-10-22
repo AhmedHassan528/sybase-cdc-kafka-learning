@@ -1,0 +1,12 @@
+MYSYBASE
+	master tcp ether 0.0.0.0 5000
+	query tcp ether 127.0.0.1 5000
+
+MYSYBASE_BS
+	master tcp ether 0.0.0.0 5001
+	query tcp ether 127.0.0.1 5001
+
+
+CDC_RS
+	master tcp ether connect 11752
+	query tcp ether connect 11752

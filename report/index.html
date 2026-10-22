@@ -1,0 +1,409 @@
+<title>Sybase CDC Test Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~860px) with full-width result table and charts; summary strip first, evidence after. */
+:root {
+  --bg: #f6f8f9;
+  --surface: #ffffff;
+  --fg: #16232b;
+  --muted: #5a6b75;
+  --line: #d8e0e4;
+  --accent: #0b6e8f;
+  --accent-soft: #e2f0f5;
+  --pass: #1d7a46;
+  --pass-soft: #e3f3ea;
+  --warn: #9a6100;
+  --warn-soft: #fbf0dc;
+  --fail: #b3261e;
+  --c1: #0b6e8f;
+  --c2: #c4651a;
+  --grid: #e6ecef;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f171c; --surface: #16222a; --fg: #e3ebef; --muted: #93a6b1; --line: #2a3a44;
+    --accent: #5cc3e4; --accent-soft: #15323d; --pass: #5fd08f; --pass-soft: #163527;
+    --warn: #f0b955; --warn-soft: #3a2c12; --fail: #ff8a80; --c1: #5cc3e4; --c2: #f0a061; --grid: #22323b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f171c; --surface: #16222a; --fg: #e3ebef; --muted: #93a6b1; --line: #2a3a44;
+  --accent: #5cc3e4; --accent-soft: #15323d; --pass: #5fd08f; --pass-soft: #163527;
+  --warn: #f0b955; --warn-soft: #3a2c12; --fail: #ff8a80; --c1: #5cc3e4; --c2: #f0a061; --grid: #22323b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(28px, 4.4vw, 40px); font-weight: 600; }
+h2 { font-size: 24px; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .88em; }
+section { display: grid; gap: 16px; min-width: 0; }
+header.top { display: grid; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 24px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 13px; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 500; }
+
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 2px; }
+.stat .v { font-family: var(--font-display); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 13px; color: var(--muted); }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.pass { color: var(--pass); background: var(--pass-soft); }
+.pill.warn { color: var(--warn); background: var(--warn-soft); }
+
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; overflow-x: auto; }
+.diagram pre.mermaid { margin: 0; background: transparent; }
+.cap { font-size: 13px; color: var(--muted); }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 14px 10px; display: grid; gap: 8px; min-width: 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--muted); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.note.w { border-left: 3px solid var(--warn); }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+pre.out { margin: 0; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+details > summary { cursor: pointer; font-weight: 500; }
+details[open] > summary { margin-bottom: 10px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Phoenix core banking · log-based CDC · local simulation</div>
+  <h1>Sybase ASE → Kafka CDC connector: test report</h1>
+  <p class="muted">A custom Kafka Connect source that acts as a lightweight Replication Server. ASE's RepAgent pushes the transaction log to it as LTL; changes are published to Kafka only on COMMIT, and the ASE log is released only after Kafka confirms the write.</p>
+  <div class="meta">
+    <span>Run <b>2026-10-20 / 21</b></span>
+    <span>ASE <b>16.0 SP02 PL02</b> (local; production is SP04 PL07 HF1)</span>
+    <span>LTL <b>760</b></span>
+    <span>Kafka / Connect <b>3.8.0</b></span>
+    <span>Connector <b>0.1.0</b></span>
+  </div>
+</header>
+
+<section>
+  <div class="strip">
+    <div class="stat"><span class="v">13 / 13</span><span class="l">scenarios passed (2 with caveats)</span></div>
+    <div class="stat"><span class="v">11 / 11</span><span class="l">unit tests passed</span></div>
+    <div class="stat"><span class="v">0</span><span class="l">rows lost across all tests</span></div>
+    <div class="stat"><span class="v">≈12.9k/s</span><span class="l">peak events into Kafka</span></div>
+    <div class="stat"><span class="v">25.4%</span><span class="l">max log used (connector stopped, 1.05M rows held)</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Architecture</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  A["Phoenix app<br/>INSERT / UPDATE / DELETE"] --> L[("phoenix_test<br/>transaction log")]
+  L --> R["RepAgent thread<br/>(inside ASE)"]
+  R -- "TDS + LTL 760<br/>port 11752" --> S
+  subgraph C["Kafka Connect worker"]
+    S["LtlServer / LtlSession<br/>(fake Replication Server)"] --> P["LtlParser<br/>LTL 760 decoder"]
+    P --> B["TransactionBuffer<br/>per tran_id"]
+    B -- "COMMIT only" --> Q["bounded queue"]
+    Q --> T["SourceTask.poll()"]
+    K["AckTracker"]
+  end
+  T --> KF[("Kafka topic<br/>sybase.phoenix_test.payment")]
+  KF -- "producer ack<br/>commitRecord()" --> K
+  K -- "get truncation<br/>(acked OQID)" --> R
+  R -- "moves secondary<br/>truncation point" --> L
+</pre>
+  </div>
+  <p class="cap">Editable copy: <code>report/diagrams/architecture.drawio</code> (open in draw.io).</p>
+</section>
+
+<section>
+  <h2>Protocol learned from the wire</h2>
+  <p>SAP documents LTL only up to version 700. Everything below was captured from the real RepAgent with the probe tool and raw message dumps, and it is covered by unit tests built on those captures.</p>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  participant RA as RepAgent (ASE)
+  participant CN as Connector (CDC_RS)
+  RA->>CN: TDS login (rs_user, packet size 2048, iso_1)
+  CN-->>RA: LOGINACK + CAPABILITY + ENVCHANGE packet size 2048
+  RA->>CN: connect source lti "MYSYBASE"."phoenix_test" 760 passthru
+  CN-->>RA: result 1: VERSION 760 / result 2: Sysversion 1600 + UpgradeLocater
+  RA->>CN: get maintenance user for "MYSYBASE"."phoenix_test"
+  CN-->>RA: cdc_maint
+  RA->>CN: get truncation "MYSYBASE"."phoenix_test"
+  CN-->>RA: 36-byte OQID (last transaction Kafka acknowledged)
+  loop every batch
+    RA->>CN: distribute 1 time,4 oqid,6 xid begin / applied / commit ...
+    CN-->>RA: DONE (exactly one per TDS message)
+  end
+  RA->>CN: get truncation (about every 15 s)
+  CN-->>RA: acked OQID, never past unconfirmed data
+</pre>
+  </div>
+  <p class="cap">Editable copy: <code>report/diagrams/ltl-handshake.drawio</code>.</p>
+
+  <div class="tbl">
+    <table>
+      <thead><tr><th>On the wire</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">~"(payment</td><td>Length-prefixed value: <code>~</code>, type marker <code>"</code>, length <code>(</code> = 0x28 − 0x21 = 7, then 7 bytes. Length digits are base 64 from <code>!</code>.</td></tr>
+        <tr><td class="mono">" # 9 · , - : · 6 7 &lt;</td><td>char, binary and unichar markers for 1, 2 and 3 length digits (up to 63, 4095, 262143 bytes)</td></tr>
+        <tr><td class="mono">% ( ) &amp; ' * + = &gt; E</td><td>numeric, money, smallmoney, float, real, datetime, smalldatetime, date, time, bigdatetime</td></tr>
+        <tr><td class="mono">~G#id / ~$'c_tiny</td><td>Column names; flag <code>G</code> marks a primary-key column (used as the Kafka key)</td></tr>
+        <tr><td class="mono">rs_update … after …</td><td>After image holds only changed columns; the connector merges it over the before image</td></tr>
+        <tr><td class="mono">255&nbsp; NULL</td><td>Bare integers, bit and NULL</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Scenario results</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>#</th><th>Scenario</th><th>What was done</th><th>Measured result</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>U</td><td>Unit tests</td><td><code>mvn test</code> on final code, parser tests use real RepAgent captures</td><td class="num">11 run, 0 failures</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>1</td><td>Insert / update / delete</td><td>One row inserted, updated, deleted</td><td>3 events: <code>c</code>, <code>u</code> (full before/after), <code>d</code>; key <code>payment_id</code></td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>2</td><td>Rollback</td><td><code>begin tran … rollback</code></td><td class="num">0 events</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>3</td><td>Multi-row transaction</td><td>2 inserts + 1 update, one commit</td><td>3 events, same xid, seq 0‑1‑2, txn_rows=3, published after commit</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>4a</td><td>Connector down during writes</td><td>3,000 inserts while Connect was down</td><td class="num">3,000 / 3,000, 0 dup</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>4b</td><td>Hard kill while streaming</td><td><code>docker kill</code> Connect 16 s into a live RepAgent session, 20,000 one-row txns</td><td class="num">20,000 / 20,000 distinct; 495 duplicates (same oqid)</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>5</td><td>ASE crash after commit</td><td>Connector stopped (port closed), commit, <code>kill -9</code> dataserver, recovery, resume</td><td>Row replayed from the ASE log and delivered</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>6.1</td><td>Load 1M rows, run 1</td><td>100 txns × 10,000 rows</td><td class="num">1,000,000 / 1,000,000, 0 dup, 100 xids</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>6.2</td><td>Load 1M rows, run 2</td><td>Same, monitored</td><td class="num">1,000,000 / 1,000,000, 0 dup; ASE 22 s, end-to-end 107 s</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>6.3</td><td>Load 1M rows, run 3</td><td>Same, parallel sampling</td><td class="num">1,000,000 delivered; ASE 25 s, end-to-end 122 s; 0 blocked; log max 17.8%</td><td><span class="pill warn">PASS · see notes</span></td></tr>
+        <tr><td>P5</td><td>Acks only after Kafka confirms</td><td>Kafka broker paused 44 s, 3-row txn committed</td><td>Truncation and offsets held, advanced after resume; 3 duplicates from task restart</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>6a</td><td>Real stop / resume</td><td>REST <code>/stop</code> after 3 s of a 20,000-txn load, <code>/resume</code></td><td class="num">20,000 / 20,000, 0 dup</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>6b</td><td>Crash during partial publication</td><td>One txn of 200,000 rows; Connect killed with 53,822 in Kafka</td><td class="num">200,000 / 200,000 distinct, 53,822 dup (= partial count)</td><td><span class="pill pass">PASS</span></td></tr>
+        <tr><td>7</td><td>Log growth, connector stopped</td><td>1,050,000 rows held; threshold at 75% free</td><td>Alert fired at 25.4% used, no suspended process, drained in 99 s, 0 dup</td><td><span class="pill warn">PASS · no recovery run</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Load test, run 3 (1,000,000 rows)</h2>
+  <p>ASE committed the 100 transactions in 25 s. RepAgent's log scan was the bottleneck: it kept reading for about 2 minutes, so log space was held until each batch reached Kafka.</p>
+  <div class="charts">
+    <figure>
+      <div class="legend"><span><i style="background:var(--c1)"></i>Events in Kafka</span><span><i style="background:var(--c2)"></i>ASE load running</span></div>
+      <svg id="chartRun3" viewBox="0 0 520 250" role="img" aria-label="Kafka events over time during run 3"></svg>
+      <figcaption>Cumulative events published; peak rate ≈12,900/s, average ≈10,000/s. Seconds from load start.</figcaption>
+    </figure>
+    <figure>
+      <div class="legend"><span><i style="background:var(--c1)"></i>Transaction log used</span></div>
+      <svg id="chartRun3Log" viewBox="0 0 520 250" role="img" aria-label="Log used percent during run 3"></svg>
+      <figcaption>Log used (%) of 512 MB. Peaks at 17.8% and returns to 0.4% after the last acknowledgement.</figcaption>
+    </figure>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Metric</th><th>Baseline</th><th>Peak</th><th>Final</th></tr></thead>
+      <tbody>
+        <tr><td>Blocked processes</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+        <tr><td>Locks in phoenix_test</td><td class="num">0</td><td class="num">45 (loader's own inserts)</td><td class="num">0</td></tr>
+        <tr><td>Free log pages (of 32,768)</td><td class="num">32,633</td><td class="num">26,935 min (17.8% used)</td><td class="num">32,633</td></tr>
+        <tr><td>RepAgent</td><td>sleeping</td><td>scanning</td><td>sleeping, caught up</td></tr>
+        <tr><td>Connector task / ERROR lines</td><td>RUNNING / 0</td><td>RUNNING / 0</td><td>RUNNING / 0</td></tr>
+        <tr><td>CPU sybase / connect / kafka</td><td class="num">0.3% / 1.0% / 2% (idle bursts to 210%)</td><td class="num">117% / 192% / 381%</td><td class="num">0.3% / 0.9% / 3.4%</td></tr>
+        <tr><td>Memory sybase / connect / kafka</td><td class="num">208 MiB / 1.67 GiB / 1.67 GiB</td><td class="num">211 MiB / 1,954 MiB / 1,804 MiB</td><td class="num">211 MiB / 1.89 GiB / 1.64 GiB</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Log growth with the connector stopped (test 7)</h2>
+  <div class="charts">
+    <figure>
+      <div class="legend"><span><i style="background:var(--c1)"></i>Log used</span><span><i style="background:var(--c2)"></i>Alert threshold (75% free)</span></div>
+      <svg id="chartGrow" viewBox="0 0 520 250" role="img" aria-label="Log used versus rows loaded"></svg>
+      <figcaption>About 655 pages (≈10 MB) of log per 100,000 rows while RepAgent could not deliver. Secondary truncation page frozen at 86398.</figcaption>
+    </figure>
+    <figure>
+      <div class="legend"><span><i style="background:var(--c1)"></i>Events delivered (k)</span><span><i style="background:var(--c2)"></i>Log used (%)</span></div>
+      <svg id="chartDrain" viewBox="0 0 520 250" role="img" aria-label="Backlog drain after resume"></svg>
+      <figcaption>After resume: 1,050,000 events in 99 s; log back to 0.4% used. Space frees in steps at each checkpoint.</figcaption>
+    </figure>
+  </div>
+<pre class="out">20:57:27.62 server  background task message: CDC ALERT: phoenix_test logsegment below 24576 free pages
+            - check the CDC connector / RepAgent (secondary truncation point)
+fired_at             free_pages
+Oct 20 2026  8:57PM       24576
+processes waiting on log space: 0</pre>
+</section>
+
+<section>
+  <h2>How delivery safety works</h2>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  C["COMMIT arrives for xid"] --> D{"commit OQID &lt;= last queued?"}
+  D -- yes --> X["skip: re-sent after reconnect"]
+  D -- no --> R["register in AckTracker<br/>(N records pending)"]
+  R --> Q["queue → poll()"]
+  Q --> O["records 1..N-1 carry the previous safe offset<br/>record N carries this commit OQID"]
+  O --> K["Kafka acks each record → commitRecord()"]
+  K --> W{"all records of this and every earlier txn acked?"}
+  W -- no --> H["truncation point stays"]
+  W -- yes --> M["watermark = this commit OQID<br/>next get truncation returns it"]
+</pre>
+  </div>
+  <p class="cap">Only the last record of a transaction may claim the transaction is done. Scenario 6b proved this: after a crash with 53,822 of 200,000 records written, the stored offset was still the previous transaction and the whole transaction was re-sent.</p>
+</section>
+
+<section>
+  <h2>Defects found and fixed during testing</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>ASE crashed at boot (SIGSEGV in Snap::Validate)</td><td>2015 ASE build needs READ_IMPLIES_EXEC; kernels ≥ 5.8 drop it for 64-bit binaries</td><td>LD_PRELOAD shim <code>rie_shim.c</code>; local test container only</td></tr>
+        <tr><td>RepAgent login rejected</td><td>RepAgent sends the password with RSA encryption by default</td><td><code>net password encryption = false</code> (production: add encrypted login or TLS)</td></tr>
+        <tr><td>CT-Lib error 4047, RepAgent aborted, ASE crashed on cleanup</td><td>Login reply did not confirm packet size 2048, so buffers were split with misplaced EOM flags and the connector sent one DONE too many</td><td>ENVCHANGE packet size in the login reply; one DONE per message</td></tr>
+        <tr><td>Possible uninitialised data in RepAgent</td><td><code>connect source</code> must return two result sets</td><td>VERSION, then Sysversion + UpgradeLocater</td></tr>
+        <tr><td>Stored offset not found after restart, 7 duplicates</td><td>Offset partition built with <code>Map.of</code>, whose order is random per JVM; Connect looks offsets up by serialized bytes</td><td>Sorted <code>TreeMap</code> partition</td></tr>
+        <tr><td>Rows of a partly published transaction could be skipped</td><td>Every record carried the transaction's commit OQID as offset</td><td>Only the last record carries it (proved by 6b)</td></tr>
+        <tr><td><code>100.00</code> published as <code>"100."</code></td><td>ASE LTL numeric formatting</td><td>Trailing point removed</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Open items before OpenShift / production</h2>
+  <div class="cols">
+    <div class="note w"><h3>Connect heap</h3><p>Connect reached 1,954 MiB with 10,000-row transactions against the default 2 GB heap. Size the pod for the largest Phoenix transaction, or cap rows per transaction.</p></div>
+    <div class="note w"><h3>Kafka outage restarts the task</h3><p>A broker outage longer than the group session timeout revokes and restarts the task. Data stays safe; expect duplicates and a RepAgent reconnect.</p></div>
+    <div class="note w"><h3>At-least-once</h3><p>Duplicates after hard failures are expected (495 and 53,822 in tests 4b and 6b). Consumers de-duplicate on <code>source.oqid</code>. Kafka exactly-once source support (KIP-618) is the next improvement.</p></div>
+    <div class="note w"><h3>Password and network</h3><p>Encrypted RepAgent login is not implemented. Use TLS or a NetworkPolicy that admits only the ASE host to port 11752.</p></div>
+    <div class="note w"><h3>Log emergency</h3><p><code>dbcc settrunc('ltm','ignore')</code> was not run. It discards un-replicated changes and must stay a manual DBA decision, followed by a re-baseline.</p></div>
+    <div class="note w"><h3>Validate on SP04 PL07</h3><p>The local image is SP02 PL02. Re-capture LTL with <code>-Dltl.dump.dir</code> on SP04 and rerun the parser tests before go-live.</p></div>
+  </div>
+  <details>
+    <summary>Measurement limits</summary>
+    <ul>
+      <li>ASE, RepAgent and connector samples were taken about every 6.5 s (5 s sleep plus query time); Kafka end offsets about every 11 s because each read starts a JVM tool.</li>
+      <li>Kafka Connect's REST <code>/offsets</code> still shows one stale record written before the TreeMap fix. The task reads the current key; the offsets topic shows 71 commits during run 3.</li>
+      <li>Scenario 4's first two attempts did not exercise a live session (RepAgent was still reconnecting, or the load finished first) and are not counted; 4b is the valid run.</li>
+    </ul>
+  </details>
+</section>
+
+</div>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // series: [{pts:[[x,y]], color, axis:'l'|'r', step}], bands: [{x0,x1,color}], hlines:[{y,color,label}]
+  function chart(id, o) {
+    var svg = document.getElementById(id);
+    var W = 520, H = 250, L = 52, R = o.yr ? 48 : 16, T = 14, B = 38;
+    var pw = W - L - R, ph = H - T - B;
+    var sx = function (x) { return L + (x - o.x0) / (o.x1 - o.x0) * pw; };
+    var sy = function (y, r) { var m = r ? o.yr : o.yl; return T + ph - (y - m[0]) / (m[1] - m[0]) * ph; };
+    (o.bands || []).forEach(function (b) {
+      el("rect", { x: sx(b.x0), y: T, width: sx(b.x1) - sx(b.x0), height: ph, style: "fill:" + b.color + ";opacity:.12" }, svg);
+    });
+    o.yl[2].forEach(function (v) {
+      el("line", { x1: L, x2: L + pw, y1: sy(v), y2: sy(v), style: "stroke:var(--grid);stroke-width:1" }, svg);
+      var t = el("text", { x: L - 8, y: sy(v) + 4, "text-anchor": "end", style: "fill:var(--muted);font:11px var(--font-mono)" }, svg);
+      t.textContent = o.fl(v);
+    });
+    if (o.yr) o.yr[2].forEach(function (v) {
+      var t = el("text", { x: L + pw + 8, y: sy(v, true) + 4, style: "fill:var(--c2);font:11px var(--font-mono)" }, svg);
+      t.textContent = o.fr(v);
+    });
+    o.xt.forEach(function (v) {
+      var t = el("text", { x: sx(v), y: T + ph + 18, "text-anchor": "middle", style: "fill:var(--muted);font:11px var(--font-mono)" }, svg);
+      t.textContent = v + (o.xu || "");
+    });
+    var xl = el("text", { x: L + pw / 2, y: H - 4, "text-anchor": "middle", style: "fill:var(--muted);font:11px var(--font-body)" }, svg);
+    xl.textContent = o.xlabel;
+    el("line", { x1: L, x2: L + pw, y1: T + ph, y2: T + ph, style: "stroke:var(--line);stroke-width:1" }, svg);
+    (o.hlines || []).forEach(function (h) {
+      el("line", { x1: L, x2: L + pw, y1: sy(h.y), y2: sy(h.y), style: "stroke:" + h.color + ";stroke-width:1.5;stroke-dasharray:5 4" }, svg);
+    });
+    o.series.forEach(function (s) {
+      var d = "";
+      s.pts.forEach(function (p, i) {
+        var X = sx(p[0]), Y = sy(p[1], s.axis === "r");
+        if (i === 0) d += "M" + X + " " + Y;
+        else if (s.step) d += "H" + X + "V" + Y;
+        else d += "L" + X + " " + Y;
+      });
+      el("path", { d: d, style: "fill:none;stroke:" + s.color + ";stroke-width:2.2;stroke-linejoin:round" }, svg);
+      var last = s.pts[s.pts.length - 1];
+      el("circle", { cx: sx(last[0]), cy: sy(last[1], s.axis === "r"), r: 3.5, style: "fill:" + s.color }, svg);
+    });
+  }
+  var k = function (v) { return v === 0 ? "0" : (v / 1000) + "k"; };
+  var pct = function (v) { return v + "%"; };
+
+  // Run 3: seconds from load start (23:37:28), cumulative events
+  chart("chartRun3", {
+    x0: -20, x1: 140, xt: [0, 30, 60, 90, 120], xu: "s", xlabel: "seconds from load start",
+    yl: [0, 1000000, [0, 250000, 500000, 750000, 1000000]], fl: k,
+    bands: [{ x0: 0, x1: 25, color: "var(--c2)" }],
+    series: [{ color: "var(--c1)", pts: [[-20,0],[-11,0],[-3,0],[6,50000],[15,92272],[27,199501],[38,332920],[49,454012],[60,595757],[74,741222],[86,870000],[97,950000],[116,1000000],[125,1000000],[134,1000000]] }]
+  });
+  // Run 3: log used % (free pages -> used of 32768)
+  chart("chartRun3Log", {
+    x0: -20, x1: 145, xt: [0, 30, 60, 90, 120], xu: "s", xlabel: "seconds from load start",
+    yl: [0, 20, [0, 5, 10, 15, 20]], fl: pct,
+    bands: [{ x0: 0, x1: 25, color: "var(--c2)" }],
+    series: [{ color: "var(--c1)", step: true, pts: [[-20,0.4],[-1,0.4],[5,5.0],[12,10.8],[19,13.8],[26,17.8],[76,17.8],[83,6.4],[135,6.4],[141,0.4]] }]
+  });
+  // Test 7 growth: rows loaded (k) vs log used %
+  chart("chartGrow", {
+    x0: 0, x1: 1050, xt: [0, 250, 500, 750, 1000], xu: "k", xlabel: "rows loaded with connector stopped",
+    yl: [0, 30, [0, 10, 20, 30]], fl: pct,
+    hlines: [{ y: 25, color: "var(--c2)" }],
+    series: [{ color: "var(--c1)", pts: [[0,4.4],[100,6.4],[200,8.4],[300,10.4],[400,12.4],[500,14.4],[600,16.4],[700,18.4],[800,20.4],[900,22.4],[1000,24.4],[1050,25.4]] }]
+  });
+  // Test 7 drain: seconds after resume; events (k, left) and log used % (right)
+  chart("chartDrain", {
+    x0: 0, x1: 125, xt: [0, 25, 50, 75, 100, 125], xu: "s", xlabel: "seconds after resume",
+    yl: [0, 1100, [0, 250, 500, 750, 1000]], fl: function (v) { return v + "k"; },
+    yr: [0, 30, [0, 10, 20, 30]], fr: pct,
+    series: [
+      { color: "var(--c1)", pts: [[0,0],[8,8.3],[23,138.6],[39,317.1],[55,490],[69,680],[85,870.2],[99,1050],[125,1050]] },
+      { color: "var(--c2)", axis: "r", step: true, pts: [[0,25.4],[55,25.4],[69,11.4],[99,11.4],[125,0.4]] }
+    ]
+  });
+})();
+</script>

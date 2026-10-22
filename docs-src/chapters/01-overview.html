@@ -1,0 +1,52 @@
+<header>
+<div class="eyebrow">Engineering handbook · knowledge transfer · verified on 2026-10-20/21</div>
+<h1>Sybase ASE → Kafka change data capture with a custom RepAgent connector</h1>
+<p class="lead">How a custom Kafka Connect source connector receives every committed change of a Sybase ASE database by impersonating an SAP Replication Server, why it is built that way, how to rebuild and test it from an empty folder, and what must still happen before a bank can run it in production.</p>
+</header>
+
+<h2 id="ch-overview" data-keywords="deliverables summary scope status">Project overview and final deliverables</h2>
+<p>The Phoenix core-banking system stores its data in SAP Adaptive Server Enterprise (ASE, formerly Sybase ASE). Other systems need every insert, update and delete as an event stream in Apache Kafka, without database triggers and without polling tables. This project delivers that through <em>log-based change data capture</em> (CDC): ASE's built-in Replication Agent (RepAgent) reads the transaction log and pushes committed changes to a listener; the listener is a custom Kafka Connect connector written in Java that speaks the same network protocol as SAP Replication Server.</p>
+
+<div class="cards">
+<div class="card"><div class="v">14 / 15</div><div class="l">integration scenarios PASS; 1 PARTIAL (privilege test), see the test report</div></div>
+<div class="card"><div class="v">11 / 11</div><div class="l">unit tests passed (built on real RepAgent captures)</div></div>
+<div class="card"><div class="v">0 rows</div><div class="l">lost in any test, including crashes mid-transaction</div></div>
+<div class="card"><div class="v">≈ 8,600 /s</div><div class="l">average into Kafka for 1M rows (peak 11-s sample ≈ 12,900/s), one Windows PC</div></div>
+</div>
+
+<div class="callout warn"><span class="t">Status in one sentence</span>A working, tested proof of concept on ASE 16.0 SP02 PL02 (local Docker). It is <b>not</b> production-certified: it has not run against the production version ASE 16.0 SP04 PL07 HF1, not on OpenShift, and it relies on an undocumented SAP protocol. See <a href="#ch-readiness">Banking production readiness</a>.</div>
+
+<h3 id="deliverables">What exists in the workspace</h3>
+<div class="tbl"><table>
+<thead><tr><th>Deliverable</th><th>Location</th><th>State</th></tr></thead>
+<tbody>
+<tr><td>Connector source (19 classes) and 4 test classes</td><td><code>sybase-cdc-connector/src</code></td><td><span class="pill pass">built, tested</span></td></tr>
+<tr><td>Connector JAR (plugin)</td><td><code>plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code> · SHA-256 <code>7e1e5bc2…3f61b</code></td><td><span class="pill pass">deployed locally</span></td></tr>
+<tr><td>Local environment</td><td><code>docker-compose.yml</code>, <code>connect-distributed.properties</code>, <code>sybase/</code></td><td><span class="pill pass">running</span></td></tr>
+<tr><td>Connector configuration</td><td><code>connectors/sybase-cdc-phoenix.json</code></td><td><span class="pill pass">registered locally</span></td></tr>
+<tr><td>Custom Kafka Connect image</td><td><code>deploy/docker/Dockerfile.connect</code> → <code>sybase-cdc-connect:0.1.0</code></td><td><span class="pill pass">built, plugin discovery verified</span></td></tr>
+<tr><td>Image archive (<code>docker save</code>)</td><td><code>deliverables/images/sybase-cdc-connect-0.1.0.tar.gz</code> (196 MB) + <code>.sha256</code></td><td><span class="pill pass">created, checksum verified</span></td></tr>
+<tr><td>OpenShift manifests (IBM Event Streams)</td><td><code>deploy/openshift/*.yaml</code></td><td><span class="pill warn">YAML-valid, never applied</span></td></tr>
+<tr><td>Test evidence</td><td><code>docs/evidence/</code>, <code>captures/</code></td><td><span class="pill pass">indexed in <a href="#ch-evidence">Evidence index</a></span></td></tr>
+<tr><td>Diagrams (17)</td><td><code>docs/diagrams/src/*.drawio</code> (editable) + <code>…/svg/*.svg</code></td><td><span class="pill pass">generated and reviewed</span></td></tr>
+<tr><td>Line-by-line source reference</td><td><code>docs/source/*.html</code> (23 pages)</td><td><span class="pill pass">coverage checked</span></td></tr>
+<tr><td>Earlier one-page test report</td><td><code>report/index.html</code></td><td><span class="pill info">superseded by this handbook</span></td></tr>
+</tbody></table></div>
+
+<h2 id="ch-howto" data-keywords="reading guide conventions legend">How to use this documentation</h2>
+<p>The chapters follow a learning path: concepts first, then the system, then the code, then operations. Experienced readers can jump straight to the <a href="#ch-walkthrough">local walkthrough</a> or the <a href="#ch-openshift">OpenShift guide</a>. Every technical term is defined in the <a href="#ch-glossary">glossary</a>, and the first time a term appears it is explained in parentheses.</p>
+<h3 id="conventions">Conventions</h3>
+<ul>
+<li><span class="where host">HOST</span> a command you type on your own computer (Git Bash on Windows, or a Linux/macOS terminal).</li>
+<li><span class="where ctr">CONTAINER</span> a command that runs inside a container, usually started with <code>docker exec</code>.</li>
+<li><span class="where sql">SQL</span> statements sent to ASE through <code>isql</code>. In ASE a batch ends with a line containing only <code>go</code>.</li>
+<li><span class="pill pass">VERIFIED</span> means there is evidence in this workspace; <span class="pill warn">PROPOSED</span> means a recommendation that has not been executed; <span class="pill na">NOT RUN</span> and <span class="pill info">INCONCLUSIVE</span> are used in the test report.</li>
+<li>Passwords in examples are placeholders such as <code>${LTL_PASSWORD}</code>. The only literal passwords shown are the throw-away values of the local Docker test database (the image's public default <code>sa</code> password and the local RepAgent test credential); never reuse them.</li>
+</ul>
+<h3 id="sources-of-truth">Sources of truth used to write this handbook</h3>
+<ol>
+<li>The files in this workspace (code, scripts, configuration), quoted verbatim.</li>
+<li>Runtime evidence captured from the running containers (<code>docs/evidence/01…13</code>).</li>
+<li>The recorded engineering session that built the connector. There is <b>no Git repository</b>, so the development history comes from that record and from logs that survived (ASE errorlog, Connect log, capture files). Each historical claim names its evidence.</li>
+<li>Authoritative external documentation, listed in <a href="#ch-references">External references</a>.</li>
+</ol>

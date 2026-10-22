@@ -1,0 +1,160 @@
+ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Adaptive Server Enterprise/16.0 SP02 PL02/EBF 25320 SMP/P/x86_64/Enterprise Linux/ase160sp02plx/2492/64-bit/FBO/Sat Nov 21 04:05:39 2015
+(1 row affected)
+                                page_size_bytes
+ ------------------------------ ---------------
+ MYSYBASE                                  2048
+(1 row affected)
+ Parameter Name    Config Value
+ ----------------- ------------
+ edition           DE
+ license type      null
+ smtp host         smtp
+ email recipients
+ email severity    NONE
+ smtp port         25
+ email sender
+ License Name    Version    Quantity Status       Expiry Date          Server Name
+ --------------- ---------- -------- ------------ -------------------- --------------------
+ ASE_HA          null       0        not used     null                 null
+ ASE_ASM         null       0        not used     null                 null
+ ASE_EJB         null       0        not used     null                 null
+ ASE_EFTS        null       0        not used     null                 null
+ ASE_DIRS        null       0        not used     null                 null
+ ASE_XRAY        null       0        not used     null                 null
+ ASE_ENCRYPTION  null       0        not used     null                 null
+ ASE_CORE        2018.1231  4        OK           Permanent            null
+ ASE_PARTITIONS  null       0        not used     null                 null
+ ASE_RLAC        null       0        not used     null                 null
+ ASE_MESSAGING_TIBJMS null       0        not used     null                 null
+ ASE_MESSAGING_IBMMQ null       0        not used     null                 null
+ ASE_MESSAGING_EASJMS null       0        not used     null                 null
+ ASE_TSM         null       0        not used     null                 null
+ ASE_IMDB        null       0        not used     null                 null
+ ASE_RDDB        null       0        not used     null                 null
+ ASE_DTU         null       0        not used     null                 null
+ ASE_COMPRESSION null       0        not used     null                 null
+ ASE_PRIVACY     null       0        not used     null                 null
+ ASE_WORKLOADANALYZER null       0        not used     null                 null
+ ASE_ALWAYS_ON   null       0        not used     null                 null
+ ASE_MEMSCALE    null       0        not used     null                 null
+ Property Name Property Value
+ ------------- --------------
+ PE            DE
+ LT            DT
+ ME            1
+ MC            25
+ MS            null
+ MM            null
+ CP            0
+ AS            A
+(return status = 0)
+ Parameter Name
+	 Default     Memory Used
+	 Config Value
+	 Run Value
+	 Unit                 Type
+ ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	 ----------- -----------
+	 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	 -------------------- --------------------
+ enable rep agent threads
+	           0           0
+	            1
+	            1
+	 switch               dynamic
+(1 row affected)
+(return status = 0)
+ name         db_size       owner dbid created      durability lobcomplvl inrowlen status
+ ------------ ------------- ----- ---- ------------ ---------- ---------- -------- -------------------------------------------------------------
+ phoenix_test     1536.0 MB sa       4 Oct 20, 2026 full                0     NULL select into/bulkcopy/pllsort, trunc log on chkpt, ddl in tran
+(1 row affected)
+ device_fragments size          usage     created             free_kbytes
+ ---------------- ------------- --------- ------------------- ----------------
+ phoenix_data         1024.0 MB data only Oct 20 2026  7:07PM           760416
+ phoenix_log           512.0 MB log only  Oct 20 2026  7:07PM not applicable
+ --------------------------------------------------------------------------------------------------------------
+ log only free kbytes = 522128
+ device       segment
+ ------------ ----------
+ phoenix_data default
+ phoenix_data system
+ phoenix_log  logsegment
+(return status = 0)
+ Parameter_Name                Default_Value Config_Value            Run_Value
+ ----------------------------- ------------- ----------------------- -----------------------
+ rs servername                 n/a           CDC_RS                  CDC_RS
+ rs username                   n/a           rs_user                 rs_user
+ scan batch size               1000          1000                    1000
+ scan timeout                  15            15                      15
+ retry timeout                 60            10                      10
+ skip ltl errors               false         false                   false
+ batch ltl                     true          true                    true
+ send warm standby xacts       false         false                   false
+ connect dataserver            MYSYBASE      MYSYBASE                MYSYBASE
+ connect database              phoenix_test  phoenix_test            phoenix_test
+ send maint xacts to replicate false         false                   false
+ trace log file                n/a           /tmp/repagent_trace.log /tmp/repagent_trace.log
+ security mechanism            n/a           n/a                     n/a
+ unified login                 false         false                   false
+ msg confidentiality           false         false                   false
+ msg integrity                 false         false                   false
+ msg replay detection          false         false                   false
+ msg origin check              false         false                   false
+ msg out-of-sequence check     false         false                   false
+ mutual authentication         false         false                   false
+ net password encryption       true          false                   false
+ skip unsupported features     false         false                   false
+ ha failover                   true          true                    true
+ short ltl keywords            false         false                   false
+ send buffer size              2k            2k                      2k
+ priority                      5             5                       5
+ send structured oqids         false         false                   false
+ data limits filter mode       stop          stop                    off
+ auto start                    false         true                    true
+ startup delay                 0             0                       0
+ bind to engine                -1            -1                      -1
+ ltl batch size                16384         16384                   16384
+ multithread rep agent         false         false                   false
+ ltl metadata reduction        false         false                   false
+ activate monitoring           false         false                   false
+ max schema cache per scanner  524288        524288                  524288
+ max writetext groups          1             1                       1
+ stream replication            false         false                   false
+ trace flags                   n/a           9202                    9202
+(39 rows affected)
+(return status = 0)
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ----------
+ phoenix_test   13 (94612,35)   (94612,58) (94612,58)     not sleeping sleeping           0          0
+(1 row affected)
+(return status = 0)
+ secondary trunc page secondary trunc state dbrepstat generation id database id database name                  ltl version
+ -------------------- --------------------- --------- ------------- ----------- ------------------------------ -----------
+                94612                     1       227             0           4 phoenix_test                           760
+ name                                                                page
+ ------------------------------------------------------------------- ----------
+ $replication_truncation_point                                            94612
+(1 row affected)
+ Name      Repdef Mode        Primary Key
+ --------- ------------------ -------------------------
+ ltl_long  owner_off          ltl_long_9280033061
+ ltl_long3 owner_off          ltl_long3_id_9920035341
+ ltl_nopk  owner_off          no primary key
+ ltl_types owner_off          ltl_types_id_8800031351
+ payment   owner_off          payment_paymen_5920021091
+(5 rows affected)
+(return status = 0)
+ segment name   free pages   last chance?   threshold procedure
+ -------------- ------------ -------------- ---------------------
+ logsegment            24576              0 sp_cdc_log_alert
+ logsegment              288              1 sp_thresholdaction
+(2 rows affected)
+(return status = 0)
+ name
+ ------------------------------
+ probe
+ sa
+(2 rows affected)

@@ -1,0 +1,17 @@
+# Kafka Connect worker image with the Sybase CDC connector baked in.
+# Build context: the project root (so plugins/ is visible):
+#   docker build -f deploy/docker/Dockerfile.connect -t sybase-cdc-connect:0.1.0 .
+# For IBM Event Streams use its own base image instead (see the OpenShift chapter):
+#   FROM cp.icr.io/cp/ibm-eventstreams-kafka:<version>  and copy to /opt/kafka/plugins/
+FROM apache/kafka:3.8.0
+
+# One directory per plugin under the plugin path; Connect gives each its own class loader.
+COPY plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar /opt/connectors/sybase-cdc/
+
+# Worker configuration (bootstrap servers, converters, internal topics, plugin.path=/opt/connectors).
+COPY connect-distributed.properties /opt/kafka/config/connect-distributed.properties
+
+# REST API and the LTL listener RepAgent connects to.
+EXPOSE 8083 11752
+
+CMD ["/opt/kafka/bin/connect-distributed.sh", "/opt/kafka/config/connect-distributed.properties"]

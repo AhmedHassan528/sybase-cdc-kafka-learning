@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AckTracker.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>AckTracker.java</code></h1><p class="path"><code>sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/AckTracker.java</code> · 68 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> converts Kafka's per-record acknowledgements into one safe log position, the <em>watermark</em>. The watermark is the commit OQID of the newest transaction such that it <em>and every transaction before it</em> is completely in Kafka. RepAgent receives this value in <code>get truncation</code>, so ASE only frees log space that Kafka holds. See diagram <a href="../index.html#fig-17">17</a>.</p>
+<p><b>Threads:</b> <code>register()</code> runs on the RepAgent session thread; <code>ack()</code> runs on the Kafka producer's callback thread; <code>acked()</code> runs on the session thread. All public methods are <code>synchronized</code>. <b>Tests:</b> <code>AckTrackerTest</code> (out-of-order acks, empty transaction). <b>End-to-end evidence:</b> test P5 (Kafka paused: watermark frozen, then advanced).</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.cdc;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>cdc</code>.</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> java.util.<span class="t">ArrayDeque</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> java.util.<span class="t">Deque</span>;</code></pre><div class="note"><div class="range">Lines 3–4</div><p><code>Deque</code> ("double-ended queue") interface and its array-backed implementation <code>ArrayDeque</code>: add at the end, look at and remove from the front in O(1) time.</p></div></section>
+<section class="blk" id="b6"><pre class="code"><code><span class="ln" id="L6">6</span><span class="c">/**</span>
+<span class="ln" id="L7">7</span><span class="c"> * Turns per-record Kafka acknowledgements into a safe log position.</span>
+<span class="ln" id="L8">8</span><span class="c"> *</span>
+<span class="ln" id="L9">9</span><span class="c"> * Records of different transactions go to different topics/partitions, so</span>
+<span class="ln" id="L10">10</span><span class="c"> * Kafka can confirm them out of order. A transaction counts as done only when</span>
+<span class="ln" id="L11">11</span><span class="c"> * all of its records are acknowledged, and the watermark only moves past a</span>
+<span class="ln" id="L12">12</span><span class="c"> * transaction when every earlier transaction is done too. That watermark is</span>
+<span class="ln" id="L13">13</span><span class="c"> * what we hand RepAgent as the truncation point, so ASE never frees log that</span>
+<span class="ln" id="L14">14</span><span class="c"> * has not reached Kafka.</span>
+<span class="ln" id="L15">15</span><span class="c"> */</span></code></pre><div class="note"><div class="range">Lines 6–15</div><p>Class comment stating the invariant. The key fact: a single transaction's records may go to different topics (one per table), and Kafka can confirm topics independently, so acknowledgements can arrive out of order.</p></div></section>
+<section class="blk" id="b16"><pre class="code"><code><span class="ln" id="L16">16</span><span class="k">public</span> <span class="k">final</span> <span class="k">class</span> <span class="t">AckTracker</span> {</code></pre><div class="note"><div class="range">Lines 16</div><p>Final class; one instance per task.</p></div></section>
+<section class="blk" id="b18"><pre class="code"><code><span class="ln" id="L18">18</span>    <span class="k">public</span> <span class="k">static</span> <span class="k">final</span> <span class="k">class</span> <span class="t">Pending</span> {
+<span class="ln" id="L19">19</span>        <span class="k">final</span> <span class="k">byte</span>[] oqid;
+<span class="ln" id="L20">20</span>        <span class="k">int</span> remaining;
+<span class="ln" id="L21">21</span> 
+<span class="ln" id="L22">22</span>        <span class="t">Pending</span>(<span class="k">byte</span>[] oqid, <span class="k">int</span> remaining) {
+<span class="ln" id="L23">23</span>            <span class="k">this</span>.oqid = oqid;
+<span class="ln" id="L24">24</span>            <span class="k">this</span>.remaining = remaining;
+<span class="ln" id="L25">25</span>        }
+<span class="ln" id="L26">26</span>    }</code></pre><div class="note"><div class="range">Lines 18–26</div><p><b>Nested static class <code>Pending</code>:</b> one per transaction that was registered: its commit OQID and how many of its records are still unacknowledged. <code>static</code> means it does not hold a reference to the outer tracker. Fields are package-private (no modifier), so only code in package <code>cdc</code> can read them; the task only passes the object back. <code>remaining</code> is mutated only inside the tracker's synchronized methods, which is what makes it safe without being <code>volatile</code>.</p></div></section>
+<section class="blk" id="b28"><pre class="code"><code><span class="ln" id="L28">28</span>    <span class="k">private</span> <span class="k">final</span> <span class="t">Deque</span>&lt;<span class="t">Pending</span>&gt; queue = <span class="k">new</span> <span class="t">ArrayDeque</span>&lt;&gt;();
+<span class="ln" id="L29">29</span>    <span class="k">private</span> <span class="k">byte</span>[] acked;</code></pre><div class="note"><div class="range">Lines 28–29</div><p>The ordered queue of transactions not yet fully acknowledged, in commit order, and the current watermark. Both are guarded by the object's lock (every method that touches them is <code>synchronized</code>).</p></div></section>
+<section class="blk" id="b31"><pre class="code"><code><span class="ln" id="L31">31</span>    <span class="k">public</span> <span class="t">AckTracker</span>(<span class="k">byte</span>[] initial) {
+<span class="ln" id="L32">32</span>        <span class="k">this</span>.acked = initial;
+<span class="ln" id="L33">33</span>    }</code></pre><div class="note"><div class="range">Lines 31–33</div><p>Constructor. <code>initial</code> is the commit OQID read from Kafka Connect's stored offset at task start (or <code>null</code> on the very first start). Starting from the stored offset means the first <code>get truncation</code> after a restart returns a position Kafka already holds, rather than zeros.</p></div></section>
+<section class="blk" id="b35"><pre class="code"><code><span class="ln" id="L35">35</span>    <span class="c">/** Register a transaction (in commit order) that produced {@code records} Kafka records. */</span>
+<span class="ln" id="L36">36</span>    <span class="k">public</span> <span class="k">synchronized</span> <span class="t">Pending</span> register(<span class="k">byte</span>[] commitOqid, <span class="k">int</span> records) {
+<span class="ln" id="L37">37</span>        <span class="t">Pending</span> p = <span class="k">new</span> <span class="t">Pending</span>(commitOqid, records);
+<span class="ln" id="L38">38</span>        queue.addLast(p);
+<span class="ln" id="L39">39</span>        advance();
+<span class="ln" id="L40">40</span>        <span class="k">return</span> p;
+<span class="ln" id="L41">41</span>    }</code></pre><div class="note"><div class="range">Lines 35–41</div><p><b>Register a transaction.</b> Called in commit order, once per committed transaction that will be published, with the number of Kafka records it produces. A transaction with 0 records (e.g. it touched only tables excluded by <code>table.include.list</code>, or only DDL markers) is registered with 0 so that it can move the watermark too; otherwise ASE could never truncate past a long stretch of such transactions. <code>advance()</code> is called immediately because a 0-record transaction may already be complete. Returns the <code>Pending</code> so each Kafka record can carry a reference to it.</p></div></section>
+<section class="blk" id="b43"><pre class="code"><code><span class="ln" id="L43">43</span>    <span class="c">/** One record of that transaction is safely in Kafka. */</span>
+<span class="ln" id="L44">44</span>    <span class="k">public</span> <span class="k">synchronized</span> <span class="k">void</span> ack(<span class="t">Pending</span> p) {
+<span class="ln" id="L45">45</span>        p.remaining--;
+<span class="ln" id="L46">46</span>        advance();
+<span class="ln" id="L47">47</span>    }</code></pre><div class="note"><div class="range">Lines 43–47</div><p><b>One record confirmed.</b> Called from <code>SybaseCdcSourceTask.commitRecord()</code>, which Kafka Connect invokes after the producer receives the broker's acknowledgement. Decrements the counter and tries to move the watermark. <b>Note:</b> Kafka Connect also calls <code>commitRecord</code> with <code>metadata == null</code> for records dropped by a transform or by <code>errors.tolerance=all</code>; such records would count as acknowledged. The deployment therefore keeps <code>errors.tolerance=none</code> (documented in the configuration chapter).</p></div></section>
+<section class="blk" id="b49"><pre class="code"><code><span class="ln" id="L49">49</span>    <span class="c">/** Highest commit OQID such that it and everything before it is in Kafka (null if none yet). */</span>
+<span class="ln" id="L50">50</span>    <span class="k">public</span> <span class="k">synchronized</span> <span class="k">byte</span>[] acked() {
+<span class="ln" id="L51">51</span>        <span class="k">return</span> acked;
+<span class="ln" id="L52">52</span>    }</code></pre><div class="note"><div class="range">Lines 49–52</div><p>Returns the current watermark (or <code>null</code>). <code>Oqid.locator()</code> turns <code>null</code> into 36 zero bytes for RepAgent.</p></div></section>
+<section class="blk" id="b54"><pre class="code"><code><span class="ln" id="L54">54</span>    <span class="k">public</span> <span class="k">synchronized</span> <span class="k">int</span> inFlight() {
+<span class="ln" id="L55">55</span>        <span class="k">return</span> queue.size();
+<span class="ln" id="L56">56</span>    }</code></pre><div class="note"><div class="range">Lines 54–56</div><p>Number of transactions still waiting for acknowledgements. <b>Currently unused</b> by production code; kept as a natural metric to expose in the future (see the monitoring follow-up).</p></div></section>
+<section class="blk" id="b58"><pre class="code"><code><span class="ln" id="L58">58</span>    <span class="c">/** Forget in-flight transactions (RepAgent will re-send them after a reconnect). */</span>
+<span class="ln" id="L59">59</span>    <span class="k">public</span> <span class="k">synchronized</span> <span class="k">void</span> reset() {
+<span class="ln" id="L60">60</span>        queue.clear();
+<span class="ln" id="L61">61</span>    }</code></pre><div class="note"><div class="range">Lines 58–61</div><p>Clears in-flight transactions. <b>Currently unused:</b> the task does not call it, because a RepAgent reconnect does not invalidate records already handed to Kafka; they will still be acknowledged. Documented here so nobody assumes it runs.</p></div></section>
+<section class="blk" id="b63"><pre class="code"><code><span class="ln" id="L63">63</span>    <span class="k">private</span> <span class="k">void</span> advance() {
+<span class="ln" id="L64">64</span>        <span class="k">while</span> (!queue.isEmpty() &amp;&amp; queue.peekFirst().remaining &lt;= <span class="n">0</span>) {
+<span class="ln" id="L65">65</span>            acked = queue.pollFirst().oqid;
+<span class="ln" id="L66">66</span>        }
+<span class="ln" id="L67">67</span>    }</code></pre><div class="note"><div class="range">Lines 63–67</div><p><b>The watermark rule.</b> While the oldest pending transaction has no unacknowledged records left, remove it and make its OQID the new watermark. The loop stops at the first transaction that is still waiting, even if later ones are complete. This is exactly the property that makes truncation safe. <b>If changed</b> (e.g. taking the maximum acknowledged OQID): a crash after T2 was acknowledged but before T1 was would release T1's log records and lose T1.</p></div></section>
+<section class="blk" id="b68"><pre class="code"><code><span class="ln" id="L68">68</span>}</code></pre><div class="note"><div class="range">Lines 68</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

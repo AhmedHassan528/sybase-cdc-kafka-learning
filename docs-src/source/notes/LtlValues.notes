@@ -1,0 +1,51 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlValues.java
+@summary
+<p><b>Role:</b> converts each LTL value token into the Java value placed in the event (and then serialized to JSON by Kafka's <code>JsonConverter</code>). The table in the class comment is the verified type mapping; every row was captured from real ASE 16.0 SP02 traffic and is asserted in <code>LtlParserTest.insertDecodesEveryDatatype</code>.</p>
+<p><b>Design decision:</b> exact decimal types (<code>numeric</code>, <code>decimal</code>, <code>money</code>, <code>smallmoney</code>) become <em>strings</em>. A JSON number is usually read as a binary floating-point value, which cannot represent 0.10 exactly; for banking amounts a string is safer. Consumers must parse them with a decimal type (e.g. <code>BigDecimal</code>).</p>
+<p><b>Known limits:</b> the decimal scale is not preserved (ASE sends <code>numeric(18,2)</code> 100.50 as <code>100.5</code>); <code>unsigned bigint</code> values above 2<sup>63</sup>−1 fall back to a string; <code>bigtime</code>, <code>unitext</code>, <code>text</code>/<code>image</code> and user-defined types were not captured and are untested.</p>
+@@ 1
+<p>Package <code>ltl</code>.</p>
+@@ 3-6
+<p>Lexer token types and logging.</p>
+@@ 8-11
+<p>Charset types and a thread-safe set (<code>ConcurrentHashMap.newKeySet()</code>) used to warn once per unknown marker across all sessions.</p>
+@@ 13-34
+<p>The verified mapping table. Note <code>~6'\0u\0n\0i</code>: univarchar is UTF-16 big-endian, two bytes per character, so the length counts bytes (6 bytes = 3 characters).</p>
+@@ 35
+<p>Package-private: only the parser uses it.</p>
+@@ 37-38
+<p>Logger and the "already warned" set.</p>
+@@ 40
+<p>Utility class.</p>
+@@ 42-47
+<p><b>Bare values:</b> <code>NULL</code> → Java <code>null</code> (JSON <code>null</code>); integers (<code>tinyint</code>, <code>smallint</code>, <code>int</code>, <code>bigint</code>, <code>bit</code>) → <code>Long</code>; anything else bare (e.g. an unsigned value too big for a long) is kept as text instead of failing.</p>
+@@ 48-49
+<p>Encoded values: dispatch on the marker. This is a classic <code>switch</code> statement (colon labels) with an explicit <code>return</code> in every case, so there is no fall-through.</p>
+@@ 50-51
+<p><code>char</code>/<code>varchar</code> (1/2/3 length digits): decode with the session charset (from the RepAgent login, or <code>ltl.charset</code>). ASE <code>char</code> values arrive with trailing blanks already trimmed (<code>char(10)</code> 'abc' → <code>abc</code>).</p>
+@@ 52-53
+<p><code>unichar</code>/<code>univarchar</code>: always UTF-16BE, independent of the server charset.</p>
+@@ 54-55
+<p><code>binary</code>/<code>varbinary</code>: the raw bytes (RepAgent sends binary values raw, not as hex text). The schemaless JsonConverter writes <code>byte[]</code> as a base64 string.</p>
+@@ 56-57
+<p><code>numeric</code>/<code>decimal</code> (marker <code>%</code>; marker <code>0</code> was seen for the identity column <code>numeric(18,0)</code>): exact text, trailing dot removed.</p>
+@@ 58-60
+<p><code>money</code>/<code>smallmoney</code>: RepAgent sends <code>$1234.5678</code> / <code>$-12.3400</code>; the dollar sign is a fixed prefix (not a currency), so it is removed.</p>
+@@ 61-63
+<p><code>float</code>/<code>real</code> → <code>Double</code>. Approximate by nature (that is what float means in the database too).</p>
+@@ 64-69
+<p>Dates and times → ISO-8601 text without a time zone (ASE stores none). <code>datetime</code> has 1/300-second precision, shown as milliseconds; <code>bigdatetime</code> microseconds.</p>
+@@ 70-75
+<p><b>Unknown marker:</b> warn once and pass the bytes through as text, rather than stopping replication. Because the lexer already used the default one-digit length for unknown markers, a new <em>variable-length</em> type would more likely fail in the lexer (loud) than reach here.</p>
+@@ 76
+<p>End of <code>convert</code>.</p>
+@@ 78-81
+<p>Removes a trailing <code>.</code> (ASE sends 100.00 as <code>100.</code>). Unit-tested in <code>LtlValuesTest</code>.</p>
+@@ 83-87
+<p><code>yyyymmdd hh:mm:ss:mmm</code> → <code>yyyy-mm-ddThh:mm:ss.mmm</code>. Unexpected shapes are returned unchanged.</p>
+@@ 89-92
+<p><code>yyyymmdd</code> → <code>yyyy-mm-dd</code>.</p>
+@@ 94-98
+<p>ASE writes milliseconds after a colon; ISO uses a dot.</p>
+@@ 99
+<p>End of class.</p>

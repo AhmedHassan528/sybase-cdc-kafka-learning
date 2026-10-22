@@ -1,0 +1,51 @@
+@file sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlParserTest.java
+@summary
+<p><b>Role:</b> the most important test class. It parses <em>real</em> LTL 760 messages captured from ASE 16.0 SP02 RepAgent (files in <code>src/test/resources/ltl760/</code>, saved by <code>-Dltl.dump.dir</code>). This turns the protocol discovery into a regression suite: any change that breaks decoding of real RepAgent traffic fails the build. When moving to ASE SP04, capture the same scenarios there, add the files and copy these tests.</p>
+@@ 1
+<p>Package <code>ltl</code> (package-private access to <code>LtlValues</code> etc.).</p>
+@@ 3-4
+<p>Imports.</p>
+@@ 6-10
+<p>JDK I/O and collections.</p>
+@@ 12-16
+<p>Static assertion imports.</p>
+@@ 18-19
+<p>Class comment and declaration.</p>
+@@ 21-26
+<p>Load a fixture from the test classpath (<code>getResourceAsStream("/ltl760/…")</code> finds files under <code>src/test/resources</code>), read all bytes and parse them as ISO-8859-1, the charset of the captured session. try-with-resources closes the stream.</p>
+@@ 28-31
+<p>Find the first command of a kind (and table) or fail with a readable message listing what was parsed.</p>
+@@ 33-36
+<p><b>Every datatype</b> from the <code>ltl_types</code> insert (script <code>sybase/90_ltl_types_probe.sql.manual</code>).</p>
+@@ 37-38
+<p>Owner and primary key (flag <code>G</code>).</p>
+@@ 39-43
+<p>Integer types and bit → <code>Long</code>, including <code>Long.MAX_VALUE</code> for <code>bigint</code>.</p>
+@@ 44-47
+<p>Exact decimals and money as strings, scale as sent.</p>
+@@ 48-49
+<p>Float and real → <code>Double</code>.</p>
+@@ 50-52
+<p>Strings: trimmed <code>char</code>, a value full of quote and tilde characters (proves length-prefixing needs no escaping), and UTF-16 <code>univarchar</code>.</p>
+@@ 53-57
+<p>All date/time types as ISO text.</p>
+@@ 58-59
+<p>Binary values as raw bytes.</p>
+@@ 60-62
+<p>Command tags: 32-byte OQID, transaction id present, and no origin time on row commands. (The first version of this test expected an origin time here; real data proved only begin/commit carry it.)</p>
+@@ 63
+<p>End of test.</p>
+@@ 65-74
+<p><b>Update merge:</b> before has the old money value, after has the new values, unchanged columns are copied from before, and both images have the same columns.</p>
+@@ 76-82
+<p><b>Delete:</b> before image only; NULL columns stay <code>null</code>.</p>
+@@ 84-91
+<p><b>Rollback:</b> the insert and the rollback belong to the same transaction id (the buffer then discards the row).</p>
+@@ 93-99
+<p><b>Multi-row transaction:</b> the last four relevant commands are INSERT, INSERT, UPDATE, COMMIT, in log order.</p>
+@@ 101-112
+<p><b>Long values:</b> composite primary key (both columns flagged), a 5,000-byte varchar (3 length digits), a 66-byte varbinary (2 digits), 40 unicode characters = 80 bytes (2 digits), and from the second fixture 5,000 binary bytes and 2,100 unicode characters = 4,200 bytes (3 digits).</p>
+@@ 114-123
+<p><b>The project's own table</b> <code>payment</code>: key column, values and a commit in the same message.</p>
+@@ 124
+<p>End of class.</p>

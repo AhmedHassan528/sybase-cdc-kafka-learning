@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LtlParserTest.java · source reference</title>
+<link rel="stylesheet" href="../assets/css/styles.css"></head>
+<body class="source-page">
+<header class="src-head"><a href="../index.html#ch-source">← Back to the handbook (source reference)</a>
+<h1><code>LtlParserTest.java</code></h1><p class="path"><code>sybase-cdc-connector/src/test/java/com/phoenix/cdc/sybase/ltl/LtlParserTest.java</code> · 124 lines · every non-blank line is annotated (checked by gen-source.js)</p>
+<div class="summary">
+<p><b>Role:</b> the most important test class. It parses <em>real</em> LTL 760 messages captured from ASE 16.0 SP02 RepAgent (files in <code>src/test/resources/ltl760/</code>, saved by <code>-Dltl.dump.dir</code>). This turns the protocol discovery into a regression suite: any change that breaks decoding of real RepAgent traffic fails the build. When moving to ASE SP04, capture the same scenarios there, add the files and copy these tests.</p></div></header>
+<main class="src-main"><section class="blk" id="b1"><pre class="code"><code><span class="ln" id="L1">1</span><span class="k">package</span> com.phoenix.cdc.sybase.ltl;</code></pre><div class="note"><div class="range">Lines 1</div><p>Package <code>ltl</code> (package-private access to <code>LtlValues</code> etc.).</p></div></section>
+<section class="blk" id="b3"><pre class="code"><code><span class="ln" id="L3">3</span><span class="k">import</span> com.phoenix.cdc.sybase.ltl.<span class="t">LtlCommand</span>.<span class="t">Kind</span>;
+<span class="ln" id="L4">4</span><span class="k">import</span> org.junit.jupiter.api.<span class="t">Test</span>;</code></pre><div class="note"><div class="range">Lines 3–4</div><p>Imports.</p></div></section>
+<section class="blk" id="b6"><pre class="code"><code><span class="ln" id="L6">6</span><span class="k">import</span> java.io.<span class="t">IOException</span>;
+<span class="ln" id="L7">7</span><span class="k">import</span> java.io.<span class="t">InputStream</span>;
+<span class="ln" id="L8">8</span><span class="k">import</span> java.nio.charset.<span class="t">StandardCharsets</span>;
+<span class="ln" id="L9">9</span><span class="k">import</span> java.util.<span class="t">List</span>;
+<span class="ln" id="L10">10</span><span class="k">import</span> java.util.<span class="t">Map</span>;</code></pre><div class="note"><div class="range">Lines 6–10</div><p>JDK I/O and collections.</p></div></section>
+<section class="blk" id="b12"><pre class="code"><code><span class="ln" id="L12">12</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertArrayEquals;
+<span class="ln" id="L13">13</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertEquals;
+<span class="ln" id="L14">14</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertNotNull;
+<span class="ln" id="L15">15</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertNull;
+<span class="ln" id="L16">16</span><span class="k">import</span> <span class="k">static</span> org.junit.jupiter.api.<span class="t">Assertions</span>.assertTrue;</code></pre><div class="note"><div class="range">Lines 12–16</div><p>Static assertion imports.</p></div></section>
+<section class="blk" id="b18"><pre class="code"><code><span class="ln" id="L18">18</span><span class="c">/** Parses real LTL 760 messages captured from ASE 16.0 SP02 RepAgent (src/test/resources/ltl760). */</span>
+<span class="ln" id="L19">19</span><span class="k">class</span> <span class="t">LtlParserTest</span> {</code></pre><div class="note"><div class="range">Lines 18–19</div><p>Class comment and declaration.</p></div></section>
+<section class="blk" id="b21"><pre class="code"><code><span class="ln" id="L21">21</span>    <span class="k">private</span> <span class="k">static</span> <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; parse(<span class="t">String</span> fixture) <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L22">22</span>        <span class="k">try</span> (<span class="t">InputStream</span> in = <span class="t">LtlParserTest</span>.<span class="k">class</span>.getResourceAsStream(<span class="s">"/ltl760/"</span> + fixture)) {
+<span class="ln" id="L23">23</span>            assertNotNull(in, fixture);
+<span class="ln" id="L24">24</span>            <span class="k">return</span> <span class="t">LtlParser</span>.parse(in.readAllBytes(), <span class="t">StandardCharsets</span>.<span class="t">ISO_8859_1</span>);
+<span class="ln" id="L25">25</span>        }
+<span class="ln" id="L26">26</span>    }</code></pre><div class="note"><div class="range">Lines 21–26</div><p>Load a fixture from the test classpath (<code>getResourceAsStream("/ltl760/…")</code> finds files under <code>src/test/resources</code>), read all bytes and parse them as ISO-8859-1, the charset of the captured session. try-with-resources closes the stream.</p></div></section>
+<section class="blk" id="b28"><pre class="code"><code><span class="ln" id="L28">28</span>    <span class="k">private</span> <span class="k">static</span> <span class="t">LtlCommand</span> first(<span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; cmds, <span class="t">Kind</span> kind, <span class="t">String</span> table) {
+<span class="ln" id="L29">29</span>        <span class="k">return</span> cmds.stream().filter(c -&gt; c.kind() == kind &amp;&amp; (table == <span class="k">null</span> || table.equals(c.table())))
+<span class="ln" id="L30">30</span>            .findFirst().orElseThrow(() -&gt; <span class="k">new</span> <span class="t">AssertionError</span>(<span class="s">"no "</span> + kind + <span class="s">" "</span> + table + <span class="s">" in "</span> + cmds));
+<span class="ln" id="L31">31</span>    }</code></pre><div class="note"><div class="range">Lines 28–31</div><p>Find the first command of a kind (and table) or fail with a readable message listing what was parsed.</p></div></section>
+<section class="blk" id="b33"><pre class="code"><code><span class="ln" id="L33">33</span>    <span class="a">@Test</span>
+<span class="ln" id="L34">34</span>    <span class="k">void</span> insertDecodesEveryDatatype() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L35">35</span>        <span class="t">LtlCommand</span> c = first(parse(<span class="s">"types-insert.bin"</span>), <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="s">"ltl_types"</span>);
+<span class="ln" id="L36">36</span>        <span class="t">Map</span>&lt;<span class="t">String</span>, <span class="t">Object</span>&gt; a = c.after();</code></pre><div class="note"><div class="range">Lines 33–36</div><p><b>Every datatype</b> from the <code>ltl_types</code> insert (script <code>sybase/90_ltl_types_probe.sql.manual</code>).</p></div></section>
+<section class="blk" id="b37"><pre class="code"><code><span class="ln" id="L37">37</span>        assertEquals(<span class="s">"dbo"</span>, c.owner());
+<span class="ln" id="L38">38</span>        assertEquals(<span class="t">List</span>.of(<span class="s">"id"</span>), c.keyColumns());</code></pre><div class="note"><div class="range">Lines 37–38</div><p>Owner and primary key (flag <code>G</code>).</p></div></section>
+<section class="blk" id="b39"><pre class="code"><code><span class="ln" id="L39">39</span>        assertEquals(<span class="n">1L</span>, a.get(<span class="s">"id"</span>));
+<span class="ln" id="L40">40</span>        assertEquals(<span class="n">255L</span>, a.get(<span class="s">"c_tiny"</span>));
+<span class="ln" id="L41">41</span>        assertEquals(-<span class="n">32768L</span>, a.get(<span class="s">"c_small"</span>));
+<span class="ln" id="L42">42</span>        assertEquals(<span class="t">Long</span>.<span class="t">MAX_VALUE</span>, a.get(<span class="s">"c_big"</span>));
+<span class="ln" id="L43">43</span>        assertEquals(<span class="n">1L</span>, a.get(<span class="s">"c_bit"</span>));</code></pre><div class="note"><div class="range">Lines 39–43</div><p>Integer types and bit → <code>Long</code>, including <code>Long.MAX_VALUE</code> for <code>bigint</code>.</p></div></section>
+<section class="blk" id="b44"><pre class="code"><code><span class="ln" id="L44">44</span>        assertEquals(<span class="s">"12345.6789"</span>, a.get(<span class="s">"c_num"</span>));
+<span class="ln" id="L45">45</span>        assertEquals(<span class="s">"42"</span>, a.get(<span class="s">"c_dec"</span>));
+<span class="ln" id="L46">46</span>        assertEquals(<span class="s">"1234.5678"</span>, a.get(<span class="s">"c_money"</span>));
+<span class="ln" id="L47">47</span>        assertEquals(<span class="s">"-12.3400"</span>, a.get(<span class="s">"c_smoney"</span>));</code></pre><div class="note"><div class="range">Lines 44–47</div><p>Exact decimals and money as strings, scale as sent.</p></div></section>
+<section class="blk" id="b48"><pre class="code"><code><span class="ln" id="L48">48</span>        assertEquals(<span class="n">3.14159265358979</span>, a.get(<span class="s">"c_float"</span>));
+<span class="ln" id="L49">49</span>        assertEquals(<span class="n">2.5</span>, a.get(<span class="s">"c_real"</span>));</code></pre><div class="note"><div class="range">Lines 48–49</div><p>Float and real → <code>Double</code>.</p></div></section>
+<section class="blk" id="b50"><pre class="code"><code><span class="ln" id="L50">50</span>        assertEquals(<span class="s">"abc"</span>, a.get(<span class="s">"c_char"</span>));
+<span class="ln" id="L51">51</span>        assertEquals(<span class="s">"it's ~ \"quoted\" ~\"x"</span>, a.get(<span class="s">"c_vchar"</span>));
+<span class="ln" id="L52">52</span>        assertEquals(<span class="s">"uni"</span>, a.get(<span class="s">"c_uvchar"</span>));</code></pre><div class="note"><div class="range">Lines 50–52</div><p>Strings: trimmed <code>char</code>, a value full of quote and tilde characters (proves length-prefixing needs no escaping), and UTF-16 <code>univarchar</code>.</p></div></section>
+<section class="blk" id="b53"><pre class="code"><code><span class="ln" id="L53">53</span>        assertEquals(<span class="s">"2026-10-20T13:45:56.123"</span>, a.get(<span class="s">"c_dt"</span>));
+<span class="ln" id="L54">54</span>        assertEquals(<span class="s">"2026-10-20T13:45:00.000"</span>, a.get(<span class="s">"c_sdt"</span>));
+<span class="ln" id="L55">55</span>        assertEquals(<span class="s">"2026-10-20"</span>, a.get(<span class="s">"c_date"</span>));
+<span class="ln" id="L56">56</span>        assertEquals(<span class="s">"13:45:56.000"</span>, a.get(<span class="s">"c_time"</span>));
+<span class="ln" id="L57">57</span>        assertEquals(<span class="s">"2026-10-20T13:45:56.123456"</span>, a.get(<span class="s">"c_bdt"</span>));</code></pre><div class="note"><div class="range">Lines 53–57</div><p>All date/time types as ISO text.</p></div></section>
+<section class="blk" id="b58"><pre class="code"><code><span class="ln" id="L58">58</span>        assertArrayEquals(<span class="k">new</span> <span class="k">byte</span>[] {<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>, <span class="n">4</span>}, (<span class="k">byte</span>[]) a.get(<span class="s">"c_bin"</span>));
+<span class="ln" id="L59">59</span>        assertArrayEquals(<span class="k">new</span> <span class="k">byte</span>[] {(<span class="k">byte</span>) <span class="n">0xde</span>, (<span class="k">byte</span>) <span class="n">0xad</span>, (<span class="k">byte</span>) <span class="n">0xbe</span>, (<span class="k">byte</span>) <span class="n">0xef</span>}, (<span class="k">byte</span>[]) a.get(<span class="s">"c_vbin"</span>));</code></pre><div class="note"><div class="range">Lines 58–59</div><p>Binary values as raw bytes.</p></div></section>
+<section class="blk" id="b60"><pre class="code"><code><span class="ln" id="L60">60</span>        assertEquals(<span class="n">32</span>, c.oqid().length);
+<span class="ln" id="L61">61</span>        assertNotNull(c.tranId());
+<span class="ln" id="L62">62</span>        assertNull(c.originTime());   <span class="c">// only begin/commit carry tag 1 (origin_time)</span></code></pre><div class="note"><div class="range">Lines 60–62</div><p>Command tags: 32-byte OQID, transaction id present, and no origin time on row commands. (The first version of this test expected an origin time here; real data proved only begin/commit carry it.)</p></div></section>
+<section class="blk" id="b63"><pre class="code"><code><span class="ln" id="L63">63</span>    }</code></pre><div class="note"><div class="range">Lines 63</div><p>End of test.</p></div></section>
+<section class="blk" id="b65"><pre class="code"><code><span class="ln" id="L65">65</span>    <span class="a">@Test</span>
+<span class="ln" id="L66">66</span>    <span class="k">void</span> updateAfterImageIsMergedWithBeforeImage() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L67">67</span>        <span class="t">LtlCommand</span> c = first(parse(<span class="s">"types-update.bin"</span>), <span class="t">Kind</span>.<span class="t">UPDATE</span>, <span class="s">"ltl_types"</span>);
+<span class="ln" id="L68">68</span>        assertEquals(<span class="s">"1234.5678"</span>, c.before().get(<span class="s">"c_money"</span>));
+<span class="ln" id="L69">69</span>        assertEquals(<span class="s">"99.9900"</span>, c.after().get(<span class="s">"c_money"</span>));
+<span class="ln" id="L70">70</span>        assertEquals(<span class="s">"updated"</span>, c.after().get(<span class="s">"c_vchar"</span>));
+<span class="ln" id="L71">71</span>        <span class="c">// unchanged columns come from the before image</span>
+<span class="ln" id="L72">72</span>        assertEquals(<span class="s">"abc"</span>, c.after().get(<span class="s">"c_char"</span>));
+<span class="ln" id="L73">73</span>        assertEquals(c.before().size(), c.after().size());
+<span class="ln" id="L74">74</span>    }</code></pre><div class="note"><div class="range">Lines 65–74</div><p><b>Update merge:</b> before has the old money value, after has the new values, unchanged columns are copied from before, and both images have the same columns.</p></div></section>
+<section class="blk" id="b76"><pre class="code"><code><span class="ln" id="L76">76</span>    <span class="a">@Test</span>
+<span class="ln" id="L77">77</span>    <span class="k">void</span> deleteHasOnlyBeforeImage() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L78">78</span>        <span class="t">LtlCommand</span> c = first(parse(<span class="s">"types-delete.bin"</span>), <span class="t">Kind</span>.<span class="t">DELETE</span>, <span class="s">"ltl_types"</span>);
+<span class="ln" id="L79">79</span>        assertEquals(<span class="n">2L</span>, c.before().get(<span class="s">"id"</span>));
+<span class="ln" id="L80">80</span>        assertNull(c.after());
+<span class="ln" id="L81">81</span>        assertNull(c.before().get(<span class="s">"c_money"</span>));
+<span class="ln" id="L82">82</span>    }</code></pre><div class="note"><div class="range">Lines 76–82</div><p><b>Delete:</b> before image only; NULL columns stay <code>null</code>.</p></div></section>
+<section class="blk" id="b84"><pre class="code"><code><span class="ln" id="L84">84</span>    <span class="a">@Test</span>
+<span class="ln" id="L85">85</span>    <span class="k">void</span> rolledBackTransaction() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L86">86</span>        <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; cmds = parse(<span class="s">"types-rollback.bin"</span>);
+<span class="ln" id="L87">87</span>        <span class="t">LtlCommand</span> ins = first(cmds, <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="s">"ltl_types"</span>);
+<span class="ln" id="L88">88</span>        <span class="t">LtlCommand</span> rb = first(cmds, <span class="t">Kind</span>.<span class="t">ROLLBACK</span>, <span class="k">null</span>);
+<span class="ln" id="L89">89</span>        assertEquals(<span class="s">"rolled back"</span>, ins.after().get(<span class="s">"c_vchar"</span>));
+<span class="ln" id="L90">90</span>        assertArrayEquals(ins.tranId(), rb.tranId());
+<span class="ln" id="L91">91</span>    }</code></pre><div class="note"><div class="range">Lines 84–91</div><p><b>Rollback:</b> the insert and the rollback belong to the same transaction id (the buffer then discards the row).</p></div></section>
+<section class="blk" id="b93"><pre class="code"><code><span class="ln" id="L93">93</span>    <span class="a">@Test</span>
+<span class="ln" id="L94">94</span>    <span class="k">void</span> multiRowTransactionKeepsLogOrder() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L95">95</span>        <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; cmds = parse(<span class="s">"types-multirow.bin"</span>).stream()
+<span class="ln" id="L96">96</span>            .filter(c -&gt; c.isRowChange() || c.kind() == <span class="t">Kind</span>.<span class="t">COMMIT</span>).toList();
+<span class="ln" id="L97">97</span>        assertEquals(<span class="t">List</span>.of(<span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="t">Kind</span>.<span class="t">UPDATE</span>, <span class="t">Kind</span>.<span class="t">COMMIT</span>),
+<span class="ln" id="L98">98</span>            cmds.subList(cmds.size() - <span class="n">4</span>, cmds.size()).stream().map(<span class="t">LtlCommand</span>::kind).toList());
+<span class="ln" id="L99">99</span>    }</code></pre><div class="note"><div class="range">Lines 93–99</div><p><b>Multi-row transaction:</b> the last four relevant commands are INSERT, INSERT, UPDATE, COMMIT, in log order.</p></div></section>
+<section class="blk" id="b101"><pre class="code"><code><span class="ln" id="L101">101</span>    <span class="a">@Test</span>
+<span class="ln" id="L102">102</span>    <span class="k">void</span> longValuesUseTwoAndThreeLengthDigits() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L103">103</span>        <span class="t">LtlCommand</span> c = first(parse(<span class="s">"long-values.bin"</span>), <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="s">"ltl_long"</span>);
+<span class="ln" id="L104">104</span>        assertEquals(<span class="t">List</span>.of(<span class="s">"k1"</span>, <span class="s">"k2"</span>), c.keyColumns());
+<span class="ln" id="L105">105</span>        assertEquals(<span class="s">"E"</span>.repeat(<span class="n">5000</span>), c.after().get(<span class="s">"big"</span>));
+<span class="ln" id="L106">106</span>        assertEquals(<span class="n">66</span>, ((<span class="k">byte</span>[]) c.after().get(<span class="s">"vb"</span>)).length);
+<span class="ln" id="L107">107</span>        assertEquals(<span class="s">"W"</span>.repeat(<span class="n">40</span>), c.after().get(<span class="s">"uv"</span>));
+<span class="ln" id="L108">108</span> 
+<span class="ln" id="L109">109</span>        <span class="t">LtlCommand</span> c3 = first(parse(<span class="s">"long3-values.bin"</span>), <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="s">"ltl_long3"</span>);
+<span class="ln" id="L110">110</span>        assertEquals(<span class="n">5000</span>, ((<span class="k">byte</span>[]) c3.after().get(<span class="s">"vb"</span>)).length);
+<span class="ln" id="L111">111</span>        assertEquals(<span class="s">"U"</span>.repeat(<span class="n">2100</span>), c3.after().get(<span class="s">"uv"</span>));
+<span class="ln" id="L112">112</span>    }</code></pre><div class="note"><div class="range">Lines 101–112</div><p><b>Long values:</b> composite primary key (both columns flagged), a 5,000-byte varchar (3 length digits), a 66-byte varbinary (2 digits), 40 unicode characters = 80 bytes (2 digits), and from the second fixture 5,000 binary bytes and 2,100 unicode characters = 4,200 bytes (3 digits).</p></div></section>
+<section class="blk" id="b114"><pre class="code"><code><span class="ln" id="L114">114</span>    <span class="a">@Test</span>
+<span class="ln" id="L115">115</span>    <span class="k">void</span> paymentInsert() <span class="k">throws</span> <span class="t">IOException</span> {
+<span class="ln" id="L116">116</span>        <span class="t">List</span>&lt;<span class="t">LtlCommand</span>&gt; cmds = parse(<span class="s">"payment-insert.bin"</span>);
+<span class="ln" id="L117">117</span>        <span class="t">LtlCommand</span> c = first(cmds, <span class="t">Kind</span>.<span class="t">INSERT</span>, <span class="s">"payment"</span>);
+<span class="ln" id="L118">118</span>        assertEquals(<span class="t">List</span>.of(<span class="s">"payment_id"</span>), c.keyColumns());
+<span class="ln" id="L119">119</span>        assertEquals(<span class="s">"ACC-0002"</span>, c.after().get(<span class="s">"account_no"</span>));
+<span class="ln" id="L120">120</span>        assertEquals(<span class="s">"250.75"</span>, c.after().get(<span class="s">"amount"</span>));
+<span class="ln" id="L121">121</span>        assertEquals(<span class="s">"USD"</span>, c.after().get(<span class="s">"currency"</span>));
+<span class="ln" id="L122">122</span>        assertTrue(cmds.stream().anyMatch(x -&gt; x.kind() == <span class="t">Kind</span>.<span class="t">COMMIT</span>));
+<span class="ln" id="L123">123</span>    }</code></pre><div class="note"><div class="range">Lines 114–123</div><p><b>The project's own table</b> <code>payment</code>: key column, values and a commit in the same message.</p></div></section>
+<section class="blk" id="b124"><pre class="code"><code><span class="ln" id="L124">124</span>}</code></pre><div class="note"><div class="range">Lines 124</div><p>End of class.</p>
+</div></section>
+</main>
+<footer class="src-foot"><a href="../index.html#ch-source">← Back to the handbook</a></footer>
+</body></html>

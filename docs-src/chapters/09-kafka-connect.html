@@ -1,0 +1,75 @@
+<h2 id="ch-kafka" data-keywords="kafka broker topic partition offset producer consumer kraft delivery ordering listeners">Kafka fundamentals and broker configuration</h2>
+<p><b>Plain definition:</b> Apache Kafka is a distributed, durable, append-only log of messages. Producers append messages (<em>records</em>) to named <em>topics</em>; consumers read them at their own pace and remember how far they got. <b>Why it exists:</b> many systems can react to the same events independently, replay them, and tolerate each other's outages. <b>Here:</b> one topic per captured table, <code>sybase.phoenix_test.payment</code>, receives every committed change.</p>
+
+<h3 id="kafka-terms">Core terms</h3>
+<dl class="kv">
+<dt>Broker</dt><dd>A Kafka server process storing topic data. Local: one broker (<code>cdc-kafka</code>). Production: three or more.</dd>
+<dt>Topic, partition</dt><dd>A topic is split into partitions, each an ordered log. Order is guaranteed <em>within</em> a partition only. Records with the same key always go to the same partition.</dd>
+<dt>Offset</dt><dd>A record's position in its partition (0, 1, 2…). Consumers store their progress as offsets. Not the same as a Kafka Connect <em>source offset</em> (the connector's position in ASE).</dd>
+<dt>Replication factor, ISR</dt><dd>How many brokers keep a copy of each partition and which copies are in sync. Local: 1. Production: 3 with <code>min.insync.replicas=2</code> and producer <code>acks=all</code>.</dd>
+<dt>Producer acknowledgement</dt><dd>The broker confirms a write; Kafka Connect then calls <code>commitRecord()</code>, which drives the connector's ASE acknowledgement.</dd>
+<dt>Consumer group</dt><dd>Consumers sharing a group id divide partitions among themselves.</dd>
+<dt>Retention</dt><dd>How long records are kept (default 7 days). The tests' events are still in the local topic because of this.</dd>
+<dt>Serialization</dt><dd>Converting objects to bytes. Here: JSON via Kafka Connect's <code>JsonConverter</code>, without embedded schemas.</dd>
+<dt>KRaft</dt><dd>Kafka's built-in metadata quorum (no ZooKeeper). The local broker runs in KRaft combined mode (<code>KAFKA_PROCESS_ROLES: broker,controller</code>).</dd>
+<dt>Advertised listeners</dt><dd>Addresses the broker tells clients to use after the first contact; they must be reachable from the client's network (<a href="#compose">compose lines 28–31</a>).</dd>
+</dl>
+
+<h3 id="delivery-semantics">Delivery semantics in this system</h3>
+<ul>
+<li><b>At-least-once</b> (verified): every committed row reaches Kafka at least once. After hard failures some rows are published twice (495 in test 4b, 53,822 in 6b, 3 in P5); duplicates carry the same <code>source.oqid</code>.</li>
+<li><b>Exactly-once</b>: not implemented. Kafka Connect supports exactly-once source connectors since Kafka 3.3 (KIP-618), but the connector does not declare it and it was not tested.</li>
+<li><b>Ordering</b>: rows of one table and one key are published in commit order (single partition locally). With several partitions, ordering holds per key only; tables without a primary key get no key and lose cross-row ordering.</li>
+<li><b>Transaction atomicity</b>: rows of one ASE transaction are published together after COMMIT, but Kafka consumers can see the first rows before the last ones arrive. Consumers that need the whole transaction can group by <code>source.xid</code> and use <code>txn_rows</code> (with the caveat in the <a href="source/ChangeEventMapper.html">mapper notes</a>).</li>
+</ul>
+
+<h3 id="kafka-inspect">Inspecting the output</h3>
+<pre data-lang="bash"><code># records with keys (first 8 s of reading)
+captures/consume.sh sybase.phoenix_test.payment 8000
+# number of records written per partition
+docker exec cdc-kafka /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server kafka:9092 --topic sybase.phoenix_test.payment
+# summary for one test prefix: events, distinct rows, duplicate OQIDs, transactions
+captures/analyze-topic.sh T6B- &lt;start-offset&gt;</code></pre>
+<p>Example record (test 1, real output):</p>
+<pre><code>{"payment_id":"500000000000003"} | {"op":"u","before":{"payment_id":"500000000000003","account_no":"T1-ACC","amount":"100.","currency":"EGP","created_at":"2026-10-20T19:56:22.116"},"after":{"payment_id":"500000000000003","account_no":"T1-ACC","amount":"175.25","currency":"EGP","created_at":"2026-10-20T19:56:22.116"},"source":{"server":"MYSYBASE","db":"phoenix_test","owner":"dbo","table":"payment","xid":"0000000000001c6d001d4d5953594241534570686f656e69785f74657374","oqid":"0000000000001c6d00010017001f00010017001d0000b4e90148978600000000","commit_oqid":"0000000000001c6d00010017002000010017001d0000b4e90148978600000000","commit_time":"2026-10-20T19:56:21.993","user":"sa","seq":0,"txn_rows":1},"ts_ms":1792526182149}</code></pre>
+<p class="small">The <code>"100."</code> in this early record is the defect fixed in <a href="#hist-later">history 7.2</a>; later records show <code>"100"</code>.</p>
+
+<h2 id="ch-connect" data-keywords="kafka connect worker connector task source record offset rest api plugin classloader converter distributed">Kafka Connect fundamentals</h2>
+<p><b>Plain definition:</b> Kafka Connect is a runtime for plugins that move data between Kafka and other systems. You give it a <em>connector configuration</em>; it runs the plugin, handles Kafka producing, retries, offsets, REST management and scaling. <b>Why:</b> writing a reliable producer with restart handling is hard; Connect provides it. <b>Here:</b> the connector only has to turn RepAgent's stream into <code>SourceRecord</code>s; Connect writes them and stores the position.</p>
+
+<h3 id="connect-terms">Terms, and what this connector uses</h3>
+<div class="tbl"><table>
+<thead><tr><th>Concept</th><th>Meaning</th><th>Used?</th></tr></thead>
+<tbody>
+<tr><td>Worker</td><td>A Connect JVM process. <b>Distributed mode</b>: workers sharing <code>group.id</code> form a cluster; state in Kafka topics. <b>Standalone</b>: one process, offsets in a file.</td><td>Distributed, 1 worker (standalone only for the image check)</td></tr>
+<tr><td>Plugin</td><td>The JAR(s) in a folder under <code>plugin.path</code>, loaded with an isolated class loader.</td><td>Yes, <code>/opt/connectors/sybase-cdc</code></td></tr>
+<tr><td>Connector (class / instance)</td><td>The class validates config and splits work; an <em>instance</em> is one named configuration (<code>sybase-cdc-phoenix</code>). Not the same as a topic.</td><td>Yes</td></tr>
+<tr><td>Task</td><td>The unit that moves data, running on a worker thread.</td><td>Exactly 1</td></tr>
+<tr><td>SourceRecord</td><td>Topic, key, value (+ schemas), source partition and source offset.</td><td>Yes (<code>TrackedRecord</code>)</td></tr>
+<tr><td>Source partition / offset</td><td>Where in the source a record came from; Connect stores the latest committed offset per partition.</td><td><code>{database, server}</code> → <code>{commit_oqid}</code></td></tr>
+<tr><td>Converters</td><td>Serialize keys/values (<code>JsonConverter</code>, Avro…).</td><td>JSON, <code>schemas.enable=false</code></td></tr>
+<tr><td>SMT (single message transform)</td><td>Per-record transformation in config.</td><td>Not used</td></tr>
+<tr><td>Errors / dead-letter queue</td><td><code>errors.tolerance</code>; DLQ exists only for sink connectors.</td><td><code>errors.tolerance=none</code> (fail rather than skip)</td></tr>
+<tr><td>Exactly-once source (KIP-618)</td><td>Transactions spanning records and offsets.</td><td>Not used</td></tr>
+<tr><td>Offsets REST API (KIP-875, Kafka 3.5+)</td><td><code>GET/PATCH/DELETE /connectors/{name}/offsets</code>, <code>PUT …/stop</code>.</td><td>Read and stop used; note the stale-record caveat</td></tr>
+</tbody></table></div>
+
+<figure-diagram src="05-connector-lifecycle" n="05" title="Lifecycle of the connector and its task">
+<p><b>Purpose:</b> which method the framework calls, when. Orange: Connect framework actions; blue: methods implemented in this project.</p>
+<p><b>Sequence:</b> worker scans <code>plugin.path</code> → <code>POST /connectors</code> → <code>Connector.start()</code> validates → <code>taskConfigs()</code> returns one config → <code>Task.start()</code> reads the stored offset and opens port 11752 → <code>poll()</code> loop → <code>commitRecord()</code> per acknowledged record → offsets flushed every 5 s.</p>
+<p><b>Important differences:</b> <code>PUT /pause</code> does <em>not</em> stop the task (the port stays open; records queue in memory). <code>PUT /stop</code> (Kafka 3.5+) and deleting the connector call <code>Task.stop()</code> and close the port. A worker that loses contact with Kafka for more than the group session timeout revokes and restarts the task (seen in test P5).</p>
+<p><b>Files:</b> <a href="source/SybaseCdcSourceConnector.html">SybaseCdcSourceConnector</a>, <a href="source/SybaseCdcSourceTask.html">SybaseCdcSourceTask</a>.</p>
+</figure-diagram>
+
+<h3 id="connect-rest">REST operations used</h3>
+<div class="tbl"><table>
+<thead><tr><th>Call</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>GET /</code></td><td>Worker version (<code>{"version":"3.8.0",…}</code>)</td></tr>
+<tr><td><code>GET /connector-plugins</code></td><td>Is the plugin discovered?</td></tr>
+<tr><td><code>POST /connectors</code> with <code>connectors/sybase-cdc-phoenix.json</code></td><td>Create the connector</td></tr>
+<tr><td><code>GET /connectors/sybase-cdc-phoenix/status</code></td><td>Connector and task state (RUNNING, FAILED with trace, STOPPED…)</td></tr>
+<tr><td><code>PUT /connectors/sybase-cdc-phoenix/stop</code> · <code>/resume</code> · <code>/pause</code></td><td>Stop (closes listener) · resume · pause (does not close the listener)</td></tr>
+<tr><td><code>POST /connectors/sybase-cdc-phoenix/tasks/0/restart</code></td><td>Restart a failed task</td></tr>
+<tr><td><code>GET /connectors/sybase-cdc-phoenix/offsets</code></td><td>Stored source offset. <b>Caveat:</b> locally it shows a stale record written before the <code>TreeMap</code> fix; read <code>_connect-offsets</code> directly for the truth (<a href="#ts-offsets">troubleshooting</a>).</td></tr>
+</tbody></table></div>

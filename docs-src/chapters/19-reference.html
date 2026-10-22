@@ -1,0 +1,117 @@
+<h2 id="ch-glossary" data-keywords="glossary terms definitions oqid ltl repagent tds truncation point offset">Glossary</h2>
+<dl class="glossary">
+<dt id="g-ase">ASE (Adaptive Server Enterprise)</dt><dd>SAP's relational database server, formerly Sybase ASE. Hosts the Phoenix database.</dd>
+<dt id="g-ack">Acknowledgement (Kafka)</dt><dd>The broker's confirmation that a record is stored (with <code>acks=all</code>: replicated to the in-sync replicas). Triggers <code>commitRecord()</code> in the task.</dd>
+<dt id="g-cdc">CDC (change data capture)</dt><dd>Publishing every committed insert, update and delete of a database as events, here by reading the transaction log through RepAgent.</dd>
+<dt id="g-commit-oqid">Commit OQID</dt><dd>The OQID of a transaction's COMMIT record. Stored as the connector's source offset and returned to RepAgent as the truncation position.</dd>
+<dt id="g-connect">Kafka Connect</dt><dd>Kafka's framework for running source and sink connectors; provides offsets, REST management and restarts.</dd>
+<dt id="g-interfaces">Interfaces file</dt><dd>Sybase's name-to-address file (<code>$SYBASE/interfaces</code>, <code>sql.ini</code> on Windows). Entry <code>CDC_RS</code> points RepAgent at the connector.</dd>
+<dt id="g-ltl">LTL (Log Transfer Language)</dt><dd>The command language RepAgent uses to send log records to a Replication Server (<code>distribute</code>, <code>begin transaction</code>, <code>applied</code>, <code>commit</code>…). SAP documents it up to version 700; this project uses 760, learned from captures.</dd>
+<dt id="g-maint">Maintenance user</dt><dd>The login a Replication Server uses to apply changes; RepAgent does not forward its transactions (prevents loops). Here <code>cdc_maint</code>, never used to write.</dd>
+<dt id="g-offset">Source offset</dt><dd>Kafka Connect's stored position of a source connector, per source partition. Here <code>{database, server}</code> → <code>{commit_oqid}</code>.</dd>
+<dt id="g-oqid">OQID (origin queue ID)</dt><dd>A 32-byte, monotonically increasing identifier RepAgent assigns to each log record it sends; sent as a 36-byte locator in <code>get truncation</code>. Used for ordering, duplicate detection (<code>source.oqid</code>) and restart position.</dd>
+<dt id="g-repagent">RepAgent (Replication Agent)</dt><dd>A thread inside ASE that reads a database's transaction log and pushes it as LTL over TDS to a Replication Server, here to the connector.</dd>
+<dt id="g-rs">Replication Server</dt><dd>SAP's product that receives LTL from RepAgents and replicates to other databases. The connector impersonates one.</dd>
+<dt id="g-sec-trunc">Secondary truncation point</dt><dd>A marker in the ASE log, created when RepAgent is enabled, that prevents log truncation beyond what RepAgent has delivered and had acknowledged. Visible in <code>master..syslogshold</code>.</dd>
+<dt id="g-tds">TDS (Tabular Data Stream)</dt><dd>Sybase/SAP's client–server wire protocol, version 5.0. RepAgent logs in and sends LTL in TDS language packets.</dd>
+<dt id="g-threshold">Threshold (ASE)</dt><dd>A free-space level on a segment that runs a stored procedure when crossed. Here <code>sp_cdc_log_alert</code> at 24,576 free log pages.</dd>
+<dt id="g-tranid">tran_id / xid</dt><dd>RepAgent's transaction identifier; published as <code>source.xid</code>; all rows of one transaction share it.</dd>
+<dt id="g-watermark">Watermark</dt><dd>The newest commit OQID whose transaction and all earlier ones are fully acknowledged by Kafka (<a href="source/AckTracker.html">AckTracker</a>).</dd>
+</dl>
+
+<h2 id="ch-files" data-keywords="files inventory artifacts project structure deliverables checksums">File and artifact inventory</h2>
+<div class="tbl"><table>
+<thead><tr><th>Path</th><th>What it is</th><th>Used by</th></tr></thead>
+<tbody>
+<tr><td><code>docker-compose.yml</code></td><td>Local environment: 4 services</td><td>Path A</td></tr>
+<tr><td><code>connect-distributed.properties</code></td><td>Connect worker configuration</td><td>Path A, image</td></tr>
+<tr><td><code>sybase/start.sh</code>, <code>rie_shim.c/.so</code></td><td>ASE entrypoint and kernel workaround</td><td>local only</td></tr>
+<tr><td><code>sybase/00…03_*.sql</code></td><td>Database, table, RepAgent, log threshold (first boot)</td><td>local; production equivalents by the DBA</td></tr>
+<tr><td><code>sybase/90…92_*.sql.manual</code></td><td>LTL type-discovery tables</td><td>migration validation</td></tr>
+<tr><td><code>connectors/sybase-cdc-phoenix.json</code></td><td>Connector configuration (local test credentials)</td><td>Path A</td></tr>
+<tr><td><code>sybase-cdc-connector/</code></td><td>Maven project: <code>pom.xml</code>, 19 main classes (1,845 lines), 4 test classes, <code>build.sh</code>, <code>deploy-local.sh</code></td><td>build</td></tr>
+<tr><td><code>plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar</code></td><td>Tested JAR, SHA-256 <code>7e1e5bc225e035a79c925612c22ca2fb3cc34172e1c9a8a301566f0726b3f61b</code></td><td>both paths</td></tr>
+<tr><td><code>deploy/docker/Dockerfile.connect</code></td><td>Worker image with the connector (<code>sybase-cdc-connect:0.1.0</code>)</td><td>Path A / Strimzi</td></tr>
+<tr><td><code>deliverables/images/sybase-cdc-connect-0.1.0.tar.gz</code></td><td>Saved image, 205,639,097 bytes, SHA-256 <code>e46c77a494fa2e9583f704456cb89cb69a9b598d98c8e052281e965d24fe3e8b</code> (load with <code>docker load -i …</code>)</td><td>transfer</td></tr>
+<tr><td><code>deploy/openshift/01…05_*.yaml</code></td><td>Untested templates: Secret, KafkaConnect, KafkaConnector, Service, NetworkPolicy</td><td>Path B</td></tr>
+<tr><td><code>captures/</code></td><td>Test scripts (<code>isql.sh</code>, <code>consume.sh</code>, <code>analyze-topic.sh</code>, <code>monitor*.sh</code>, load SQL) and raw outputs</td><td>tests</td></tr>
+<tr><td><code>report/index.html</code></td><td>Earlier stand-alone test report</td><td>history</td></tr>
+<tr><td><code>docs/</code></td><td>This handbook: <code>index.html</code>, <code>assets/</code>, <code>source/</code> (annotated code), <code>diagrams/src/*.drawio</code> + <code>svg/</code>, <code>evidence/</code>, <code>PROGRESS.md</code></td><td>knowledge transfer</td></tr>
+<tr><td><code>docs-src/</code></td><td>Handbook sources: <code>chapters/</code>, <code>build.js</code>, <code>diagrams/</code> generator, <code>source/</code> notes</td><td>rebuild the handbook</td></tr>
+</tbody></table></div>
+<p>Annotated source files: <a href="#ch-source">source file table</a> (one page per file under <code>docs/source/</code>). Rebuild the handbook with <code>node docs-src/build.js</code> (diagrams: <code>node docs-src/diagrams/drawio-gen.js</code> then <code>docs-src/diagrams/export.sh</code>; source pages: <code>node docs-src/source/gen-source.js</code>).</p>
+
+<h2 id="ch-evidence" data-keywords="evidence index logs captures outputs proof">Evidence index</h2>
+<p>All files are under <code>docs/evidence/</code>. They are real outputs captured during the project; local test credentials that appear in them are the public image defaults.</p>
+<div class="tbl"><table>
+<thead><tr><th>File</th><th>Content</th><th>Supports</th></tr></thead>
+<tbody>
+<tr><td><code>01-tooling.txt</code></td><td>Docker engine/client/compose versions</td><td>versions</td></tr>
+<tr><td><code>02-images.txt</code></td><td>Image ids, digests, sizes</td><td>inventory</td></tr>
+<tr><td><code>03-containers.txt</code></td><td>Running containers and ports</td><td>walkthrough</td></tr>
+<tr><td><code>04-kafka-java.txt</code></td><td>Kafka and Java versions in the worker</td><td>versions</td></tr>
+<tr><td><code>05-maven.txt</code></td><td>Maven/JDK of the build container</td><td>build</td></tr>
+<tr><td><code>06-connect-rest.txt</code></td><td>Worker version, plugins, connector config and status</td><td>connector, S2</td></tr>
+<tr><td><code>07-network.txt</code></td><td>Docker network and addresses</td><td>Docker chapter</td></tr>
+<tr><td><code>08-ase-facts.txt</code></td><td>ASE version, devices, RepAgent config, truncation point</td><td>ASE chapter</td></tr>
+<tr><td><code>09-ase-interfaces.txt</code></td><td>Interfaces file with <code>CDC_RS</code></td><td>RepAgent</td></tr>
+<tr><td><code>10-custom-image-plugin-discovery.txt</code></td><td>Plugin listed from the custom image</td><td>T9</td></tr>
+<tr><td><code>11-openshift-yaml-syntax.txt</code></td><td>YAML parse check only</td><td>OpenShift (untested)</td></tr>
+<tr><td><code>12-ase-privilege-test.txt</code></td><td><code>replication_role</code> test</td><td>T8</td></tr>
+<tr><td><code>13-connect-api-signatures.txt</code></td><td><code>javap</code> of Connect API 3.8.0</td><td>Java chapter</td></tr>
+<tr><td><code>logs/ase-errorlog-excerpts.txt</code></td><td>RepAgent login failures, 4047, starts/stops, alert</td><td>history, troubleshooting</td></tr>
+<tr><td><code>logs/ase-crash-*.txt</code></td><td>Snap::Validate and ra_free_mempool stack traces</td><td>history</td></tr>
+<tr><td><code>logs/connect-worker-excerpts.txt</code></td><td>Task start, RepAgent connect, offset commits</td><td>walkthrough</td></tr>
+<tr><td><code>logs/connect-offsets-topic.txt</code></td><td>Records of <code>_connect-offsets</code></td><td>T6b, ts-offsets</td></tr>
+<tr><td><code>logs/repagent-trace-9202-sample.txt</code></td><td>Short RepAgent trace sample (test data only)</td><td>protocol</td></tr>
+<tr><td><code>ltl/*</code></td><td>First captured session and a raw insert message with hex dump</td><td>LTL encoding</td></tr>
+<tr><td><code>queries/*.sql</code></td><td>Queries that produced 08 and 12</td><td>reproducibility</td></tr>
+<tr><td><code>tests/unit-tests.txt</code></td><td>Maven test summary</td><td>unit tests</td></tr>
+<tr><td><code>tests/small-scenarios-kafka-records.txt</code></td><td>Kafka records of T1–T3</td><td>T1–T3</td></tr>
+<tr><td><code>tests/t6-run1-monitor.txt</code>, <code>t6-run2-monitor.csv</code>, <code>t6-run3-monitor/*.csv</code></td><td>Load test monitoring</td><td>T6</td></tr>
+<tr><td><code>tests/t7-log-growth.txt</code></td><td>Log growth and drain</td><td>T7</td></tr>
+</tbody></table></div>
+
+<h2 id="ch-references" data-keywords="references sources documentation links citations sap ibm qlik kafka kernel docker">References</h2>
+<p>Every link was opened and checked on 2026-10-21. SAP's Replication Server 15.x documentation is old but is the only public LTL reference; it describes LTL up to version 700, not 760.</p>
+<ol class="refs">
+<li id="ref-sap-ltl">SAP (Sybase), <i>Replication Server Design Guide 15.0.1, Appendix B: Log Transfer Language</i>: <a href="https://infocenter.sybase.com/help/topic/com.sybase.dc32580_1501/html/design/X16210.htm">X16210.htm</a>; overview <a href="https://infocenter.sybase.com/help/topic/com.sybase.dc32580_1501/html/design/X18036.htm">X18036.htm</a>; <code>connect source</code> <a href="https://infocenter.sybase.com/help/topic/com.sybase.dc32580_1501/html/design/X78489.htm">X78489.htm</a>; command tags <a href="https://infocenter.sybase.com/help/topic/com.sybase.dc32580_1501/html/design/X92158.htm">X92158.htm</a>; <code>tran_id</code> <a href="https://infocenter.sybase.com/help/topic/com.sybase.dc32580_1501/html/design/design237.htm">design237.htm</a>.</li>
+<li id="ref-tds">FreeTDS, <i>TDS Protocol Documentation</i>: <a href="https://www.freetds.org/tds.html">freetds.org/tds.html</a> (TDS 5.0 tokens used by the TDS layer).</li>
+<li id="ref-qlik">Qlik, <i>Replicate: SAP Sybase ASE prerequisites, "Prerequisites when using RepAgent CDC"</i>: <a href="https://help.qlik.com/en-US/replicate/May2026/Content/Replicate/Main/SAP%20Sybase%20ASE/prereq_sap_sybase_ase.htm">help.qlik.com</a>. States that <code>net password encryption</code> must be <code>false</code> "as encrypted passwords are not supported" and shows an interfaces entry pointing RepAgent at Replicate's listener: the same mechanism as this connector.</li>
+<li id="ref-es">IBM, <i>Event Streams: Setting up and running connectors</i>: <a href="https://ibm.github.io/event-automation/es/es_12.3/connecting/setting-up-connectors/">12.3</a>, <a href="https://ibm.github.io/event-automation/es/es_11.7/connecting/setting-up-connectors/">11.7</a>. Source of the KafkaConnect/KafkaConnector CRs (<code>eventstreams.ibm.com/v1beta2</code>), the base image <code>cp.icr.io/cp/ibm-eventstreams-kafka:&lt;version&gt;</code> with plugins in <code>/opt/kafka/plugins/</code> and <code>USER 1001</code>, and the page banner stating that Event Streams and Event Processing are deprecated with no enhancements, support and security fixes continuing under the support lifecycle.</li>
+<li id="ref-kernel">Linux kernel commit 9fccc5c0c99f, <i>x86/elf: Disable automatic READ_IMPLIES_EXEC on 64-bit</i>: <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=9fccc5c0c99f238aa1b0460fccbdb30a887e7036">git.kernel.org</a>. Cause of the ASE boot crash on new kernels.</li>
+<li id="ref-seccomp">Docker, <i>Seccomp security profiles for Docker</i>: <a href="https://docs.docker.com/engine/security/seccomp/">docs.docker.com</a>. Why <code>personality()</code> is restricted by default.</li>
+<li id="ref-sourcetask">Apache Kafka 3.8 API, <i>SourceTask</i>: <a href="https://kafka.apache.org/38/javadoc/org/apache/kafka/connect/source/SourceTask.html">javadoc</a>.</li>
+<li id="ref-kip618">Apache Kafka, <i>KIP-618: Exactly-Once Support for Source Connectors</i>: <a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-618%3A+Exactly-Once+Support+for+Source+Connectors">cwiki.apache.org</a>.</li>
+<li id="ref-kip875">Apache Kafka, <i>KIP-875: First-class offsets support in Kafka Connect</i>: <a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-875%3A+First-class+offsets+support+in+Kafka+Connect">cwiki.apache.org</a>.</li>
+<li id="ref-images">Docker Hub images: <a href="https://hub.docker.com/r/datagrip/sybase">datagrip/sybase</a>, <a href="https://hub.docker.com/r/apache/kafka">apache/kafka</a>.</li>
+</ol>
+
+<h2 id="ch-checklists" data-keywords="reproducibility checklist acceptance criteria status handover">Reproducibility checklist and acceptance status</h2>
+<h3 id="repro">Reproducibility checklist</h3>
+<ul class="checklist">
+<li>☐ Docker installed; 6 GB RAM and ~10 GB disk free for Docker</li>
+<li>☐ Project folder complete (<a href="#ch-files">inventory</a>); JAR SHA-256 matches or a new build recorded</li>
+<li>☐ <code>docker compose up -d</code>; ASE log shows <code>READY</code></li>
+<li>☐ Plugin listed; connector created; task RUNNING</li>
+<li>☐ <code>retry timeout</code> 10; <code>sp_start_rep_agent</code>; <code>RepAgent connected … using 760</code></li>
+<li>☐ T1–T3 reproduce (insert/update/delete, rollback, multi-row)</li>
+<li>☐ Offsets advance in <code>_connect-offsets</code>; truncation page advances</li>
+<li>☐ Optional: T4–T7 with <code>captures/</code> scripts, checking the database state before each destructive test</li>
+</ul>
+
+<h3 id="acceptance">Acceptance criteria of the documentation task</h3>
+<div class="tbl"><table>
+<thead><tr><th>Criterion</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Self-contained website with index, stylesheet and supporting pages</td><td><span class="pill pass">Done</span> <code>docs/index.html</code>, <code>assets/</code>, <code>source/</code></td></tr>
+<tr><td>Editable draw.io diagrams for the required views</td><td><span class="pill pass">Done</span> 17 diagrams with <code>.drawio</code> + SVG</td></tr>
+<tr><td>Canva learning aid</td><td><span class="pill pass">Done</span> <a href="#fig-canva">CDC explained</a></td></tr>
+<tr><td>Every Java file explained</td><td><span class="pill pass">Done</span> 23 annotated pages, coverage check passes</td></tr>
+<tr><td>Step-by-step local reproduction</td><td><span class="pill pass">Done</span> <a href="#ch-walkthrough">28 steps</a></td></tr>
+<tr><td>Test report with evidence and honest status</td><td><span class="pill pass">Done</span> <a href="#ch-tests">PASS / PARTIAL / NOT RUN</a></td></tr>
+<tr><td>OpenShift guide</td><td><span class="pill warn">Done, untested</span> no cluster available</td></tr>
+<tr><td>No real secrets; placeholders for production values</td><td><span class="pill pass">Done</span> only local test values from public images/scripts appear</td></tr>
+<tr><td>Destructive operations marked</td><td><span class="pill pass">Done</span> walkthrough step 28, RB-7, RB-8</td></tr>
+<tr><td>Production readiness claimed?</td><td><span class="pill pass">No</span> <a href="#ch-readiness">explicitly not ready</a></td></tr>
+</tbody></table></div>

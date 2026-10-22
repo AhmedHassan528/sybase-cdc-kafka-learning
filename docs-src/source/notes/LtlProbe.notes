@@ -1,0 +1,32 @@
+@file sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java
+@summary
+<p><b>Role:</b> a stand-alone diagnostic program (a <code>main</code> method, not part of Kafka Connect) that acts as a fake Replication Server and prints everything RepAgent sends. It was the tool used to discover the LTL 760 protocol and is the tool to use first against a new ASE version.</p>
+<p class="warn"><b>Never point a production RepAgent at the probe.</b> It acknowledges the highest OQID it has seen, whether or not anything was delivered. ASE would then free log records that never reached Kafka, which is permanent data loss for the CDC pipeline. It also has built-in default credentials. Use it only against a test database.</p>
+@@ 1
+<p>Package <code>tools</code>: utilities that ship in the JAR but are not used by the connector.</p>
+@@ 3-11
+<p>Reuses the connector's own classes, which is why the probe exercises exactly the production protocol code.</p>
+@@ 13-21
+<p>How to run it: inside the Connect container, with Kafka's <code>libs</code> on the classpath for SLF4J/reload4j logging. Stop the connector first, because both need port 11752.</p>
+@@ 22
+<p>Final class with only a <code>main</code> method.</p>
+@@ 24-25
+<p>Regex to pick OQIDs out of a command's raw text: tag 4 followed by 64 hex characters (32 bytes). Used only for the probe's acknowledge-everything behaviour.</p>
+@@ 27-32
+<p><code>public static void main(String[] args)</code>: the JVM entry point. Arguments: port, user and password, with local defaults. A <code>TransactionBuffer</code> groups transactions for printing. <code>byte[][] lastSeen</code> is a one-element array used as a mutable box, because a lambda or anonymous class may only capture effectively-final local variables.</p>
+@@ 34-39
+<p>An <em>anonymous class</em> implementing <code>LtlListener</code>. <code>authenticate</code> prints whether the password matched; during discovery this showed that the password field was empty while RepAgent used password encryption.</p>
+@@ 41-45
+<p>Accepts whatever LTL version RepAgent proposes (unlike the connector, which requires 760), so the probe can observe other versions.</p>
+@@ 47-50
+<p>Maintenance user.</p>
+@@ 52-56
+<p>Acknowledge-everything truncation: see the warning above.</p>
+@@ 58-72
+<p>For every command: track the highest OQID, print kind, transaction id, OQID and row images, and print a summary line when a transaction commits. These <code>[probe]</code> lines are the evidence in <code>captures/ltl-capture-*.log</code>.</p>
+@@ 74-79
+<p>On disconnect, print the cause and clear the buffer.</p>
+@@ 81-84
+<p>Start the server with tracing on; a shutdown hook closes it on Ctrl+C; then block the main thread forever (<code>join()</code> on itself).</p>
+@@ 85-86
+<p>End of method and class.</p>

@@ -1,0 +1,25 @@
+# UNTESTED TEMPLATE. TCP entry point for RepAgent (ASE runs outside the cluster).
+# OpenShift Routes carry HTTP/HTTPS and TLS with SNI only; RepAgent speaks plain TDS, so use a
+# LoadBalancer (MetalLB / cloud LB) or NodePort Service. Its address goes into the ASE interfaces file:
+#   CDC_RS
+#       master tcp ether <lb-address> 11752
+#       query  tcp ether <lb-address> 11752
+#
+# Pod labels differ between operator versions. Check them before applying:
+#   oc get pods -n cdc --show-labels | grep sybase-cdc
+apiVersion: v1
+kind: Service
+metadata:
+  name: sybase-cdc-ltl
+  namespace: cdc
+spec:
+  type: LoadBalancer            # or NodePort
+  externalTrafficPolicy: Local  # keeps the client (ASE) source IP visible to NetworkPolicy
+  selector:
+    eventstreams.ibm.com/cluster: sybase-cdc
+    eventstreams.ibm.com/kind: KafkaConnect
+  ports:
+    - name: ltl
+      protocol: TCP
+      port: 11752
+      targetPort: 11752

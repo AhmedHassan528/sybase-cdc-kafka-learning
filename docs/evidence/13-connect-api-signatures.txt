@@ -1,0 +1,38 @@
+/root/.m2/repository/org/apache/kafka/connect-api/3.8.0/connect-api-3.8.0.jar
+Compiled from "SourceTask.java"
+public abstract class org.apache.kafka.connect.source.SourceTask implements org.apache.kafka.connect.connector.Task {
+  public static final java.lang.String TRANSACTION_BOUNDARY_CONFIG;
+  protected org.apache.kafka.connect.source.SourceTaskContext context;
+  public org.apache.kafka.connect.source.SourceTask();
+  public void initialize(org.apache.kafka.connect.source.SourceTaskContext);
+  public abstract void start(java.util.Map<java.lang.String, java.lang.String>);
+  public abstract java.util.List<org.apache.kafka.connect.source.SourceRecord> poll() throws java.lang.InterruptedException;
+  public void commit() throws java.lang.InterruptedException;
+  public abstract void stop();
+  public void commitRecord(org.apache.kafka.connect.source.SourceRecord) throws java.lang.InterruptedException;
+  public void commitRecord(org.apache.kafka.connect.source.SourceRecord, org.apache.kafka.clients.producer.RecordMetadata) throws java.lang.InterruptedException;
+}
+Compiled from "SourceConnector.java"
+public abstract class org.apache.kafka.connect.source.SourceConnector extends org.apache.kafka.connect.connector.Connector {
+  public org.apache.kafka.connect.source.SourceConnector();
+  protected org.apache.kafka.connect.source.SourceConnectorContext context();
+  public org.apache.kafka.connect.source.ExactlyOnceSupport exactlyOnceSupport(java.util.Map<java.lang.String, java.lang.String>);
+  public org.apache.kafka.connect.source.ConnectorTransactionBoundaries canDefineTransactionBoundaries(java.util.Map<java.lang.String, java.lang.String>);
+  public boolean alterOffsets(java.util.Map<java.lang.String, java.lang.String>, java.util.Map<java.util.Map<java.lang.String, ?>, java.util.Map<java.lang.String, ?>>);
+  protected org.apache.kafka.connect.connector.ConnectorContext context();
+}
+Compiled from "Connector.java"
+public abstract class org.apache.kafka.connect.connector.Connector implements org.apache.kafka.connect.components.Versioned {
+  protected org.apache.kafka.connect.connector.ConnectorContext context;
+  public org.apache.kafka.connect.connector.Connector();
+  public void initialize(org.apache.kafka.connect.connector.ConnectorContext);
+  public void initialize(org.apache.kafka.connect.connector.ConnectorContext, java.util.List<java.util.Map<java.lang.String, java.lang.String>>);
+  protected org.apache.kafka.connect.connector.ConnectorContext context();
+  public abstract void start(java.util.Map<java.lang.String, java.lang.String>);
+  public void reconfigure(java.util.Map<java.lang.String, java.lang.String>);
+  public abstract java.lang.Class<? extends org.apache.kafka.connect.connector.Task> taskClass();
+  public abstract java.util.List<java.util.Map<java.lang.String, java.lang.String>> taskConfigs(int);
+  public abstract void stop();
+  public org.apache.kafka.common.config.Config validate(java.util.Map<java.lang.String, java.lang.String>);
+  public abstract org.apache.kafka.common.config.ConfigDef config();
+}
