@@ -1,0 +1,61 @@
+# PowerShell path of the lab scripts (lab/experiments/powershell-path.ps1), 2026-10-22T21:33:34Z
+# Images: cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+=== reset.ps1
+Lab removed. Run lab\env\start.ps1 for a fresh environment.
+=== start.ps1 (also creates the lab accounts)
+ok: ASE finished first-boot init (READY)
+ok: Kafka healthy
+ok: Kafka Connect REST answers
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+Lab is up. Next: lab\env\register-connector.ps1, then lab\env\changes.ps1
+=== register-connector.ps1
+registered sybase-cdc-phoenix
+ok: connector task RUNNING
+ -------------- ------------- ------------ --------- 
+ retry timeout  60            10           10        
+(1 row affected)
+Replication Agent configuration changed for database 'phoenix_test'. The changes will take effect the next time the Replication Agent thread is started.
+(return status = 0)
+Replication Agent thread is started for database 'phoenix_test'.
+(return status = 0)
+{
+    "name":  "sybase-cdc-phoenix",
+    "connector":  {
+                      "state":  "RUNNING",
+                      "worker_id":  "connect:8083"
+                  },
+    "tasks":  [
+                  {
+                      "id":  0,
+                      "state":  "RUNNING",
+                      "worker_id":  "connect:8083"
+                  }
+              ],
+    "type":  "source"
+}
+=== sample-data.ps1
+The replication status for 'customer' is set to true, owner_off.
+(return status = 0)
+=== changes.ps1
+(1 row affected)
+(1 row affected)
+(1 row affected)
+(1 row affected)
+ payment_id            account_no                     amount                currency 
+ --------------------- ------------------------------ --------------------- -------- 
+                     1 ACC-1001                                      130.00 EUR      
+(1 row affected)
+=== consume.ps1 (payment)
+{"payment_id":"1"} | {"op":"c","before":null,"after":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T21:33:11.276"},"source":{"server":"MYSYBASE","db":"phoenix_test","owner":"dbo","table":"payment","xid":"000000000000166800144d5953594241534570686f656e69785f74657374","oqid":"00000000000016680001000b00160001000b00140000b4eb01632f2200000000","commit_oqid":"00000000000016680001000b00170001000b00140000b4eb01632f2200000000","commit_time":"2026-10-22T21:33:11.153","user":"cdc_app","seq":0,"txn_rows":1},"ts_ms":1792704791300}
+{"payment_id":"2"} | {"op":"c","before":null,"after":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD","created_at":"2026-10-22T21:33:11.290"},"source":{"server":"MYSYBASE","db":"phoenix_test","owner":"dbo","table":"payment","xid":"000000000000166800184d5953594241534570686f656e69785f74657374","oqid":"00000000000016680001000b00190001000b00180000b4eb01632f2200000000","commit_oqid":"00000000000016680001000b001a0001000b00180000b4eb01632f2200000000","commit_time":"2026-10-22T21:33:11.153","user":"cdc_app","seq":0,"txn_rows":1},"ts_ms":1792704791302}
+{"payment_id":"1"} | {"op":"u","before":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T21:33:11.276"},"after":{"payment_id":"1","account_no":"ACC-1001","amount":"130","currency":"EUR","created_at":"2026-10-22T21:33:11.276"},"source":{"server":"MYSYBASE","db":"phoenix_test","owner":"dbo","table":"payment","xid":"0000000000001668001b4d5953594241534570686f656e69785f74657374","oqid":"00000000000016680001000b001d0001000b001b0000b4eb01632f2200000000","commit_oqid":"00000000000016680001000b001e0001000b001b0000b4eb01632f2200000000","commit_time":"2026-10-22T21:33:11.153","user":"cdc_app","seq":0,"txn_rows":1},"ts_ms":1792704791445}
+{"payment_id":"2"} | {"op":"d","before":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD","created_at":"2026-10-22T21:33:11.290"},"after":null,"source":{"server":"MYSYBASE","db":"phoenix_test","owner":"dbo","table":"payment","xid":"0000000000001668001f4d5953594241534570686f656e69785f74657374","oqid":"00000000000016680001000b00200001000b001f0000b4eb01632f2200000000","commit_oqid":"00000000000016680001000b00210001000b001f0000b4eb01632f2200000000","commit_time":"2026-10-22T21:33:11.153","user":"cdc_app","seq":0,"txn_rows":1},"ts_ms":1792704791445}
+=== consume.ps1 rejects a bad topic name
+PASS: rejected
+=== accounts: app may insert, admin may not
+(1 row affected)
+PASS: cdc_admin is refused DML
+total: 66 s
+RESULT: all checks passed
+powershell-path exit=0

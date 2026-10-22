@@ -1,0 +1,30 @@
+<section>
+<h2 id="choosing-what-to-capture" data-keywords="table.include.list topic.prefix topic name maintenance user sp_setreptable filtering">Choosing what to capture</h2>
+<p>There are two filters between a table and a Kafka topic, and mixing them up is the most common reason for "I changed a row and nothing arrived".</p>
+
+<h3 id="capture-two">Two filters</h3>
+<ol>
+<li><b>In the database:</b> only tables marked with <code>sp_setreptable &lt;table&gt;, true</code> send changes at all.</li>
+<li><b>In the connector:</b> <code>table.include.list</code> lists which of those tables become topics. Empty means every marked table. The match ignores case.</li>
+</ol>
+<p>A table must pass both. The connector config used in the lab is <code>connectors/sybase-cdc-phoenix.json</code>; it starts with <code>"table.include.list": "payment"</code>.</p>
+
+<h3 id="capture-topics">Topic names</h3>
+<p>Each table gets its own topic named <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config that is <code>sybase.phoenix_test.payment</code>. The key of each record is the table's primary key columns, for example <code>{"payment_id":"1"}</code>, so all changes to one row go to the same partition in order.</p>
+
+<h3 id="capture-maint">One more filter: the maintenance user</h3>
+<p>The setting <code>database.maintenance.user</code> (default <code>cdc_maint</code>) names a login whose transactions RepAgent does not forward. In ordinary replication that login is the Replication Server's own writer, so its changes are not sent back in a loop. Here it is useful for the same reason: changes made by that login never appear in Kafka. I have not tested this setting in the lab (<em>not run</em>).</p>
+
+<h3 id="capture-changing">Changing the list later</h3>
+<p>You can change the list at any time with <code>lab/env/set-tables.sh payment,customer</code> (bash only: there is no PowerShell version, so on Windows run it in Git Bash). Two things to know, both shown in the next sections:</p>
+<ul>
+<li>The task restarts, and RepAgent can take a while to reconnect.</li>
+<li>Do not count on what happens to rows written <em>while a table was not on the list</em>. In my run such a row was delivered after I added the table, as a side effect of the restart; the next section explains what I know and what I did not verify.</li>
+</ul>
+
+<h3 id="capture-check">Check yourself</h3>
+<details class="check"><summary>1. A table is in <code>table.include.list</code> but was never marked with <code>sp_setreptable</code>. Will its changes appear?</summary>
+<p>No. The database never sends them, so there is nothing for the connector to filter.</p></details>
+<details class="check"><summary>2. What is the topic for table <code>customer</code> with the lab config?</summary>
+<p><code>sybase.phoenix_test.customer</code>.</p></details>
+</section>

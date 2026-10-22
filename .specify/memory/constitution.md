@@ -1,14 +1,13 @@
 <!--
 Sync Impact Report (temporary; remove before commit)
-- Version change: (blank template) → 1.0.0
-- Modified principles: none renamed; all five principles newly defined
-- Added sections: Core Principles I-V, Technical Constraints, Development Workflow & Quality Gates,
-  Governance
-- Removed sections: none
-- Deferred TODOs: none. RATIFICATION_DATE set to the adoption date (2026-10-22) because the
-  workspace is not a Git repository and holds no earlier record.
-- Inferred from: docs/PROGRESS.md, docs/COMPLETION.md, sybase-cdc-connector/pom.xml. The user
-  supplied no input, so please review these principles for fit.
+- Version change: 1.0.0 → 1.0.1 (PATCH: factual correction, no rule changed)
+- Modified principles: none. Principle V rationale sentence corrected (stale fact: "no Git history").
+- Modified sections: Development Workflow & Quality Gates, last bullet (stale fact: "no Git repository").
+- Added sections: none. Removed sections: none.
+- Unchanged on purpose: all principles and MUST/SHOULD rules, Technical Constraints, Governance, and the
+  Principle IV TLS/SASL requirement.
+- Reason: the workspace is now a Git repository (branch main, remote origin on GitHub).
+- Deferred TODOs: none.
 -->
 # Sybase CDC Connector Constitution
 
@@ -47,7 +46,8 @@ Every artifact (JAR, worker image, handbook, diagrams) MUST be rebuildable from 
 scripts and recorded commands (`build.sh`, `docs-src/build.js`, `Dockerfile.connect`).
 Generated files MUST NOT be hand-edited; change the source and rebuild. Deliverables SHOULD
 carry a checksum, and local links and anchors MUST pass the link check with zero problems.
-Rationale: there is no Git history here, so reproducibility is the only audit trail.
+Rationale: Git history records what changed, but only checked-in scripts and recorded commands can
+reproduce a deliverable, so reproducibility is the audit trail for it.
 
 ## Technical Constraints
 
@@ -65,8 +65,8 @@ Rationale: there is no Git history here, so reproducibility is the only audit tr
 - A change is done only when: unit tests pass, affected evidence is refreshed or flagged stale,
   affected handbook chapters are rebuilt, and the link check reports zero problems.
 - Test status in reports MUST list PASS, PARTIAL, and NOT RUN counts separately.
-- Because the workspace has no Git repository, significant changes SHOULD be recorded in
-  `docs/PROGRESS.md` with the date.
+- The workspace is a Git repository, so Git history records changes; significant changes SHOULD
+  still be recorded in `docs/PROGRESS.md` with the date.
 
 ## Governance
 
@@ -77,4 +77,4 @@ principles or materially expanded guidance, PATCH for clarifications. Plans and 
 check compliance with the principles above, and any deviation MUST be justified in writing in
 the plan's complexity or exceptions section. Principle I is non-negotiable and cannot be waived.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-22 | **Last Amended**: 2026-10-22
+**Version**: 1.0.1 | **Ratified**: 2026-10-22 | **Last Amended**: 2026-10-23

@@ -1,0 +1,12 @@
+# Captured: 2026-10-22T21:04:33Z
+# Command:  bash lab/experiments/multi-table-transaction.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+ok: new task listening
+table.include.list = payment,customer,ltl_types
+-- customer topic (fields that identify the transaction):
+"table":"customer" "xid":"0000000000001783002f4d5953594241534570686f656e69785f74657374" "commit_oqid":"00000000000017830001000d00320001000d002f0000b4eb015b592c00000000" "seq":0 "txn_rows":2 
+-- payment topic (fields that identify the transaction):
+"table":"payment" "xid":"0000000000001783002f4d5953594241534570686f656e69785f74657374" "commit_oqid":"00000000000017830001000d00320001000d002f0000b4eb015b592c00000000" "seq":1 "txn_rows":2 
+
+# exit code: 0

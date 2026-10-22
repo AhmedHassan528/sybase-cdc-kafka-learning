@@ -1,0 +1,49 @@
+<section>
+<h2 id="data-types" data-keywords="data types numeric decimal money datetime binary base64 null json string precision">Data types</h2>
+<p>CDC events travel as JSON, so every ASE type has to become a JSON value. The connector's choices are not obvious, and the wrong assumption silently loses precision. I tested one column of each common type; the experiment is <code>lab/experiments/data-types.sh</code> (bash only; on Windows run it in Git Bash) and the full output is in <a href="evidence/15-data-types.txt">evidence/15-data-types.txt</a>.</p>
+
+<h3 id="types-table">What each type becomes</h3>
+<div class="tbl"><table>
+<thead><tr><th>ASE type</th><th>Value inserted</th><th>JSON in Kafka</th><th>Kind</th></tr></thead>
+<tbody>
+<tr><td><code>tinyint</code></td><td>255</td><td><code>255</code></td><td>number</td></tr>
+<tr><td><code>smallint</code></td><td>-32768</td><td><code>-32768</code></td><td>number</td></tr>
+<tr><td><code>int</code> (key column <code>id</code>)</td><td>1</td><td><code>1</code></td><td>number</td></tr>
+<tr><td><code>bigint</code></td><td>9223372036854775807</td><td><code>9223372036854775807</code></td><td>number (exceeds 2<sup>53</sup>; see below)</td></tr>
+<tr><td><code>bit</code></td><td>1</td><td><code>1</code></td><td>number (0 or 1)</td></tr>
+<tr><td><code>numeric(18,4)</code></td><td>12345.6789</td><td><code>"12345.6789"</code></td><td>string</td></tr>
+<tr><td><code>decimal(10,0)</code></td><td>42</td><td><code>"42"</code></td><td>string</td></tr>
+<tr><td><code>money</code></td><td>1234.5678</td><td><code>"1234.5678"</code></td><td>string</td></tr>
+<tr><td><code>smallmoney</code></td><td>-12.34</td><td><code>"-12.3400"</code></td><td>string</td></tr>
+<tr><td><code>float</code></td><td>3.14159265358979</td><td><code>3.14159265358979</code></td><td>number</td></tr>
+<tr><td><code>real</code></td><td>2.5</td><td><code>2.5</code></td><td>number</td></tr>
+<tr><td><code>char(10)</code></td><td>abc</td><td><code>"abc"</code></td><td>string</td></tr>
+<tr><td><code>varchar</code></td><td><code>it's "quoted"</code></td><td><code>"it's \"quoted\""</code></td><td>string, escaped</td></tr>
+<tr><td><code>univarchar</code></td><td>uni</td><td><code>"uni"</code></td><td>string</td></tr>
+<tr><td><code>datetime</code></td><td>2026-10-20 13:45:56.123</td><td><code>"2026-10-20T13:45:56.123"</code></td><td>ISO-8601 text, no time zone</td></tr>
+<tr><td><code>smalldatetime</code></td><td>2026-10-20 13:45</td><td><code>"2026-10-20T13:45:00.000"</code></td><td>ISO-8601 text</td></tr>
+<tr><td><code>date</code></td><td>2026-10-20</td><td><code>"2026-10-20"</code></td><td>text</td></tr>
+<tr><td><code>time</code></td><td>13:45:56</td><td><code>"13:45:56.000"</code></td><td>text</td></tr>
+<tr><td><code>bigdatetime</code></td><td>2026-10-20 13:45:56.123456</td><td><code>"2026-10-20T13:45:56.123456"</code></td><td>ISO-8601 text, microseconds</td></tr>
+<tr><td><code>binary(4)</code></td><td>0x01020304</td><td><code>"AQIDBA=="</code></td><td>base64 text</td></tr>
+<tr><td><code>varbinary</code></td><td>0xdeadbeef</td><td><code>"3q2+7w=="</code></td><td>base64 text</td></tr>
+<tr><td>any, <code>NULL</code></td><td>NULL</td><td><code>null</code></td><td>null (<code>bit</code> columns cannot be null, so an unset one shows <code>0</code>)</td></tr>
+</tbody></table></div>
+
+<h3 id="types-why">Why exact decimals are strings</h3>
+<p>Numbers in JSON are usually read as 64-bit floating point. That cannot hold every <code>numeric(18,4)</code> or <code>money</code> value exactly, and money must not drift by a fraction of a cent. The connector therefore sends exact decimal types as strings and keeps their digits as ASE stored them: <code>smallmoney</code> -12.34 arrives as <code>"-12.3400"</code>, with the scale of the column. Convert them in your consumer with a decimal type, not a float.</p>
+<p>The same applies to a <code>numeric</code> primary key: the key in the first section is <code>{"payment_id":"1"}</code>, a string, because <code>payment_id</code> is <code>numeric(18,0)</code>.</p>
+<div class="note"><b>Watch out for <code>bigint</code>.</b> The connector writes it as a JSON number: <code>9223372036854775807</code>. A JavaScript consumer reads that as a float and rounds it. A Java or Python consumer is fine. I only checked what the connector writes; I did not run a JavaScript consumer (<em>not run</em>).</div>
+
+<h3 id="types-dates">Dates carry no time zone</h3>
+<p>Date and time values are written exactly as ASE holds them, with no zone or offset. The connector does not know the server's time zone, so a consumer must decide what zone those values mean. In the first section's output, <code>created_at</code> came from ASE's <code>getdate()</code> in the container's zone.</p>
+
+<h3 id="types-other">Types I did not test</h3>
+<p><code>text</code> and <code>image</code> columns, <code>unichar</code>, <code>unitext</code>, very long values, and character sets other than the default (<code>ltl.charset</code>) were <em>not run</em> in this lab. The original project's notes list garbled non-ASCII text as an anticipated problem when the character set is unknown; I have not reproduced it.</p>
+
+<h3 id="types-check">Check yourself</h3>
+<details class="check"><summary>1. A consumer reads <code>"c_money":"99.9900"</code> into a double and adds it to a total. What is the risk?</summary>
+<p>Floating point cannot represent all decimal amounts exactly, so totals can drift. Read it into a decimal type.</p></details>
+<details class="check"><summary>2. How would you get the bytes of <code>c_vbin</code> back?</summary>
+<p>Base64-decode the string: <code>"3q2+7w=="</code> is <code>0xdeadbeef</code>.</p></details>
+</section>

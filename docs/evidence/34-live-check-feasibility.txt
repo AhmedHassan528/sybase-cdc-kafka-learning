@@ -1,0 +1,26 @@
+# Captured: 2026-10-22T21:24:59Z
+# Command:  bash lab/experiments/live-check-feasibility.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 1. stop the connector so port 11752 is free
+"state":"STOPPED"
+== 2. start the probe inside the Connect container
+-- probe processes running: 2
+== 3. write one row (U1002500-1) and wait for the RepAgent to connect to the probe
+-- probe log lines (login, connect source, commands, committed transaction):
+[probe] login user=rs_user password-ok=true
+[probe] connect source MYSYBASE.phoenix_test LTL 760
+[probe] BEGIN    xid=000000000000186e00024d5953594241534570686f656e69785f74657374 oqid=000000000000186e0001000e00020001000e00020000b4eb015ea9470000000
+[probe] INSERT   xid=000000000000186e00024d5953594241534570686f656e69785f74657374 oqid=000000000000186e0001000e00030001000e00020000b4eb015ea9470000000
+[probe] COMMIT   xid=000000000000186e00024d5953594241534570686f656e69785f74657374 oqid=000000000000186e0001000e00040001000e00020000b4eb015ea9470000000
+[probe] ==> COMMITTED xid=000000000000186e00024d5953594241534570686f656e69785f74657374 rows=1 user=cdc_app commitOqid=000000000000186e0001000e00040001
+[probe] BEGIN    xid=000000000000186e00054d5953594241534570686f656e69785f74657374 oqid=000000000000186e0001000e00050001000e00050000b4eb015ea9470000000
+[probe] UPDATE   xid=000000000000186e00054d5953594241534570686f656e69785f74657374 oqid=000000000000186e0001000e00070001000e00050000b4eb015ea9470000000
+-- lines for the tagged row: 1
+== 4. stop the probe and resume the connector
+-- probe processes running: 0
+ok: connector task RUNNING
+connector delivers again: row U1002500-2 reached Kafka
+row U1002500-1 (seen by the probe) in Kafka after the connector resumed: 1
+
+# exit code: 0

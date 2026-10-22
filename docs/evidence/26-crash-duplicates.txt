@@ -1,0 +1,20 @@
+# Captured: 2026-10-22T21:42:12Z
+# Command:  bash lab/experiments/crash-duplicates.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== attempt 1: 5 rows (tag CR004213A1), kill 1 s after the commit
+ok: Kafka Connect REST answers again
+ok: connector task RUNNING
+events with tag CR004213A1: 11
+distinct source.oqid: 6   (distinct rows by account_no: 6)
+duplicated events:    5
+oqids seen more than once:
+  seen 2x  "oqid":"00000000000017940001000d008f0001000d008e0000b4eb0165ab3500000000"
+  seen 2x  "oqid":"00000000000017940001000d00920001000d00910000b4eb0165ab3500000000"
+  seen 2x  "oqid":"00000000000017940001000d00950001000d00940000b4eb0165ab3500000000"
+  seen 2x  "oqid":"00000000000017940001000d00980001000d00970000b4eb0165ab3500000000"
+  seen 2x  "oqid":"00000000000017940001000d009b0001000d009a0000b4eb0165ab3500000000"
+-- attempt 1: rows delivered 6 of 6, duplicated events 5
+== duplicate observed at attempt 1 (kill 1 s after the commit); stopping
+
+# exit code: 0

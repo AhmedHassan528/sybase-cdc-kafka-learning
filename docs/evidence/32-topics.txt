@@ -1,0 +1,10 @@
+# Topics of the lab after the experiments (referenced by article section 8), 2026-10-22T21:19:45Z
+# Commands: kafka-topics.sh --list (only topics starting with sybase), then --describe for each
+
+sybase.phoenix_test.customer
+sybase.phoenix_test.ltl_types
+sybase.phoenix_test.payment
+
+Topic: sybase.phoenix_test.customer	TopicId: V6ZcOJP-Q_SBjDCiv1GgDA	PartitionCount: 1	ReplicationFactor: 1	Configs: 
+Topic: sybase.phoenix_test.ltl_types	TopicId: QUgDuIrBSpGneaLCoUZmbg	PartitionCount: 1	ReplicationFactor: 1	Configs: 
+Topic: sybase.phoenix_test.payment	TopicId: uVDzPTSGRkKjeI5kqd66Kw	PartitionCount: 1	ReplicationFactor: 1	Configs: 

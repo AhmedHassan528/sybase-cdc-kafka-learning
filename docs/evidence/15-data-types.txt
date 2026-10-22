@@ -1,0 +1,11 @@
+# Captured: 2026-10-22T21:00:51Z
+# Command:  bash lab/experiments/data-types.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+ok: new task listening
+table.include.list = payment,customer,ltl_types
+{"id":1} | {"op":"c","before":null,"after":{"id":1,"c_tiny":255,"c_small":-32768,"c_big":9223372036854775807,"c_bit":1,"c_num":"12345.6789","c_dec":"42","c_money":"1234.5678","c_smoney":"-12.3400","c_float":3.14159265358979,"c_real":2.5,"c_char":"abc","c_vchar":"it's \"quoted\"","c_uvchar":"uni","c_dt":"2026-10-20T13:45:56.123","c_sdt":"2026-10-20T13:45:00.000","c_date":"2026-10-20","c_time":"13:45:56.000","c_bdt":"2026-10-20T13:45:56.123456","c_bin":"AQIDBA==","c_vbin":"3q2+7w=="},"ts_ms":1792702870190}
+{"id":2} | {"op":"c","before":null,"after":{"id":2,"c_tiny":null,"c_small":null,"c_big":null,"c_bit":0,"c_num":null,"c_dec":null,"c_money":null,"c_smoney":null,"c_float":null,"c_real":null,"c_char":null,"c_vchar":null,"c_uvchar":null,"c_dt":null,"c_sdt":null,"c_date":null,"c_time":null,"c_bdt":null,"c_bin":null,"c_vbin":null},"ts_ms":1792702870190}
+{"id":1} | {"op":"u","before":{"id":1,"c_tiny":255,"c_small":-32768,"c_big":9223372036854775807,"c_bit":1,"c_num":"12345.6789","c_dec":"42","c_money":"1234.5678","c_smoney":"-12.3400","c_float":3.14159265358979,"c_real":2.5,"c_char":"abc","c_vchar":"it's \"quoted\"","c_uvchar":"uni","c_dt":"2026-10-20T13:45:56.123","c_sdt":"2026-10-20T13:45:00.000","c_date":"2026-10-20","c_time":"13:45:56.000","c_bdt":"2026-10-20T13:45:56.123456","c_bin":"AQIDBA==","c_vbin":"3q2+7w=="},"after":{"id":1,"c_tiny":255,"c_small":-32768,"c_big":9223372036854775807,"c_bit":1,"c_num":"12345.6789","c_dec":"42","c_money":"99.9900","c_smoney":"-12.3400","c_float":3.14159265358979,"c_real":2.5,"c_char":"abc","c_vchar":"updated","c_uvchar":"uni","c_dt":"2026-10-20T13:45:56.123","c_sdt":"2026-10-20T13:45:00.000","c_date":"2026-10-20","c_time":"13:45:56.000","c_bdt":"2026-10-20T13:45:56.123456","c_bin":"AQIDBA==","c_vbin":"3q2+7w=="},"ts_ms":1792702870190}
+
+# exit code: 0

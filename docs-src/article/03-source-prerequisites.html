@@ -1,0 +1,28 @@
+<section>
+<h2 id="source-prerequisites" data-keywords="ase repagent sp_config_rep_agent sp_setreptable interfaces prerequisites">Source database prerequisites</h2>
+<p>The connector cannot read a database that has not been prepared. ASE only streams changes when four things are in place. The lab does all four for you at first boot; here is what each one does, so you can recognise the symptom when one is missing.</p>
+
+<h3 id="source-four">The four preparations</h3>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Preparation</th><th>Where it is done</th><th>Why it is needed</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Enable RepAgent threads: <code>sp_configure 'enable rep agent threads', 1</code></td><td><code>sybase/01_setup.sql</code></td><td>Turns on the RepAgent feature server-wide.</td></tr>
+<tr><td>2</td><td>Mark each table you want: <code>sp_setreptable payment, true</code></td><td><code>sybase/01_setup.sql</code></td><td>Only marked tables have their changes sent. Unmarked tables are invisible to CDC.</td></tr>
+<tr><td>3</td><td>Point RepAgent at the connector: <code>sp_config_rep_agent phoenix_test, 'enable', 'CDC_RS', 'rs_user', 'rs_password'</code></td><td><code>sybase/02_repagent.sql</code></td><td>Names the fake Replication Server and the login it will use. This also sets the point up to which ASE keeps its log until we acknowledge.</td></tr>
+<tr><td>4</td><td>Add the <code>CDC_RS</code> entry to the ASE <em>interfaces</em> file: host <code>connect</code>, port <code>11752</code></td><td><code>sybase/start.sh</code></td><td>RepAgent finds the connector by looking up this name.</td></tr>
+</tbody></table></div>
+<p>Then one more step the first time only: start the RepAgent <em>after</em> the connector is listening, with <code>sp_start_rep_agent phoenix_test</code>. In the lab that is done by <code>lab/env/register-connector.sh</code>.</p>
+
+<h3 id="source-log">Why the log matters</h3>
+<p>ASE keeps log records until RepAgent says it has delivered them. If the connector is down, the log grows. The lab database enables <code>trunc log on chkpt</code> so ASE can still trim the log up to the point we have acknowledged; the script <code>sybase/03_log_threshold.sql</code> adds a threshold that raises an alert before the log fills. In a real system you must watch this: a stuck connector can eventually fill the log.</p>
+
+<h3 id="source-version">What this lab runs</h3>
+<p>The ASE image is <code>datagrip/sybase</code>, which reports <code>Adaptive Server Enterprise/16.0 SP02 PL02</code>, Developer Edition (see <a href="evidence/08-ase-facts.txt">evidence/08-ase-facts.txt</a>). A newer ASE (SP04 PL07 HF1 is the target of the original project) has <em>not been run</em> here; anything version-specific in this article is marked.</p>
+<div class="note"><b>Lab-only shortcut.</b> The lab sets <code>net password encryption</code> to <code>false</code> so the connector can check a plain login. Real systems should not do this. TLS and password encryption against the connector were <em>not run</em>.</div>
+
+<h3 id="source-check">Check yourself</h3>
+<details class="check"><summary>1. You insert a row into a table and nothing shows up in Kafka. Which two preparations would you check first?</summary>
+<p>Whether the table was marked with <code>sp_setreptable</code>, and whether the RepAgent is running and connected (<code>sp_help_rep_agent phoenix_test, 'process'</code>).</p></details>
+<details class="check"><summary>2. Why is the RepAgent started after the connector, not before?</summary>
+<p>RepAgent connects to the connector as soon as it starts. If the connector is not listening yet, the connection is refused and RepAgent stops its thread and waits for an administrator.</p></details>
+</section>

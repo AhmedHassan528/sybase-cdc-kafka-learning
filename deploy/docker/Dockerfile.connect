@@ -3,7 +3,7 @@
 #   docker build -f deploy/docker/Dockerfile.connect -t sybase-cdc-connect:0.1.0 .
 # For IBM Event Streams use its own base image instead (see the OpenShift chapter):
 #   FROM cp.icr.io/cp/ibm-eventstreams-kafka:<version>  and copy to /opt/kafka/plugins/
-FROM apache/kafka:3.8.0
+FROM apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
 
 # One directory per plugin under the plugin path; Connect gives each its own class loader.
 COPY plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar /opt/connectors/sybase-cdc/

@@ -1,0 +1,59 @@
+<section>
+<h2 id="why-no-data" data-keywords="troubleshooting no events nothing arrives symptom diagnosis repagent retry paused table.include.list">Why is there no data?</h2>
+<p>You changed a row and the topic stays empty. This section is organised by symptom. Two of the cases are reproduced with scripts in <code>lab/experiments/</code> and their output is real. Those scripts and <code>await-event.sh</code> are bash only; on Windows run them in Git Bash. The others come from the original project and are marked so you know which is which.</p>
+
+<h3 id="nodata-layers">Find the layer first</h3>
+<p>A change passes through seven places. Check them in order; the first one that is wrong is your problem.</p>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Place</th><th>Healthy when</th><th>Command</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Containers</td><td>all four running</td><td><code>docker ps</code></td></tr>
+<tr><td>2</td><td>Kafka</td><td>broker answers</td><td><code>docker exec cdc-lab-kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092</code></td></tr>
+<tr><td>3</td><td>Connector task</td><td><code>RUNNING</code></td><td><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/status</code></td></tr>
+<tr><td>4</td><td>Connector is listening</td><td>log line <code>LTL server listening on 0.0.0.0:11752</code></td><td><code>docker logs cdc-lab-connect</code></td></tr>
+<tr><td>5</td><td>RepAgent connected</td><td>log line <code>RepAgent connected from ...</code></td><td><code>docker logs cdc-lab-connect</code></td></tr>
+<tr><td>6</td><td>Table marked</td><td>marked for replication</td><td><code>sp_setreptable payment</code> (without <code>true</code>, it reports the status)</td></tr>
+<tr><td>7</td><td>Connector filter</td><td>table in <code>table.include.list</code></td><td><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/config</code></td></tr>
+</tbody></table></div>
+<div class="note"><b>Do not trust the RepAgent status alone.</b> The ASE command <code>sp_help_rep_agent phoenix_test, 'process'</code> showed <code>sleeping</code> with <code>retry_count 0</code> in the experiment below, while the connector was paused and nothing was being delivered. ASE does not notice a dead connection until it next sends something.</div>
+
+<h3 id="nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</h3>
+<p><b>Cause:</b> the table is not in <code>table.include.list</code>.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/no-data-table-not-included.sh</code> removes <code>customer</code> from the list, inserts a row, waits 60 seconds, and then adds <code>customer</code> back. Full output: <a href="evidence/16-no-data-table-not-included.txt">evidence/16-no-data-table-not-included.txt</a>.</p>
+<p><b>What I saw:</b> with <code>customer</code> missing from the list, no event arrived within 60 seconds. After I added <code>customer</code> and wrote a second row, <em>both</em> rows arrived, with the same <code>ts_ms</code>. So the row written while the table was missing was not lost in this run.</p>
+<p><b>Why, as far as I can tell:</b> from reading <code>SybaseCdcSourceTask.java</code>, a transaction whose rows are all filtered out still moves the acknowledgement watermark reported to ASE, but Kafka Connect only stores an offset for rows that were actually published. After the restart that the config change causes, ASE can send those rows again, and this time they pass the filter. I read this in the code; I did not run a separate test that proves it. Do not rely on either outcome: if you need a table, put it on the list <em>before</em> its changes happen.</p>
+<p><b>Fix:</b> <code>lab/env/set-tables.sh payment,customer</code>, then make a new change and wait for it with <code>lab/env/await-event.sh</code>.</p>
+
+<h3 id="nodata-paused">Symptom: nothing arrives while the connector is not running</h3>
+<p><b>Cause:</b> the connector task is paused, failed or restarting. ASE keeps its log; the changes are not lost.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/no-data-connector-paused.sh</code> pauses the connector, inserts a row, waits 30 seconds, then resumes. Output: <a href="evidence/17-no-data-connector-paused.txt">evidence/17-no-data-connector-paused.txt</a>.</p>
+<p><b>What I saw:</b></p>
+<ul>
+<li>Status while paused: <code>connector=PAUSED task=PAUSED</code>, and no event after 30 seconds.</li>
+<li>ASE's view at the same time: <code>sleeping</code>, <code>retry_count 0</code>, <code>last_error 0</code>. Nothing looked wrong from ASE.</li>
+<li>After resuming, the event arrived <b>8 seconds</b> later. That is about the 10-second <code>retry timeout</code> the lab sets for the RepAgent. With ASE's default of 60 seconds you would wait about a minute or longer.</li>
+</ul>
+<p><b>Fix:</b> resume or repair the connector. Nothing needs replaying.</p>
+
+<h3 id="nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</h3>
+<p><b>Cause:</b> a config change restarts the task, which closes the connection from RepAgent. ASE notices only when it next has something to send. In the connector log you see <code>LTL server on port 11752 stopped</code> and then <code>LTL server listening</code>, and the line <code>RepAgent connected</code> appears only after the next change. In the ASE error log the same moment shows <code>RepAgent(4): Received the following communications error message ... network packet layer</code>, which is ASE finding the old connection dead.</p>
+<p><b>Fix:</b> none needed; it is expected. The lab sets <code>retry timeout</code> to 10 seconds so the wait is short (the original project saw minutes with the default). In scripts, write a change and wait for it with <code>await-event.sh</code> instead of waiting for a reconnect that will not happen on its own.</p>
+
+<h3 id="nodata-others">Other symptoms (from the original project; not re-run in this lab)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Symptom (exact text)</th><th>Cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>ASE error log: <code>Msg 4002. Login failed for user 'rs_user'.</code></td><td>User or password differs from <code>sp_config_rep_agent</code>, or ASE sends an encrypted password while <code>net password encryption</code> is true.</td><td>Align the connector config with <code>sp_config_rep_agent</code>; the lab sets <code>net password encryption</code> to false.</td></tr>
+<tr><td>Plugin missing from <code>/connector-plugins</code></td><td>The JAR is not in its own folder under <code>plugin.path</code> when the worker starts.</td><td>Put it in <code>/opt/connectors/sybase-cdc/</code> and restart the worker.</td></tr>
+<tr><td>Task failed: <code>Address already in use</code></td><td>Two connectors, or an old task, hold port 11752.</td><td>One connector per port.</td></tr>
+<tr><td>A table never shows up</td><td>Not marked with <code>sp_setreptable</code>.</td><td><code>sp_setreptable &lt;table&gt;, true</code></td></tr>
+<tr><td>The same events appear twice</td><td>At-least-once delivery after a restart.</td><td>Expected. See "Reliability experiments".</td></tr>
+</tbody></table></div>
+<p>The full list with evidence is in the engineering handbook, chapter "Troubleshooting guide" (<a href="index.html#ch-troubleshooting">index.html</a>).</p>
+
+<h3 id="nodata-check">Check yourself</h3>
+<details class="check"><summary>1. The connector is paused and ASE's RepAgent status looks healthy. Where do you look next?</summary>
+<p>At the connector: its status through the Connect REST API and its log. ASE does not know the connection is dead until it sends.</p></details>
+<details class="check"><summary>2. You add a table to <code>table.include.list</code>. Is it safe to assume rows written earlier will appear?</summary>
+<p>No. In my run they did, but the reason is a side effect of the restart. Add tables to the list before their data changes.</p></details>
+</section>

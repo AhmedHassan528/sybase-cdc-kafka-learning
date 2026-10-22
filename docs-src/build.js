@@ -1,5 +1,6 @@
 // Builds docs/index.html from docs-src/chapters/*.html (in file-name order).
-//   node docs-src/build.js
+//   node docs-src/build.js            -> docs/index.html (engineering handbook, from docs-src/chapters)
+//   node docs-src/build.js article    -> docs/article.html (learning article, from docs-src/article)
 // - <h2 id="..."> become numbered chapters; <h2>/<h3> with ids form the table of contents.
 // - <figure-diagram src="NN-name" n="NN" title="..."> ...explanation... </figure-diagram>
 //     embeds docs/diagrams/src/svg/NN-name.svg and links the editable .drawio source.
@@ -8,8 +9,12 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const CH = path.join(__dirname, 'chapters');
-const OUT = path.join(ROOT, 'docs', 'index.html');
+const MODE = process.argv[2] === 'article' ? 'article' : 'handbook';
+const CH = path.join(__dirname, MODE === 'article' ? 'article' : 'chapters');
+const OUT = path.join(ROOT, 'docs', MODE === 'article' ? 'article.html' : 'index.html');
+const META = MODE === 'article'
+  ? { title: 'Building a Sybase ASE to Kafka CDC Connector', desc: 'A hands-on deep dive: run a change data capture pipeline from Sybase ASE to Kafka, then build the connector step by step.', brand: 'Sybase ASE → Kafka CDC<small>Hands-on deep dive</small>' }
+  : { title: 'Sybase CDC Handbook', desc: 'Knowledge transfer for the custom Sybase ASE RepAgent to Kafka Connect CDC connector: architecture, protocol, code, build, tests, deployment and operations.', brand: 'Sybase ASE → Kafka CDC<small>Engineering handbook · connector 0.1.0</small>' };
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const strip = s => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
@@ -72,15 +77,15 @@ const page = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sybase CDC Handbook</title>
-<meta name="description" content="Knowledge transfer for the custom Sybase ASE RepAgent to Kafka Connect CDC connector: architecture, protocol, code, build, tests, deployment and operations.">
+<title>${META.title}</title>
+<meta name="description" content="${META.desc}">
 <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
 <details class="mobile-toc"><summary>Contents</summary><input type="search" placeholder="Filter chapters…" data-toc-filter aria-label="Filter chapters">${tocHtml}</details>
 <div class="layout">
 <nav class="sidebar" aria-label="Table of contents">
-<div class="brand">Sybase ASE → Kafka CDC<small>Engineering handbook · connector 0.1.0</small></div>
+<div class="brand">${META.brand}</div>
 <input type="search" placeholder="Filter chapters… (e.g. offset, 4047)" data-toc-filter aria-label="Filter chapters">
 ${tocHtml}
 </nav>
@@ -93,4 +98,4 @@ ${html}
 </html>
 `;
 fs.writeFileSync(OUT, page);
-console.log(`docs/index.html: ${chapter} chapters, ${toc.length} TOC entries, ${(page.length / 1024).toFixed(0)} KB`);
+console.log(`${path.relative(ROOT, OUT)}: ${chapter} chapters, ${toc.length} TOC entries, ${(page.length / 1024).toFixed(0)} KB`);

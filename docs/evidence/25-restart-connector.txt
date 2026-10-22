@@ -1,0 +1,14 @@
+# Captured: 2026-10-22T21:13:19Z
+# Command:  bash lab/experiments/restart-connector.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== writing 30 rows (tag RS001320) in the background, one transaction each
+== restarting the connect container while the writer is still running
+ok: Kafka Connect REST answers again
+== all 30 rows are committed in ASE; waiting for delivery
+== result
+events with tag RS001320: 30
+distinct source.oqid: 30   (distinct rows by account_no: 30)
+duplicated events:    0
+
+# exit code: 0

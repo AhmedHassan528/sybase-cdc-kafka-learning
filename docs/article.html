@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building a Sybase ASE to Kafka CDC Connector</title>
+<meta name="description" content="A hands-on deep dive: run a change data capture pipeline from Sybase ASE to Kafka, then build the connector step by step.">
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<details class="mobile-toc"><summary>Contents</summary><input type="search" placeholder="Filter chapters…" data-toc-filter aria-label="Filter chapters"><ul class="toc"><li data-keywords="introduction cdc change data capture overview"><a href="#introduction"><span class="num">1</span>Introduction</a></li>
+<li class="sub" data-keywords=""><a href="#intro-path">The path of one change</a></li>
+<li class="sub" data-keywords=""><a href="#intro-promise">What the pipeline promises, and what it does not</a></li>
+<li class="sub" data-keywords=""><a href="#intro-how">How to use this article</a></li>
+<li class="sub" data-keywords=""><a href="#intro-check">Check yourself</a></li>
+<li data-keywords="setup docker compose start lab prerequisites first event quickstart"><a href="#try-it-at-home"><span class="num">2</span>Try it at home</a></li>
+<li class="sub" data-keywords=""><a href="#try-prereqs">What you need</a></li>
+<li class="sub" data-keywords=""><a href="#try-start">Step 1. Start the lab</a></li>
+<li class="sub" data-keywords=""><a href="#try-register">Step 2. Register the connector</a></li>
+<li class="sub" data-keywords=""><a href="#try-changes">Step 3. Change some rows</a></li>
+<li class="sub" data-keywords=""><a href="#try-consume">Step 4. Read the events from Kafka</a></li>
+<li class="sub" data-keywords=""><a href="#try-reset">Starting over</a></li>
+<li class="sub" data-keywords=""><a href="#try-check">Check yourself</a></li>
+<li data-keywords="ase repagent sp_config_rep_agent sp_setreptable interfaces prerequisites"><a href="#source-prerequisites"><span class="num">3</span>Source database prerequisites</a></li>
+<li class="sub" data-keywords=""><a href="#source-four">The four preparations</a></li>
+<li class="sub" data-keywords=""><a href="#source-log">Why the log matters</a></li>
+<li class="sub" data-keywords=""><a href="#source-version">What this lab runs</a></li>
+<li class="sub" data-keywords=""><a href="#source-check">Check yourself</a></li>
+<li data-keywords="table.include.list topic.prefix topic name maintenance user sp_setreptable filtering"><a href="#choosing-what-to-capture"><span class="num">4</span>Choosing what to capture</a></li>
+<li class="sub" data-keywords=""><a href="#capture-two">Two filters</a></li>
+<li class="sub" data-keywords=""><a href="#capture-topics">Topic names</a></li>
+<li class="sub" data-keywords=""><a href="#capture-maint">One more filter: the maintenance user</a></li>
+<li class="sub" data-keywords=""><a href="#capture-changing">Changing the list later</a></li>
+<li class="sub" data-keywords=""><a href="#capture-check">Check yourself</a></li>
+<li data-keywords=""><a href="#build-along"><span class="num">5</span>How changes are read and delivered</a></li>
+<li data-keywords="troubleshooting no events nothing arrives symptom diagnosis repagent retry paused table.include.list"><a href="#why-no-data"><span class="num">6</span>Why is there no data?</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-layers">Find the layer first</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-paused">Symptom: nothing arrives while the connector is not running</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-others">Other symptoms (from the original project; not re-run in this lab)</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-check">Check yourself</a></li>
+<li data-keywords=""><a href="#reset-and-restart"><span class="num">7</span>Resetting and restarting from a chosen point</a></li>
+<li data-keywords="message key primary key topic name topic.prefix partition ordering converter json"><a href="#keys-and-topics"><span class="num">8</span>Message keys and topic naming</a></li>
+<li class="sub" data-keywords=""><a href="#keys-topic">Topic: one per table</a></li>
+<li class="sub" data-keywords=""><a href="#keys-key">Key: the primary key columns</a></li>
+<li class="sub" data-keywords=""><a href="#keys-delete">A delete is an event, not a tombstone</a></li>
+<li class="sub" data-keywords=""><a href="#keys-check">Check yourself</a></li>
+<li data-keywords="data types numeric decimal money datetime binary base64 null json string precision"><a href="#data-types"><span class="num">9</span>Data types</a></li>
+<li class="sub" data-keywords=""><a href="#types-table">What each type becomes</a></li>
+<li class="sub" data-keywords=""><a href="#types-why">Why exact decimals are strings</a></li>
+<li class="sub" data-keywords=""><a href="#types-dates">Dates carry no time zone</a></li>
+<li class="sub" data-keywords=""><a href="#types-other">Types I did not test</a></li>
+<li class="sub" data-keywords=""><a href="#types-check">Check yourself</a></li>
+<li data-keywords="multiple tables transaction xid commit_oqid topic per table include list customer payment"><a href="#multiple-tables"><span class="num">10</span>Multiple tables</a></li>
+<li class="sub" data-keywords=""><a href="#multi-add">Add a second table</a></li>
+<li class="sub" data-keywords=""><a href="#multi-txn">One transaction, two topics</a></li>
+<li class="sub" data-keywords=""><a href="#multi-limits">What this does not give you</a></li>
+<li class="sub" data-keywords=""><a href="#multi-check">Check yourself</a></li>
+<li data-keywords=""><a href="#reliability"><span class="num">11</span>Reliability experiments</a></li>
+<li data-keywords=""><a href="#where-next"><span class="num">12</span>Where to go from here</a></li></ul></details>
+<div class="layout">
+<nav class="sidebar" aria-label="Table of contents">
+<div class="brand">Sybase ASE → Kafka CDC<small>Hands-on deep dive</small></div>
+<input type="search" placeholder="Filter chapters… (e.g. offset, 4047)" data-toc-filter aria-label="Filter chapters">
+<ul class="toc"><li data-keywords="introduction cdc change data capture overview"><a href="#introduction"><span class="num">1</span>Introduction</a></li>
+<li class="sub" data-keywords=""><a href="#intro-path">The path of one change</a></li>
+<li class="sub" data-keywords=""><a href="#intro-promise">What the pipeline promises, and what it does not</a></li>
+<li class="sub" data-keywords=""><a href="#intro-how">How to use this article</a></li>
+<li class="sub" data-keywords=""><a href="#intro-check">Check yourself</a></li>
+<li data-keywords="setup docker compose start lab prerequisites first event quickstart"><a href="#try-it-at-home"><span class="num">2</span>Try it at home</a></li>
+<li class="sub" data-keywords=""><a href="#try-prereqs">What you need</a></li>
+<li class="sub" data-keywords=""><a href="#try-start">Step 1. Start the lab</a></li>
+<li class="sub" data-keywords=""><a href="#try-register">Step 2. Register the connector</a></li>
+<li class="sub" data-keywords=""><a href="#try-changes">Step 3. Change some rows</a></li>
+<li class="sub" data-keywords=""><a href="#try-consume">Step 4. Read the events from Kafka</a></li>
+<li class="sub" data-keywords=""><a href="#try-reset">Starting over</a></li>
+<li class="sub" data-keywords=""><a href="#try-check">Check yourself</a></li>
+<li data-keywords="ase repagent sp_config_rep_agent sp_setreptable interfaces prerequisites"><a href="#source-prerequisites"><span class="num">3</span>Source database prerequisites</a></li>
+<li class="sub" data-keywords=""><a href="#source-four">The four preparations</a></li>
+<li class="sub" data-keywords=""><a href="#source-log">Why the log matters</a></li>
+<li class="sub" data-keywords=""><a href="#source-version">What this lab runs</a></li>
+<li class="sub" data-keywords=""><a href="#source-check">Check yourself</a></li>
+<li data-keywords="table.include.list topic.prefix topic name maintenance user sp_setreptable filtering"><a href="#choosing-what-to-capture"><span class="num">4</span>Choosing what to capture</a></li>
+<li class="sub" data-keywords=""><a href="#capture-two">Two filters</a></li>
+<li class="sub" data-keywords=""><a href="#capture-topics">Topic names</a></li>
+<li class="sub" data-keywords=""><a href="#capture-maint">One more filter: the maintenance user</a></li>
+<li class="sub" data-keywords=""><a href="#capture-changing">Changing the list later</a></li>
+<li class="sub" data-keywords=""><a href="#capture-check">Check yourself</a></li>
+<li data-keywords=""><a href="#build-along"><span class="num">5</span>How changes are read and delivered</a></li>
+<li data-keywords="troubleshooting no events nothing arrives symptom diagnosis repagent retry paused table.include.list"><a href="#why-no-data"><span class="num">6</span>Why is there no data?</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-layers">Find the layer first</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-paused">Symptom: nothing arrives while the connector is not running</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-others">Other symptoms (from the original project; not re-run in this lab)</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-check">Check yourself</a></li>
+<li data-keywords=""><a href="#reset-and-restart"><span class="num">7</span>Resetting and restarting from a chosen point</a></li>
+<li data-keywords="message key primary key topic name topic.prefix partition ordering converter json"><a href="#keys-and-topics"><span class="num">8</span>Message keys and topic naming</a></li>
+<li class="sub" data-keywords=""><a href="#keys-topic">Topic: one per table</a></li>
+<li class="sub" data-keywords=""><a href="#keys-key">Key: the primary key columns</a></li>
+<li class="sub" data-keywords=""><a href="#keys-delete">A delete is an event, not a tombstone</a></li>
+<li class="sub" data-keywords=""><a href="#keys-check">Check yourself</a></li>
+<li data-keywords="data types numeric decimal money datetime binary base64 null json string precision"><a href="#data-types"><span class="num">9</span>Data types</a></li>
+<li class="sub" data-keywords=""><a href="#types-table">What each type becomes</a></li>
+<li class="sub" data-keywords=""><a href="#types-why">Why exact decimals are strings</a></li>
+<li class="sub" data-keywords=""><a href="#types-dates">Dates carry no time zone</a></li>
+<li class="sub" data-keywords=""><a href="#types-other">Types I did not test</a></li>
+<li class="sub" data-keywords=""><a href="#types-check">Check yourself</a></li>
+<li data-keywords="multiple tables transaction xid commit_oqid topic per table include list customer payment"><a href="#multiple-tables"><span class="num">10</span>Multiple tables</a></li>
+<li class="sub" data-keywords=""><a href="#multi-add">Add a second table</a></li>
+<li class="sub" data-keywords=""><a href="#multi-txn">One transaction, two topics</a></li>
+<li class="sub" data-keywords=""><a href="#multi-limits">What this does not give you</a></li>
+<li class="sub" data-keywords=""><a href="#multi-check">Check yourself</a></li>
+<li data-keywords=""><a href="#reliability"><span class="num">11</span>Reliability experiments</a></li>
+<li data-keywords=""><a href="#where-next"><span class="num">12</span>Where to go from here</a></li></ul>
+</nav>
+<main>
+
+<!-- 01-introduction.html -->
+<section>
+<h2 id="introduction" data-keywords="introduction cdc change data capture overview"><span class="chno">1.</span>Introduction</h2>
+<p>A payment lands in a database. A minute later, three other systems want to know about it: fraud detection, a reporting store, a notification service. You can ask the database every few seconds what changed (polling), or you can read the one place where the database already writes down every change: its transaction log. That second approach is <em>change data capture</em>, or CDC.</p>
+<p>In this article I build a CDC pipeline from <b>SAP/Sybase ASE</b> to <b>Apache Kafka</b>, and I show you how to build it yourself. First we run a working pipeline on your own machine and watch real events appear. Then we rebuild the connector in six checkpoints, each with tests, so you see why every piece exists.</p>
+
+<h3 id="intro-path">The path of one change</h3>
+<p>Here is the whole journey in five stops. We will meet each one again later with real commands and output.</p>
+<ol>
+<li><b>The application commits a row change.</b> ASE writes it to its transaction log first, before it counts as durable.</li>
+<li><b>RepAgent reads the log.</b> RepAgent is a thread inside ASE. It is built to feed a <em>Replication Server</em>, and it sends changes in a text-like format called LTL (Log Transfer Language) over the TDS protocol.</li>
+<li><b>Our connector pretends to be that Replication Server.</b> We register a fake server name, <code>CDC_RS</code>, in the ASE interfaces file and point it at the connector's port <code>11752</code>. RepAgent connects, logs in, and streams LTL to us. No real Replication Server is involved.</li>
+<li><b>The connector holds rows until COMMIT.</b> RepAgent forwards changes of transactions that are still open, and even of ones that later roll back. The connector buffers them and publishes a transaction only when its commit arrives.</li>
+<li><b>Kafka stores the events, then we acknowledge.</b> Only after Kafka has the events does the connector tell ASE it may discard that part of its log.</li>
+</ol>
+
+<figure class="diagram" id="fig-02">
+<div class="img"><a href="diagrams/src/svg/02-cdc-data-flow.svg" title="Open full size"><img src="diagrams/src/svg/02-cdc-data-flow.svg" alt="End-to-end flow of one committed row change" loading="lazy"></a></div>
+<figcaption><span class="fig-title">Figure 2. End-to-end flow of one committed row change</span> · <a href="diagrams/src/02-cdc-data-flow.drawio">editable draw.io source</a> · <a href="diagrams/src/svg/02-cdc-data-flow.svg">full size</a>
+
+<p><b>How to read it:</b> follow the numbers. Nothing reaches Kafka before the commit step; a rollback ends the path early and publishes nothing.</p>
+</figcaption></figure>
+
+<h3 id="intro-promise">What the pipeline promises, and what it does not</h3>
+<p>The promise is <b>at-least-once delivery</b>: no committed change is lost, even if the connector or the network fails in the middle. The price is that after a restart some changes can arrive <em>again</em>. Every event carries an id, <code>source.oqid</code>, that lets a consumer spot the repeat. The reliability section later demonstrates this with a restart and shows the duplicates it produces. I do not claim exactly-once delivery, because that would be a different (and harder) design.</p>
+
+<h3 id="intro-how">How to use this article</h3>
+<ul>
+<li><b>Read straight through</b> for the full story, or jump to a section when something breaks. The section "Why is there no data?" is organised by symptom.</li>
+<li><b>Run everything.</b> Every command here has a script in <code>lab/</code>. Output blocks are real captures; the file they came from is linked under each one. Where I have not run something, I say <em>not run</em>.</li>
+<li><b>Skip ahead to build</b> once you have seen the pipeline work. The build-along starts from an empty project and reaches the same result.</li>
+</ul>
+
+<h3 id="intro-check">Check yourself</h3>
+<details class="check"><summary>1. Why does the connector buffer rows instead of publishing each one as it arrives?</summary>
+<p>RepAgent sends changes of transactions that are not committed yet, and some of them roll back. Publishing early would show consumers changes that never really happened. The connector publishes a transaction only after its COMMIT.</p></details>
+<details class="check"><summary>2. What does "at-least-once" mean for a consumer?</summary>
+<p>Nothing committed is lost, but after a restart the same change can be delivered again. Consumers need to tolerate repeats, for example by remembering the <code>source.oqid</code> of events they have processed.</p></details>
+</section>
+
+
+<!-- 02-try-it-at-home.html -->
+<section>
+<h2 id="try-it-at-home" data-keywords="setup docker compose start lab prerequisites first event quickstart"><span class="chno">2.</span>Try it at home</h2>
+<p>Before we explain anything, let us watch a change travel from ASE to Kafka. With the container images already on my machine, the whole sequence below took <b>125 seconds</b> from a clean reset to the fourth event (measured in <a href="evidence/19-section2-dry-run.txt">evidence/19</a>); expect longer on the first run, which I have not measured. Every step ends with a <b>check</b>: if the check does not match, stop and read "Why is there no data?" before going on.</p>
+
+<h3 id="try-prereqs">What you need</h3>
+<ul>
+<li><b>Knowledge:</b> basic SQL, a command line, and (for the build-along) basic Java.</li>
+<li><b>Software:</b> Docker with Compose, Java 17 and Maven 3.9 or newer (build-along only), Node.js 18 or newer (only to rebuild this article).</li>
+<li><b>Resources:</b> about 15 GB of free disk and 8 GB of RAM. The ASE image alone is about 9 GB on disk. I did not measure a first-time image download on a clean machine, so I cannot give you a download time.</li>
+<li><b>Licence:</b> the ASE image is the Developer Edition published as <code>datagrip/sybase</code>. You use it under its own terms. It was last built in 2019 and runs an ASE build from 2015, so it is for learning only.</li>
+</ul>
+<p>All commands are run from the repository root. The scripts used in this section (<code>start</code>, <code>register-connector</code>, <code>changes</code>, <code>consume</code>, <code>reset</code>) and <code>sample-data</code> also exist as <code>.ps1</code> for Windows PowerShell; I ran them from a clean lab (<a href="evidence/22-powershell-path.txt">evidence/22</a>). The output below was captured with the <code>.sh</code> versions in Git Bash. The helper scripts used in later sections (<code>set-tables</code>, <code>await-event</code>) and everything in <code>lab/experiments/</code> exist only as bash scripts, so on Windows run those in Git Bash.</p>
+
+<h3 id="try-start">Step 1. Start the lab</h3>
+<pre data-lang="bash"><code>lab/env/start.sh</code></pre>
+<p>This starts four containers: ASE (<code>cdc-lab-sybase</code>), Kafka (<code>cdc-lab-kafka</code>), Kafka Connect with our connector (<code>cdc-lab-connect</code>) and Kafka UI (<code>cdc-lab-kafka-ui</code>). On first boot ASE creates the database <code>phoenix_test</code> and the table <code>payment</code> from the scripts in <code>sybase/</code>.</p>
+<p><b>Accounts and exposure.</b> Besides creating the database, <code>start.sh</code> creates two ASE logins with a random password each, kept in the git-ignored file <code>lab/env/.lab-secrets</code>: <code>cdc_admin</code>, which holds only <code>replication_role</code> and is used to configure and start the RepAgent, and <code>cdc_app</code>, which can only read and change the sample tables and is used for the scripted changes. The <code>sa</code> login is used only for one-time setup. Every port the lab publishes is bound to <code>127.0.0.1</code>, so nothing is reachable from other machines. This is a local learning lab: TLS and SASL were <em>not performed</em> and nothing here claims production security. The tests behind these statements are in <a href="evidence/21-lab-security.txt">evidence/21-lab-security.txt</a> (78 checks, all passed).</p>
+<p><b>Check:</b> the script ends with these lines:</p>
+<pre><code>ok: ASE finished first-boot init (READY)
+ok: Kafka healthy
+ok: Kafka Connect REST answers
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+Lab is up. Next: lab/env/register-connector.sh, then lab/env/changes.sh</code></pre>
+<p>Then <code>docker ps</code> should list four <code>cdc-lab-*</code> containers. You can also open Kafka UI at <a href="http://localhost:8080">http://localhost:8080</a>.</p>
+
+<h3 id="try-register">Step 2. Register the connector</h3>
+<pre data-lang="bash"><code>lab/env/register-connector.sh</code></pre>
+<p>This posts <code>connectors/sybase-cdc-phoenix.json</code> to Kafka Connect and then starts the RepAgent inside ASE. The order matters: the connector must be listening before RepAgent starts (see "Source database prerequisites").</p>
+<p><b>Check:</b> the connector and its task are <code>RUNNING</code>, and ASE says the RepAgent thread started. Before that you will also see ASE confirm the RepAgent <code>retry timeout</code> setting (<code>10</code>); the lab lowers it from 60 so reconnects are quick:</p>
+<pre><code>Replication Agent thread is started for database 'phoenix_test'.
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING",...},"tasks":[{"id":0,"state":"RUNNING",...}],"type":"source"}</code></pre>
+
+<h3 id="try-changes">Step 3. Change some rows</h3>
+<pre data-lang="bash"><code>lab/env/changes.sh</code></pre>
+<p>The script runs <code>lab/env/changes.sql</code>: two inserts, one update and one delete on <code>payment</code>.</p>
+<p><b>Check:</b> ASE prints <code>(1 row affected)</code> four times, then the remaining rows of the table.</p>
+
+<h3 id="try-consume">Step 4. Read the events from Kafka</h3>
+<pre data-lang="bash"><code>lab/env/consume.sh</code></pre>
+<p><b>Check:</b> you see four events, one per change, in this order. Each line is <code>key | value</code>. I have shortened the <code>source</code> block here; the full lines are in <a href="evidence/14-lab-first-event.txt">evidence/14-lab-first-event.txt</a>.</p>
+<pre><code>{"payment_id":"1"} | {"op":"c","before":null,"after":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T20:12:45.593"},"source":{...},"ts_ms":...}
+{"payment_id":"2"} | {"op":"c","before":null,"after":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD",...},"source":{...},"ts_ms":...}
+{"payment_id":"1"} | {"op":"u","before":{...,"amount":"125.5",...},"after":{...,"amount":"130",...},"source":{...},"ts_ms":...}
+{"payment_id":"2"} | {"op":"d","before":{"payment_id":"2",...,"amount":"80",...},"after":null,"source":{...},"ts_ms":...}</code></pre>
+<p>Read one line carefully:</p>
+<ul>
+<li><code>op</code> is <code>c</code> (create, an insert), <code>u</code> (update) or <code>d</code> (delete).</li>
+<li><code>before</code> is the row before the change (updates and deletes). <code>after</code> is the row after it (inserts and updates). The one that does not apply is <code>null</code>.</li>
+<li><code>source</code> says where the change came from, including <code>oqid</code>, the unique, ordered id of this change. We use it later to spot duplicates.</li>
+<li>The key is the table's primary key. It is quoted as a string because the column is <code>numeric</code>; the data types section explains why.</li>
+</ul>
+
+<h3 id="try-reset">Starting over</h3>
+<p>To get a clean lab, run <code>lab/env/reset.sh</code>. It removes the four <code>cdc-lab-*</code> containers and their data. The next <code>start.sh</code> creates everything again. A faster reset that keeps the containers is not built yet.</p>
+
+<h3 id="try-check">Check yourself</h3>
+<details class="check"><summary>1. In Step 4 the update event has both <code>before</code> and <code>after</code>. Why is that useful to a consumer?</summary>
+<p>The consumer can see exactly which column changed and what the old value was, without keeping its own copy of the row.</p></details>
+<details class="check"><summary>2. Why does Step 2 register the connector before it starts the RepAgent?</summary>
+<p>RepAgent connects to the connector as soon as it starts. If nothing is listening yet, the connection fails and RepAgent stops.</p></details>
+</section>
+
+
+<!-- 03-source-prerequisites.html -->
+<section>
+<h2 id="source-prerequisites" data-keywords="ase repagent sp_config_rep_agent sp_setreptable interfaces prerequisites"><span class="chno">3.</span>Source database prerequisites</h2>
+<p>The connector cannot read a database that has not been prepared. ASE only streams changes when four things are in place. The lab does all four for you at first boot; here is what each one does, so you can recognise the symptom when one is missing.</p>
+
+<h3 id="source-four">The four preparations</h3>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Preparation</th><th>Where it is done</th><th>Why it is needed</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Enable RepAgent threads: <code>sp_configure 'enable rep agent threads', 1</code></td><td><code>sybase/01_setup.sql</code></td><td>Turns on the RepAgent feature server-wide.</td></tr>
+<tr><td>2</td><td>Mark each table you want: <code>sp_setreptable payment, true</code></td><td><code>sybase/01_setup.sql</code></td><td>Only marked tables have their changes sent. Unmarked tables are invisible to CDC.</td></tr>
+<tr><td>3</td><td>Point RepAgent at the connector: <code>sp_config_rep_agent phoenix_test, 'enable', 'CDC_RS', 'rs_user', 'rs_password'</code></td><td><code>sybase/02_repagent.sql</code></td><td>Names the fake Replication Server and the login it will use. This also sets the point up to which ASE keeps its log until we acknowledge.</td></tr>
+<tr><td>4</td><td>Add the <code>CDC_RS</code> entry to the ASE <em>interfaces</em> file: host <code>connect</code>, port <code>11752</code></td><td><code>sybase/start.sh</code></td><td>RepAgent finds the connector by looking up this name.</td></tr>
+</tbody></table></div>
+<p>Then one more step the first time only: start the RepAgent <em>after</em> the connector is listening, with <code>sp_start_rep_agent phoenix_test</code>. In the lab that is done by <code>lab/env/register-connector.sh</code>.</p>
+
+<h3 id="source-log">Why the log matters</h3>
+<p>ASE keeps log records until RepAgent says it has delivered them. If the connector is down, the log grows. The lab database enables <code>trunc log on chkpt</code> so ASE can still trim the log up to the point we have acknowledged; the script <code>sybase/03_log_threshold.sql</code> adds a threshold that raises an alert before the log fills. In a real system you must watch this: a stuck connector can eventually fill the log.</p>
+
+<h3 id="source-version">What this lab runs</h3>
+<p>The ASE image is <code>datagrip/sybase</code>, which reports <code>Adaptive Server Enterprise/16.0 SP02 PL02</code>, Developer Edition (see <a href="evidence/08-ase-facts.txt">evidence/08-ase-facts.txt</a>). A newer ASE (SP04 PL07 HF1 is the target of the original project) has <em>not been run</em> here; anything version-specific in this article is marked.</p>
+<div class="note"><b>Lab-only shortcut.</b> The lab sets <code>net password encryption</code> to <code>false</code> so the connector can check a plain login. Real systems should not do this. TLS and password encryption against the connector were <em>not run</em>.</div>
+
+<h3 id="source-check">Check yourself</h3>
+<details class="check"><summary>1. You insert a row into a table and nothing shows up in Kafka. Which two preparations would you check first?</summary>
+<p>Whether the table was marked with <code>sp_setreptable</code>, and whether the RepAgent is running and connected (<code>sp_help_rep_agent phoenix_test, 'process'</code>).</p></details>
+<details class="check"><summary>2. Why is the RepAgent started after the connector, not before?</summary>
+<p>RepAgent connects to the connector as soon as it starts. If the connector is not listening yet, the connection is refused and RepAgent stops its thread and waits for an administrator.</p></details>
+</section>
+
+
+<!-- 04-choosing-what-to-capture.html -->
+<section>
+<h2 id="choosing-what-to-capture" data-keywords="table.include.list topic.prefix topic name maintenance user sp_setreptable filtering"><span class="chno">4.</span>Choosing what to capture</h2>
+<p>There are two filters between a table and a Kafka topic, and mixing them up is the most common reason for "I changed a row and nothing arrived".</p>
+
+<h3 id="capture-two">Two filters</h3>
+<ol>
+<li><b>In the database:</b> only tables marked with <code>sp_setreptable &lt;table&gt;, true</code> send changes at all.</li>
+<li><b>In the connector:</b> <code>table.include.list</code> lists which of those tables become topics. Empty means every marked table. The match ignores case.</li>
+</ol>
+<p>A table must pass both. The connector config used in the lab is <code>connectors/sybase-cdc-phoenix.json</code>; it starts with <code>"table.include.list": "payment"</code>.</p>
+
+<h3 id="capture-topics">Topic names</h3>
+<p>Each table gets its own topic named <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config that is <code>sybase.phoenix_test.payment</code>. The key of each record is the table's primary key columns, for example <code>{"payment_id":"1"}</code>, so all changes to one row go to the same partition in order.</p>
+
+<h3 id="capture-maint">One more filter: the maintenance user</h3>
+<p>The setting <code>database.maintenance.user</code> (default <code>cdc_maint</code>) names a login whose transactions RepAgent does not forward. In ordinary replication that login is the Replication Server's own writer, so its changes are not sent back in a loop. Here it is useful for the same reason: changes made by that login never appear in Kafka. I have not tested this setting in the lab (<em>not run</em>).</p>
+
+<h3 id="capture-changing">Changing the list later</h3>
+<p>You can change the list at any time with <code>lab/env/set-tables.sh payment,customer</code> (bash only: there is no PowerShell version, so on Windows run it in Git Bash). Two things to know, both shown in the next sections:</p>
+<ul>
+<li>The task restarts, and RepAgent can take a while to reconnect.</li>
+<li>Do not count on what happens to rows written <em>while a table was not on the list</em>. In my run such a row was delivered after I added the table, as a side effect of the restart; the next section explains what I know and what I did not verify.</li>
+</ul>
+
+<h3 id="capture-check">Check yourself</h3>
+<details class="check"><summary>1. A table is in <code>table.include.list</code> but was never marked with <code>sp_setreptable</code>. Will its changes appear?</summary>
+<p>No. The database never sends them, so there is nothing for the connector to filter.</p></details>
+<details class="check"><summary>2. What is the topic for table <code>customer</code> with the lab config?</summary>
+<p><code>sybase.phoenix_test.customer</code>.</p></details>
+</section>
+
+
+<!-- 05-build-along.html -->
+<section>
+<h2 id="build-along"><span class="chno">5.</span>How changes are read and delivered</h2>
+<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+</section>
+
+
+<!-- 06-why-no-data.html -->
+<section>
+<h2 id="why-no-data" data-keywords="troubleshooting no events nothing arrives symptom diagnosis repagent retry paused table.include.list"><span class="chno">6.</span>Why is there no data?</h2>
+<p>You changed a row and the topic stays empty. This section is organised by symptom. Two of the cases are reproduced with scripts in <code>lab/experiments/</code> and their output is real. Those scripts and <code>await-event.sh</code> are bash only; on Windows run them in Git Bash. The others come from the original project and are marked so you know which is which.</p>
+
+<h3 id="nodata-layers">Find the layer first</h3>
+<p>A change passes through seven places. Check them in order; the first one that is wrong is your problem.</p>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>Place</th><th>Healthy when</th><th>Command</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Containers</td><td>all four running</td><td><code>docker ps</code></td></tr>
+<tr><td>2</td><td>Kafka</td><td>broker answers</td><td><code>docker exec cdc-lab-kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092</code></td></tr>
+<tr><td>3</td><td>Connector task</td><td><code>RUNNING</code></td><td><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/status</code></td></tr>
+<tr><td>4</td><td>Connector is listening</td><td>log line <code>LTL server listening on 0.0.0.0:11752</code></td><td><code>docker logs cdc-lab-connect</code></td></tr>
+<tr><td>5</td><td>RepAgent connected</td><td>log line <code>RepAgent connected from ...</code></td><td><code>docker logs cdc-lab-connect</code></td></tr>
+<tr><td>6</td><td>Table marked</td><td>marked for replication</td><td><code>sp_setreptable payment</code> (without <code>true</code>, it reports the status)</td></tr>
+<tr><td>7</td><td>Connector filter</td><td>table in <code>table.include.list</code></td><td><code>curl -s localhost:8083/connectors/sybase-cdc-phoenix/config</code></td></tr>
+</tbody></table></div>
+<div class="note"><b>Do not trust the RepAgent status alone.</b> The ASE command <code>sp_help_rep_agent phoenix_test, 'process'</code> showed <code>sleeping</code> with <code>retry_count 0</code> in the experiment below, while the connector was paused and nothing was being delivered. ASE does not notice a dead connection until it next sends something.</div>
+
+<h3 id="nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</h3>
+<p><b>Cause:</b> the table is not in <code>table.include.list</code>.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/no-data-table-not-included.sh</code> removes <code>customer</code> from the list, inserts a row, waits 60 seconds, and then adds <code>customer</code> back. Full output: <a href="evidence/16-no-data-table-not-included.txt">evidence/16-no-data-table-not-included.txt</a>.</p>
+<p><b>What I saw:</b> with <code>customer</code> missing from the list, no event arrived within 60 seconds. After I added <code>customer</code> and wrote a second row, <em>both</em> rows arrived, with the same <code>ts_ms</code>. So the row written while the table was missing was not lost in this run.</p>
+<p><b>Why, as far as I can tell:</b> from reading <code>SybaseCdcSourceTask.java</code>, a transaction whose rows are all filtered out still moves the acknowledgement watermark reported to ASE, but Kafka Connect only stores an offset for rows that were actually published. After the restart that the config change causes, ASE can send those rows again, and this time they pass the filter. I read this in the code; I did not run a separate test that proves it. Do not rely on either outcome: if you need a table, put it on the list <em>before</em> its changes happen.</p>
+<p><b>Fix:</b> <code>lab/env/set-tables.sh payment,customer</code>, then make a new change and wait for it with <code>lab/env/await-event.sh</code>.</p>
+
+<h3 id="nodata-paused">Symptom: nothing arrives while the connector is not running</h3>
+<p><b>Cause:</b> the connector task is paused, failed or restarting. ASE keeps its log; the changes are not lost.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/no-data-connector-paused.sh</code> pauses the connector, inserts a row, waits 30 seconds, then resumes. Output: <a href="evidence/17-no-data-connector-paused.txt">evidence/17-no-data-connector-paused.txt</a>.</p>
+<p><b>What I saw:</b></p>
+<ul>
+<li>Status while paused: <code>connector=PAUSED task=PAUSED</code>, and no event after 30 seconds.</li>
+<li>ASE's view at the same time: <code>sleeping</code>, <code>retry_count 0</code>, <code>last_error 0</code>. Nothing looked wrong from ASE.</li>
+<li>After resuming, the event arrived <b>8 seconds</b> later. That is about the 10-second <code>retry timeout</code> the lab sets for the RepAgent. With ASE's default of 60 seconds you would wait about a minute or longer.</li>
+</ul>
+<p><b>Fix:</b> resume or repair the connector. Nothing needs replaying.</p>
+
+<h3 id="nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</h3>
+<p><b>Cause:</b> a config change restarts the task, which closes the connection from RepAgent. ASE notices only when it next has something to send. In the connector log you see <code>LTL server on port 11752 stopped</code> and then <code>LTL server listening</code>, and the line <code>RepAgent connected</code> appears only after the next change. In the ASE error log the same moment shows <code>RepAgent(4): Received the following communications error message ... network packet layer</code>, which is ASE finding the old connection dead.</p>
+<p><b>Fix:</b> none needed; it is expected. The lab sets <code>retry timeout</code> to 10 seconds so the wait is short (the original project saw minutes with the default). In scripts, write a change and wait for it with <code>await-event.sh</code> instead of waiting for a reconnect that will not happen on its own.</p>
+
+<h3 id="nodata-others">Other symptoms (from the original project; not re-run in this lab)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Symptom (exact text)</th><th>Cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>ASE error log: <code>Msg 4002. Login failed for user 'rs_user'.</code></td><td>User or password differs from <code>sp_config_rep_agent</code>, or ASE sends an encrypted password while <code>net password encryption</code> is true.</td><td>Align the connector config with <code>sp_config_rep_agent</code>; the lab sets <code>net password encryption</code> to false.</td></tr>
+<tr><td>Plugin missing from <code>/connector-plugins</code></td><td>The JAR is not in its own folder under <code>plugin.path</code> when the worker starts.</td><td>Put it in <code>/opt/connectors/sybase-cdc/</code> and restart the worker.</td></tr>
+<tr><td>Task failed: <code>Address already in use</code></td><td>Two connectors, or an old task, hold port 11752.</td><td>One connector per port.</td></tr>
+<tr><td>A table never shows up</td><td>Not marked with <code>sp_setreptable</code>.</td><td><code>sp_setreptable &lt;table&gt;, true</code></td></tr>
+<tr><td>The same events appear twice</td><td>At-least-once delivery after a restart.</td><td>Expected. See "Reliability experiments".</td></tr>
+</tbody></table></div>
+<p>The full list with evidence is in the engineering handbook, chapter "Troubleshooting guide" (<a href="index.html#ch-troubleshooting">index.html</a>).</p>
+
+<h3 id="nodata-check">Check yourself</h3>
+<details class="check"><summary>1. The connector is paused and ASE's RepAgent status looks healthy. Where do you look next?</summary>
+<p>At the connector: its status through the Connect REST API and its log. ASE does not know the connection is dead until it sends.</p></details>
+<details class="check"><summary>2. You add a table to <code>table.include.list</code>. Is it safe to assume rows written earlier will appear?</summary>
+<p>No. In my run they did, but the reason is a side effect of the restart. Add tables to the list before their data changes.</p></details>
+</section>
+
+
+<!-- 07-reset-and-restart.html -->
+<section>
+<h2 id="reset-and-restart"><span class="chno">7.</span>Resetting and restarting from a chosen point</h2>
+<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+</section>
+
+
+<!-- 08-keys-and-topics.html -->
+<section>
+<h2 id="keys-and-topics" data-keywords="message key primary key topic name topic.prefix partition ordering converter json"><span class="chno">8.</span>Message keys and topic naming</h2>
+<p>Two choices shape how consumers use your events: which topic a change goes to, and which key it carries. The connector makes both choices for you, and you can see them in the output from the first section.</p>
+
+<h3 id="keys-topic">Topic: one per table</h3>
+<p>The topic is <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config (<code>"topic.prefix": "sybase"</code>, database <code>phoenix_test</code>) the topics I saw were:</p>
+<pre><code>sybase.phoenix_test.customer
+sybase.phoenix_test.ltl_types
+sybase.phoenix_test.payment</code></pre>
+<p>(listed with <code>kafka-topics.sh --list</code> in <a href="evidence/32-topics.txt">evidence/32</a>). I did not create or configure these topics, so they have the broker defaults: the same file shows <b>one partition</b> and replication factor 1 for each. That is fine for a single-broker lab and is not a production setting. I did not check whether the connector or one of my own consumer scripts created each topic first, so I make no claim about automatic topic creation by the connector.</p>
+<p>Changing <code>topic.prefix</code> changes the names of all topics. I did not run that change in the lab (<em>not run</em>); if you change it on a running pipeline, consumers must switch topics.</p>
+
+<h3 id="keys-key">Key: the primary key columns</h3>
+<p>The key of each record holds the primary key columns that RepAgent flags, as JSON:</p>
+<pre><code>{"payment_id":"1"}  | {"op":"c", ...}
+{"payment_id":"1"}  | {"op":"u", ...}
+{"payment_id":"2"}  | {"op":"d", ...}</code></pre>
+<p>All changes to the same row carry the same key. Kafka sends records with the same key to the same partition, so a consumer sees the changes to one row <em>in order</em>. With only one partition, as here, that is true for the whole topic. If a table has no primary key, the connector sets no key (from <code>ChangeEventMapper.key()</code>; I did not test it, <em>not run</em>).</p>
+<p>The key and the value are written as JSON <b>without a schema</b>: the connector config sets <code>key.converter.schemas.enable</code> and <code>value.converter.schemas.enable</code> to <code>false</code>. Consumers must know the shape of the data; the data types section lists it.</p>
+
+<h3 id="keys-delete">A delete is an event, not a tombstone</h3>
+<p>A delete produces a normal record with <code>"op":"d"</code>, the old row in <code>before</code>, and <code>after</code> set to <code>null</code>. It does not produce a Kafka tombstone (a record with a null value). A consumer that builds a table from a topic must handle <code>d</code> itself.</p>
+
+<h3 id="keys-check">Check yourself</h3>
+<details class="check"><summary>1. Two updates to the same row land in a topic with several partitions. Can a consumer see them out of order?</summary>
+<p>No. Both carry the same key, so they go to the same partition, and a partition keeps its order.</p></details>
+<details class="check"><summary>2. A consumer reads a delete event and sees <code>after: null</code>. Where is the data of the deleted row?</summary>
+<p>In <code>before</code>.</p></details>
+</section>
+
+
+<!-- 09-data-types.html -->
+<section>
+<h2 id="data-types" data-keywords="data types numeric decimal money datetime binary base64 null json string precision"><span class="chno">9.</span>Data types</h2>
+<p>CDC events travel as JSON, so every ASE type has to become a JSON value. The connector's choices are not obvious, and the wrong assumption silently loses precision. I tested one column of each common type; the experiment is <code>lab/experiments/data-types.sh</code> (bash only; on Windows run it in Git Bash) and the full output is in <a href="evidence/15-data-types.txt">evidence/15-data-types.txt</a>.</p>
+
+<h3 id="types-table">What each type becomes</h3>
+<div class="tbl"><table>
+<thead><tr><th>ASE type</th><th>Value inserted</th><th>JSON in Kafka</th><th>Kind</th></tr></thead>
+<tbody>
+<tr><td><code>tinyint</code></td><td>255</td><td><code>255</code></td><td>number</td></tr>
+<tr><td><code>smallint</code></td><td>-32768</td><td><code>-32768</code></td><td>number</td></tr>
+<tr><td><code>int</code> (key column <code>id</code>)</td><td>1</td><td><code>1</code></td><td>number</td></tr>
+<tr><td><code>bigint</code></td><td>9223372036854775807</td><td><code>9223372036854775807</code></td><td>number (exceeds 2<sup>53</sup>; see below)</td></tr>
+<tr><td><code>bit</code></td><td>1</td><td><code>1</code></td><td>number (0 or 1)</td></tr>
+<tr><td><code>numeric(18,4)</code></td><td>12345.6789</td><td><code>"12345.6789"</code></td><td>string</td></tr>
+<tr><td><code>decimal(10,0)</code></td><td>42</td><td><code>"42"</code></td><td>string</td></tr>
+<tr><td><code>money</code></td><td>1234.5678</td><td><code>"1234.5678"</code></td><td>string</td></tr>
+<tr><td><code>smallmoney</code></td><td>-12.34</td><td><code>"-12.3400"</code></td><td>string</td></tr>
+<tr><td><code>float</code></td><td>3.14159265358979</td><td><code>3.14159265358979</code></td><td>number</td></tr>
+<tr><td><code>real</code></td><td>2.5</td><td><code>2.5</code></td><td>number</td></tr>
+<tr><td><code>char(10)</code></td><td>abc</td><td><code>"abc"</code></td><td>string</td></tr>
+<tr><td><code>varchar</code></td><td><code>it's "quoted"</code></td><td><code>"it's \"quoted\""</code></td><td>string, escaped</td></tr>
+<tr><td><code>univarchar</code></td><td>uni</td><td><code>"uni"</code></td><td>string</td></tr>
+<tr><td><code>datetime</code></td><td>2026-10-20 13:45:56.123</td><td><code>"2026-10-20T13:45:56.123"</code></td><td>ISO-8601 text, no time zone</td></tr>
+<tr><td><code>smalldatetime</code></td><td>2026-10-20 13:45</td><td><code>"2026-10-20T13:45:00.000"</code></td><td>ISO-8601 text</td></tr>
+<tr><td><code>date</code></td><td>2026-10-20</td><td><code>"2026-10-20"</code></td><td>text</td></tr>
+<tr><td><code>time</code></td><td>13:45:56</td><td><code>"13:45:56.000"</code></td><td>text</td></tr>
+<tr><td><code>bigdatetime</code></td><td>2026-10-20 13:45:56.123456</td><td><code>"2026-10-20T13:45:56.123456"</code></td><td>ISO-8601 text, microseconds</td></tr>
+<tr><td><code>binary(4)</code></td><td>0x01020304</td><td><code>"AQIDBA=="</code></td><td>base64 text</td></tr>
+<tr><td><code>varbinary</code></td><td>0xdeadbeef</td><td><code>"3q2+7w=="</code></td><td>base64 text</td></tr>
+<tr><td>any, <code>NULL</code></td><td>NULL</td><td><code>null</code></td><td>null (<code>bit</code> columns cannot be null, so an unset one shows <code>0</code>)</td></tr>
+</tbody></table></div>
+
+<h3 id="types-why">Why exact decimals are strings</h3>
+<p>Numbers in JSON are usually read as 64-bit floating point. That cannot hold every <code>numeric(18,4)</code> or <code>money</code> value exactly, and money must not drift by a fraction of a cent. The connector therefore sends exact decimal types as strings and keeps their digits as ASE stored them: <code>smallmoney</code> -12.34 arrives as <code>"-12.3400"</code>, with the scale of the column. Convert them in your consumer with a decimal type, not a float.</p>
+<p>The same applies to a <code>numeric</code> primary key: the key in the first section is <code>{"payment_id":"1"}</code>, a string, because <code>payment_id</code> is <code>numeric(18,0)</code>.</p>
+<div class="note"><b>Watch out for <code>bigint</code>.</b> The connector writes it as a JSON number: <code>9223372036854775807</code>. A JavaScript consumer reads that as a float and rounds it. A Java or Python consumer is fine. I only checked what the connector writes; I did not run a JavaScript consumer (<em>not run</em>).</div>
+
+<h3 id="types-dates">Dates carry no time zone</h3>
+<p>Date and time values are written exactly as ASE holds them, with no zone or offset. The connector does not know the server's time zone, so a consumer must decide what zone those values mean. In the first section's output, <code>created_at</code> came from ASE's <code>getdate()</code> in the container's zone.</p>
+
+<h3 id="types-other">Types I did not test</h3>
+<p><code>text</code> and <code>image</code> columns, <code>unichar</code>, <code>unitext</code>, very long values, and character sets other than the default (<code>ltl.charset</code>) were <em>not run</em> in this lab. The original project's notes list garbled non-ASCII text as an anticipated problem when the character set is unknown; I have not reproduced it.</p>
+
+<h3 id="types-check">Check yourself</h3>
+<details class="check"><summary>1. A consumer reads <code>"c_money":"99.9900"</code> into a double and adds it to a total. What is the risk?</summary>
+<p>Floating point cannot represent all decimal amounts exactly, so totals can drift. Read it into a decimal type.</p></details>
+<details class="check"><summary>2. How would you get the bytes of <code>c_vbin</code> back?</summary>
+<p>Base64-decode the string: <code>"3q2+7w=="</code> is <code>0xdeadbeef</code>.</p></details>
+</section>
+
+
+<!-- 10-multiple-tables.html -->
+<section>
+<h2 id="multiple-tables" data-keywords="multiple tables transaction xid commit_oqid topic per table include list customer payment"><span class="chno">10.</span>Multiple tables</h2>
+<p>So far we watched one table. Real databases change several tables in one transaction, and consumers of different topics then need to know those events belong together.</p>
+
+<h3 id="multi-add">Add a second table</h3>
+<pre data-lang="bash"><code>lab/env/sample-data.sh
+lab/env/set-tables.sh payment,customer</code></pre>
+<p><code>sample-data.sh</code> (PowerShell: <code>sample-data.ps1</code>) creates the table <code>customer</code> and marks it for replication. <code>set-tables.sh</code> (bash only, no PowerShell version) adds it to <code>table.include.list</code>. The task restarts, so the next change is delayed by the RepAgent reconnect, as explained in "Why is there no data?".</p>
+<p><b>Check:</b> after you insert a customer row, a topic <code>sybase.phoenix_test.customer</code> has one event with <code>"table":"customer"</code> in its source block.</p>
+
+<h3 id="multi-txn">One transaction, two topics</h3>
+<p>The experiment <code>lab/experiments/multi-table-transaction.sh</code> (bash only; on Windows run it in Git Bash) runs this in one transaction:</p>
+<pre data-lang="sql"><code>begin tran
+insert into customer (full_name, country) values ('TXN...', 'EG')
+insert into payment (account_no, amount, currency) values ('TXN...', 42.00, 'EUR')
+commit tran</code></pre>
+<p>Result (fields picked from the two events; full output in <a href="evidence/18-multi-table-transaction.txt">evidence/18-multi-table-transaction.txt</a>):</p>
+<div class="tbl"><table>
+<thead><tr><th>Topic</th><th><code>source.xid</code></th><th><code>source.commit_oqid</code></th><th><code>seq</code></th><th><code>txn_rows</code></th></tr></thead>
+<tbody>
+<tr><td><code>sybase.phoenix_test.customer</code></td><td><code>…1783002f4d59…</code></td><td><code>…1783…0032…</code></td><td>0</td><td>2</td></tr>
+<tr><td><code>sybase.phoenix_test.payment</code></td><td><code>…1783002f4d59…</code></td><td><code>…1783…0032…</code></td><td>1</td><td>2</td></tr>
+</tbody></table></div>
+<p>Both events carry the <b>same <code>xid</code> and the same <code>commit_oqid</code></b>. <code>seq</code> gives their order inside the transaction (0, then 1) and <code>txn_rows</code> says the transaction had two row changes in total. A consumer that wants the whole transaction can group events from several topics by <code>xid</code>. Here both tables are on the include list, so the two events match <code>txn_rows</code> of 2; see the caveat below before using that as a check.</p>
+
+<h3 id="multi-limits">What this does not give you</h3>
+<ul>
+<li><b>No ordering between topics.</b> Kafka only orders records inside a partition. The two events above are in different topics, so a consumer may see the payment before the customer. Use <code>seq</code> if the order matters.</li>
+<li><b><code>txn_rows</code> counts every row of the transaction, not only the published ones.</b> From <code>ChangeEventMapper.java</code> and <code>SybaseCdcSourceTask.java</code>: <code>txn_rows</code> is the size of the whole transaction, including rows of tables that are not on the include list, while <code>seq</code> numbers only the rows that were published. With an include list, a consumer may therefore see fewer events than <code>txn_rows</code> says. I read this in the code and did not run a test for it (<em>not run</em>); do not use <code>txn_rows</code> as a completeness check unless every table of the transaction is on the list.</li>
+<li><b>Scale.</b> I tested two tables and small transactions here. Large transactions are held in memory until commit; the original project saw the worker heap near 2 GB in a big test, see the handbook's test chapter (<a href="index.html#ch-tests">index.html</a>).</li>
+</ul>
+
+<h3 id="multi-check">Check yourself</h3>
+<details class="check"><summary>1. How can a consumer tell that a payment event and a customer event came from the same transaction?</summary>
+<p>They have the same <code>source.xid</code> (and the same <code>source.commit_oqid</code>).</p></details>
+<details class="check"><summary>2. Does Kafka guarantee that the customer event is read before the payment event?</summary>
+<p>No. They are in different topics, and ordering is only kept inside a partition. Use <code>seq</code>.</p></details>
+</section>
+
+
+<!-- 11-reliability.html -->
+<section>
+<h2 id="reliability"><span class="chno">11.</span>Reliability experiments</h2>
+<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+</section>
+
+
+<!-- 12-where-next.html -->
+<section>
+<h2 id="where-next"><span class="chno">12.</span>Where to go from here</h2>
+<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+</section>
+
+</main>
+</div>
+<script src="assets/js/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<section>
+<h2 id="multiple-tables" data-keywords="multiple tables transaction xid commit_oqid topic per table include list customer payment">Multiple tables</h2>
+<p>So far we watched one table. Real databases change several tables in one transaction, and consumers of different topics then need to know those events belong together.</p>
+
+<h3 id="multi-add">Add a second table</h3>
+<pre data-lang="bash"><code>lab/env/sample-data.sh
+lab/env/set-tables.sh payment,customer</code></pre>
+<p><code>sample-data.sh</code> (PowerShell: <code>sample-data.ps1</code>) creates the table <code>customer</code> and marks it for replication. <code>set-tables.sh</code> (bash only, no PowerShell version) adds it to <code>table.include.list</code>. The task restarts, so the next change is delayed by the RepAgent reconnect, as explained in "Why is there no data?".</p>
+<p><b>Check:</b> after you insert a customer row, a topic <code>sybase.phoenix_test.customer</code> has one event with <code>"table":"customer"</code> in its source block.</p>
+
+<h3 id="multi-txn">One transaction, two topics</h3>
+<p>The experiment <code>lab/experiments/multi-table-transaction.sh</code> (bash only; on Windows run it in Git Bash) runs this in one transaction:</p>
+<pre data-lang="sql"><code>begin tran
+insert into customer (full_name, country) values ('TXN...', 'EG')
+insert into payment (account_no, amount, currency) values ('TXN...', 42.00, 'EUR')
+commit tran</code></pre>
+<p>Result (fields picked from the two events; full output in <a href="evidence/18-multi-table-transaction.txt">evidence/18-multi-table-transaction.txt</a>):</p>
+<div class="tbl"><table>
+<thead><tr><th>Topic</th><th><code>source.xid</code></th><th><code>source.commit_oqid</code></th><th><code>seq</code></th><th><code>txn_rows</code></th></tr></thead>
+<tbody>
+<tr><td><code>sybase.phoenix_test.customer</code></td><td><code>…1783002f4d59…</code></td><td><code>…1783…0032…</code></td><td>0</td><td>2</td></tr>
+<tr><td><code>sybase.phoenix_test.payment</code></td><td><code>…1783002f4d59…</code></td><td><code>…1783…0032…</code></td><td>1</td><td>2</td></tr>
+</tbody></table></div>
+<p>Both events carry the <b>same <code>xid</code> and the same <code>commit_oqid</code></b>. <code>seq</code> gives their order inside the transaction (0, then 1) and <code>txn_rows</code> says the transaction had two row changes in total. A consumer that wants the whole transaction can group events from several topics by <code>xid</code>. Here both tables are on the include list, so the two events match <code>txn_rows</code> of 2; see the caveat below before using that as a check.</p>
+
+<h3 id="multi-limits">What this does not give you</h3>
+<ul>
+<li><b>No ordering between topics.</b> Kafka only orders records inside a partition. The two events above are in different topics, so a consumer may see the payment before the customer. Use <code>seq</code> if the order matters.</li>
+<li><b><code>txn_rows</code> counts every row of the transaction, not only the published ones.</b> From <code>ChangeEventMapper.java</code> and <code>SybaseCdcSourceTask.java</code>: <code>txn_rows</code> is the size of the whole transaction, including rows of tables that are not on the include list, while <code>seq</code> numbers only the rows that were published. With an include list, a consumer may therefore see fewer events than <code>txn_rows</code> says. I read this in the code and did not run a test for it (<em>not run</em>); do not use <code>txn_rows</code> as a completeness check unless every table of the transaction is on the list.</li>
+<li><b>Scale.</b> I tested two tables and small transactions here. Large transactions are held in memory until commit; the original project saw the worker heap near 2 GB in a big test, see the handbook's test chapter (<a href="index.html#ch-tests">index.html</a>).</li>
+</ul>
+
+<h3 id="multi-check">Check yourself</h3>
+<details class="check"><summary>1. How can a consumer tell that a payment event and a customer event came from the same transaction?</summary>
+<p>They have the same <code>source.xid</code> (and the same <code>source.commit_oqid</code>).</p></details>
+<details class="check"><summary>2. Does Kafka guarantee that the customer event is read before the payment event?</summary>
+<p>No. They are in different topics, and ordering is only kept inside a partition. Use <code>seq</code>.</p></details>
+</section>

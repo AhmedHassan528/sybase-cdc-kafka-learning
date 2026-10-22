@@ -1,0 +1,107 @@
+# Captured: 2026-10-22T21:33:35Z
+# Command:  bash lab/env/verify-security.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+### A. Network exposure
+PASS  cdc-lab-sybase: all published ports bound to 127.0.0.1 (5000/tcp -> 127.0.0.1:5000 )
+PASS  cdc-lab-kafka: all published ports bound to 127.0.0.1 (29092/tcp -> 127.0.0.1:29092 )
+PASS  cdc-lab-connect: all published ports bound to 127.0.0.1 (8083/tcp -> 127.0.0.1:8083 )
+PASS  cdc-lab-kafka-ui: all published ports bound to 127.0.0.1 (8080/tcp -> 127.0.0.1:8080 )
+PASS  LTL port 11752 is not published to the host
+INFO  host network address used for the reachability test: 192.168.1.114
+PASS  port 5000 answers on 127.0.0.1
+PASS  port 5000 does NOT answer on 192.168.1.114
+PASS  port 8083 answers on 127.0.0.1
+PASS  port 8083 does NOT answer on 192.168.1.114
+PASS  port 8080 answers on 127.0.0.1
+PASS  port 8080 does NOT answer on 192.168.1.114
+PASS  port 29092 answers on 127.0.0.1
+PASS  port 29092 does NOT answer on 192.168.1.114
+
+### B. Least-privilege accounts
+PASS  cdc_admin holds replication_role
+PASS  cdc_admin holds no other role (no sa_role, sso_role, oper_role)
+PASS  cdc_app holds no role
+-- cdc_admin (replication_role only) -- needed by register-connector:
+PASS  admin may: show RepAgent status (sp_help_rep_agent)
+PASS  admin may: change a RepAgent setting (sp_config_rep_agent)
+PASS  admin may: stop the RepAgent (sp_stop_rep_agent)
+PASS  admin may: start the RepAgent (sp_start_rep_agent)
+PASS  admin may: query a table's replication status (sp_setreptable payment)
+-- cdc_admin must not do anything else:
+PASS  admin is refused: select from a table
+PASS  admin is refused: insert into a table
+PASS  admin is refused: update a table
+PASS  admin is refused: delete from a table
+PASS  admin is refused: create a table
+PASS  admin is refused: drop a table
+PASS  admin is refused: grant permissions
+PASS  admin is refused: create a login
+PASS  admin is refused: change server configuration (sp_configure)
+PASS  admin is refused: shut the server down
+INFO  informational (not relied on): cdc_admin marking a table with sp_setreptable true -> allowed
+-- cdc_app (DML on the sample tables) -- needed by changes.sql and the experiments:
+PASS  app may: select from payment
+PASS  app may: insert into payment
+PASS  app may: update payment
+PASS  app may: delete from payment
+-- cdc_app must not do anything else:
+PASS  app is refused: see or administer the RepAgent (sp_help_rep_agent)
+PASS  app is refused: change a RepAgent setting
+PASS  app is refused: stop the RepAgent
+PASS  app is refused: start the RepAgent
+PASS  app is refused: mark a table for replication
+PASS  app is refused: create a table
+PASS  app is refused: drop a table
+PASS  app is refused: truncate a table
+PASS  app is refused: modify a table it has only select on (sec_probe)
+PASS  app is refused: grant permissions
+PASS  app is refused: create a login
+PASS  app is refused: shut the server down
+PASS  payment table and sec_probe still exist after the refused attempts
+PASS  no rogue login was created
+PASS  the RepAgent is running after the stop/start test
+-- where sa is used by the scripts (must be setup only):
+INFO  scripts calling ase_sql (sa): create-accounts.sh data-types.sh sample-data.sh 
+PASS  sa is used only by setup scripts
+
+### C. Credentials
+PASS  lab/env/.lab-secrets exists
+PASS  .lab-secrets is git-ignored
+PASS  .lab-secrets is not tracked by git
+PASS  a generated password appears in no tracked file
+PASS  a generated password appears in no file of the working tree except .lab-secrets
+PASS  a generated password appears nowhere in git history
+PASS  a generated password appears in no tracked file
+PASS  a generated password appears in no file of the working tree except .lab-secrets
+PASS  a generated password appears nowhere in git history
+secret scan: no findings (allowed local test values: rs_user/rs_password, myPassword)
+PASS  secret scan finds no unlabelled secret
+INFO  fixed public test values in tracked files (documented exception): captures/ackstate.sh captures/isql.sh captures/monitor.sh captures/monitor2.sh captures/raw-all/000001-02.bin captures/raw/000001-02.bin captures/restart-probe.sh connectors/sybase-cdc-phoenix.json docs-src/chapters/07-ase.html sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlListener.java sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java sybase/02_repagent.sql sybase/90_ltl_types_probe.sql.manual sybase/start.sh 
+
+### D. Input handling
+PASS  set-tables.sh rejects shell/JSON metacharacters
+PASS  set-tables.sh rejects a quote
+PASS  set-tables.sh rejects spaces
+PASS  set-tables.sh rejects an empty item
+table.include.list is already payment; nothing to do
+PASS  set-tables.sh accepts a valid list (unchanged list is a no-op)
+PASS  consume.sh rejects command substitution in the topic
+PASS  consume.sh rejects a non-numeric timeout
+PASS  await-event.sh rejects a bad topic
+PASS  await-event.sh rejects a non-numeric timeout
+PASS  SQL-looking text given to await-event.sh is matched literally (payment table still there)
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+PASS  create-accounts.sh can be run again without error (idempotent)
+PASS  no script builds SQL from a command-line argument
+
+### E. Documented limits (TLS/SASL not performed; no production claim)
+PASS  compose uses only PLAINTEXT listeners and sets no TLS/SASL options
+PASS  lab/README.md states TLS/SASL were not performed/tested
+PASS  lab/README.md states it is not a production deployment
+PASS  plan.md records the TLS/SASL exception
+PASS  no document claims the lab meets production security
+
+RESULT: 78 passed, 0 failed
+
+# exit code: 0

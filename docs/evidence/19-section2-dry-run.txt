@@ -1,0 +1,138 @@
+# Captured: 2026-10-22T21:05:31Z
+# Command:  bash lab/experiments/section2-dry-run.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+
+=== reset
+ Container cdc-lab-connect Stopping 
+ Container cdc-lab-kafka-ui Stopping 
+ Container cdc-lab-connect Stopped 
+ Container cdc-lab-connect Removing 
+ Container cdc-lab-connect Removed 
+ Container cdc-lab-sybase Stopping 
+ Container cdc-lab-kafka-ui Stopped 
+ Container cdc-lab-kafka-ui Removing 
+ Container cdc-lab-kafka-ui Removed 
+ Container cdc-lab-kafka Stopping 
+ Container cdc-lab-sybase Stopped 
+ Container cdc-lab-sybase Removing 
+ Container cdc-lab-sybase Removed 
+ Container cdc-lab-kafka Stopped 
+ Container cdc-lab-kafka Removing 
+ Container cdc-lab-kafka Removed 
+ Network cdc-lab_default Removing 
+ Network cdc-lab_default Removed 
+Lab removed. Run lab/env/start.sh for a fresh environment.
+
+=== Step 1: start.sh
+ Image sybase-cdc-connect:0.1.0 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 506B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.connect
+#2 transferring dockerfile: 1.06kB 0.0s done
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
+#3 DONE 0.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 187B done
+#5 DONE 0.1s
+
+#6 [1/3] FROM docker.io/apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
+#6 resolve docker.io/apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
+#6 resolve docker.io/apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069 0.1s done
+#6 DONE 0.1s
+
+#7 [2/3] COPY plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar /opt/connectors/sybase-cdc/
+#7 CACHED
+
+#8 [3/3] COPY connect-distributed.properties /opt/kafka/config/connect-distributed.properties
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers 0.0s done
+#9 exporting manifest sha256:1d27a1569f7f3bf2b210abd0a9eb436b4f2d8e6fdba8e163e71d208a37b9d2e9 0.0s done
+#9 exporting config sha256:b4a149cb3167544352ce9bab21a4905641e6549265d0d6eec2eb3ff7a5bfc7a4 done
+#9 exporting attestation manifest sha256:ddaf8b746e576da56a8cf694e18700bc2d747c51002a5ff8dbefbb41a5ff03dd
+#9 exporting attestation manifest sha256:ddaf8b746e576da56a8cf694e18700bc2d747c51002a5ff8dbefbb41a5ff03dd 0.1s done
+#9 exporting manifest list sha256:24ce3fb2f97bacafc76a61dcbbe15964ed1e4939974b44eff6412c1859c3d2a9
+#9 exporting manifest list sha256:24ce3fb2f97bacafc76a61dcbbe15964ed1e4939974b44eff6412c1859c3d2a9 0.1s done
+#9 naming to docker.io/library/sybase-cdc-connect:0.1.0 done
+#9 unpacking to docker.io/library/sybase-cdc-connect:0.1.0 0.0s done
+#9 DONE 0.5s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ Image sybase-cdc-connect:0.1.0 Built 
+ Network cdc-lab_default Creating 
+ Network cdc-lab_default Created 
+ Container cdc-lab-sybase Creating 
+ Container cdc-lab-kafka Creating 
+ Container cdc-lab-sybase Created 
+ Container cdc-lab-kafka Created 
+ Container cdc-lab-connect Creating 
+ Container cdc-lab-kafka-ui Creating 
+ Container cdc-lab-kafka-ui Created 
+ Container cdc-lab-connect Created 
+ Container cdc-lab-sybase Starting 
+ Container cdc-lab-kafka Starting 
+ Container cdc-lab-kafka Started 
+ Container cdc-lab-kafka Waiting 
+ Container cdc-lab-sybase Started 
+ Container cdc-lab-kafka Waiting 
+ Container cdc-lab-kafka Healthy 
+ Container cdc-lab-kafka-ui Starting 
+ Container cdc-lab-kafka Healthy 
+ Container cdc-lab-connect Starting 
+ Container cdc-lab-kafka-ui Started 
+ Container cdc-lab-connect Started 
+ok: ASE finished first-boot init (READY)
+ok: Kafka healthy
+ok: Kafka Connect REST answers
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+Lab is up. Next: lab/env/register-connector.sh, then lab/env/changes.sh
+-- docker ps:
+cdc-lab-connect	Up 26 seconds
+cdc-lab-kafka-ui	Up 26 seconds
+cdc-lab-kafka	Up 35 seconds (healthy)
+cdc-lab-sybase	Up 35 seconds
+
+=== Step 2: register-connector.sh
+registered sybase-cdc-phoenix
+ok: connector task RUNNING
+ Parameter_Name Default_Value Config_Value Run_Value 
+ -------------- ------------- ------------ --------- 
+ retry timeout  60            10           10        
+(1 row affected)
+Replication Agent configuration changed for database 'phoenix_test'. The changes will take effect the next time the Replication Agent thread is started.
+(return status = 0)
+Replication Agent thread is started for database 'phoenix_test'.
+(return status = 0)
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"connect:8083"}],"type":"source"}
+
+=== Step 3: changes.sh
+(1 row affected)
+(1 row affected)
+(1 row affected)
+(1 row affected)
+ payment_id            account_no                     amount                currency 
+ --------------------- ------------------------------ --------------------- -------- 
+                     1 ACC-1001                                      130.00 EUR      
+(1 row affected)
+
+=== Step 4: consume.sh (waiting for the 4 events)
+{"payment_id":"1"} | {"op":"c","before":null,"after":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T21:06:22.003"},"ts_ms":1792703182021}
+{"payment_id":"2"} | {"op":"c","before":null,"after":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD","created_at":"2026-10-22T21:06:22.013"},"ts_ms":1792703182022}
+{"payment_id":"1"} | {"op":"u","before":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T21:06:22.003"},"after":{"payment_id":"1","account_no":"ACC-1001","amount":"130","currency":"EUR","created_at":"2026-10-22T21:06:22.003"},"ts_ms":1792703182148}
+{"payment_id":"2"} | {"op":"d","before":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD","created_at":"2026-10-22T21:06:22.013"},"after":null,"ts_ms":1792703182148}
+
+total: 69 s from reset to last event
+
+# exit code: 0

@@ -1,8 +1,8 @@
-// Checks every local link and anchor in docs/index.html and docs/source/*.html; lists external links.
+// Checks every local link and anchor in docs/index.html, docs/article.html and docs/source/*.html; lists external links.
 // Usage: node docs-src/linkcheck.js docs <external-links-out.txt>
 const fs=require('fs'),path=require('path');
 const root=process.argv[2];
-const pages=[path.join(root,'index.html'),...fs.readdirSync(path.join(root,'source')).filter(f=>f.endsWith('.html')).map(f=>path.join(root,'source',f))];
+const pages=[path.join(root,'index.html'),...(fs.existsSync(path.join(root,'article.html'))?[path.join(root,'article.html')]:[]),...fs.readdirSync(path.join(root,'source')).filter(f=>f.endsWith('.html')).map(f=>path.join(root,'source',f))];
 const ids=new Map(); for(const p of pages){const s=fs.readFileSync(p,'utf8'); ids.set(p,new Set([...s.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1])));}
 let bad=0,checked=0,external=new Set();
 for(const p of pages){const s=fs.readFileSync(p,'utf8');

@@ -1,0 +1,35 @@
+<section>
+<h2 id="introduction" data-keywords="introduction cdc change data capture overview">Introduction</h2>
+<p>A payment lands in a database. A minute later, three other systems want to know about it: fraud detection, a reporting store, a notification service. You can ask the database every few seconds what changed (polling), or you can read the one place where the database already writes down every change: its transaction log. That second approach is <em>change data capture</em>, or CDC.</p>
+<p>In this article I build a CDC pipeline from <b>SAP/Sybase ASE</b> to <b>Apache Kafka</b>, and I show you how to build it yourself. First we run a working pipeline on your own machine and watch real events appear. Then we rebuild the connector in six checkpoints, each with tests, so you see why every piece exists.</p>
+
+<h3 id="intro-path">The path of one change</h3>
+<p>Here is the whole journey in five stops. We will meet each one again later with real commands and output.</p>
+<ol>
+<li><b>The application commits a row change.</b> ASE writes it to its transaction log first, before it counts as durable.</li>
+<li><b>RepAgent reads the log.</b> RepAgent is a thread inside ASE. It is built to feed a <em>Replication Server</em>, and it sends changes in a text-like format called LTL (Log Transfer Language) over the TDS protocol.</li>
+<li><b>Our connector pretends to be that Replication Server.</b> We register a fake server name, <code>CDC_RS</code>, in the ASE interfaces file and point it at the connector's port <code>11752</code>. RepAgent connects, logs in, and streams LTL to us. No real Replication Server is involved.</li>
+<li><b>The connector holds rows until COMMIT.</b> RepAgent forwards changes of transactions that are still open, and even of ones that later roll back. The connector buffers them and publishes a transaction only when its commit arrives.</li>
+<li><b>Kafka stores the events, then we acknowledge.</b> Only after Kafka has the events does the connector tell ASE it may discard that part of its log.</li>
+</ol>
+
+<figure-diagram src="02-cdc-data-flow" n="02" title="End-to-end flow of one committed row change">
+<p><b>How to read it:</b> follow the numbers. Nothing reaches Kafka before the commit step; a rollback ends the path early and publishes nothing.</p>
+</figure-diagram>
+
+<h3 id="intro-promise">What the pipeline promises, and what it does not</h3>
+<p>The promise is <b>at-least-once delivery</b>: no committed change is lost, even if the connector or the network fails in the middle. The price is that after a restart some changes can arrive <em>again</em>. Every event carries an id, <code>source.oqid</code>, that lets a consumer spot the repeat. The reliability section later demonstrates this with a restart and shows the duplicates it produces. I do not claim exactly-once delivery, because that would be a different (and harder) design.</p>
+
+<h3 id="intro-how">How to use this article</h3>
+<ul>
+<li><b>Read straight through</b> for the full story, or jump to a section when something breaks. The section "Why is there no data?" is organised by symptom.</li>
+<li><b>Run everything.</b> Every command here has a script in <code>lab/</code>. Output blocks are real captures; the file they came from is linked under each one. Where I have not run something, I say <em>not run</em>.</li>
+<li><b>Skip ahead to build</b> once you have seen the pipeline work. The build-along starts from an empty project and reaches the same result.</li>
+</ul>
+
+<h3 id="intro-check">Check yourself</h3>
+<details class="check"><summary>1. Why does the connector buffer rows instead of publishing each one as it arrives?</summary>
+<p>RepAgent sends changes of transactions that are not committed yet, and some of them roll back. Publishing early would show consumers changes that never really happened. The connector publishes a transaction only after its COMMIT.</p></details>
+<details class="check"><summary>2. What does "at-least-once" mean for a consumer?</summary>
+<p>Nothing committed is lost, but after a restart the same change can be delivered again. Consumers need to tolerate repeats, for example by remembering the <code>source.oqid</code> of events they have processed.</p></details>
+</section>

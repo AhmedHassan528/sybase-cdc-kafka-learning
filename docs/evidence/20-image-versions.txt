@@ -1,0 +1,43 @@
+# Image version evidence for the lab (finding D1).
+# Captured: 2026-10-22T20:44:27Z   Command: lab/env/verify-images.sh (exit code 0)
+#
+# Decisions
+#  apache/kafka 3.8.0 and provectuslabs/kafka-ui v0.7.2: explicit version tag plus digest in the compose file.
+#  datagrip/sybase: digest only. The tested build is tagged only 'latest' (built 2019-07-23); no immutable version tag exists for it.
+#  The tag '16.0' (updated 2024-01-11) is a different build and was NOT tested or used.
+
+## verify-images.sh output
+== apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
+   registry: digest resolves (sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069)
+   local: same digest (apache/kafka@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069)
+   tag 3.8.0 still points at this digest
+== datagrip/sybase@sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f
+   registry: digest resolves (sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f)
+   local: same digest (datagrip/sybase@sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f)
+== provectuslabs/kafka-ui:v0.7.2@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818
+   registry: digest resolves (sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818)
+   local: same digest (provectuslabs/kafka-ui@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818)
+   tag v0.7.2 still points at this digest
+
+## datagrip/sybase: 'latest' vs '16.0' (registry manifests; first 10 layers are shared, the rest differ)
+-- latest
+config sha256:29cd514762d69bd7caaedc63daad32066a23e1394c11ae46e25063683128f66d layers 12
+08d48e6f1cff f20a0978739e 60e0cb2abfa2 e23fecbcfd96 7ac56424bb5b ec047026d2b4 fe049240f923 2238f468e469 573f1b2df24c c6a4e613670e 6b5ec0a376ab 4533b7c42d3b
+-- 16.0
+config sha256:2904fc0bde55292fe818c129a77ba2f862f5ab0b81c7308c8bd1754bc10e9989 layers 16
+08d48e6f1cff f20a0978739e 60e0cb2abfa2 e23fecbcfd96 7ac56424bb5b ec047026d2b4 fe049240f923 2238f468e469 573f1b2df24c c6a4e613670e f24101dec83d 721a178c6055 1eecee65761f 76d0ab81885f 2e4e19133cef df59148ff910
+
+## Local images
+datagrip/sybase@sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f  created=2019-07-23T17:26:44.992625157Z
+apache/kafka@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069  created=2024-07-23T09:00:01.312215212Z
+provectuslabs/kafka-ui@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818  created=2024-04-10T09:43:54.708883763Z
+
+## Version reported by the running ASE (docs/evidence/08-ase-facts.txt)
+Adaptive Server Enterprise/16.0 SP02 PL02/EBF 25320 SMP/P/x86_64/Enterprise Linux/ase160sp02plx/2492/64-bit/FB
+
+## Compose and Dockerfile after the change
+lab/env/docker-compose.yml:14:    image: datagrip/sybase@sha256:72f1e825d326f0c2ee9a10ea33e26e12aea6b6ff8a815d87abfb96f7e25d867f  # ASE 16.0 SP02 PL02 Developer Edition
+lab/env/docker-compose.yml:30:    image: apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069
+lab/env/docker-compose.yml:57:    image: sybase-cdc-connect:0.1.0
+lab/env/docker-compose.yml:68:    image: provectuslabs/kafka-ui:v0.7.2@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818
+deploy/docker/Dockerfile.connect:6:FROM apache/kafka:3.8.0@sha256:c89f315cff967322c5d2021434b32271393cb193aa7ec1d43e97341924e57069

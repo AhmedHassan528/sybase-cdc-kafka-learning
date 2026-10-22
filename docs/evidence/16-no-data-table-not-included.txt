@@ -1,0 +1,19 @@
+# Captured: 2026-10-22T21:01:22Z
+# Command:  bash lab/experiments/no-data-table-not-included.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 1. customer is NOT on the include list
+ok: new task listening
+table.include.list = payment
+-- waiting 60 s for an event with 000123 on sybase.phoenix_test.customer (expect none):
+TIMEOUT: no event containing '000123' on sybase.phoenix_test.customer after 60s
+no event (as expected)
+== 2. add customer to the list, then write a second row
+ok: new task listening
+table.include.list = payment,customer
+-- events with 000123 on sybase.phoenix_test.customer:
+{"customer_id":"3"} | {"op":"c","before":null,"after":{"customer_id":"3","full_name":"After list 000123","country":"EG","created_at":"2026-10-22T21:03:10.260"},"ts_ms":1792702999709}
+{"customer_id":"2"} | {"op":"c","before":null,"after":{"customer_id":"2","full_name":"Before list 000123","country":"EG","created_at":"2026-10-22T21:01:26.290"},"ts_ms":1792702999709}
+{"customer_id":"3"} | {"op":"c","before":null,"after":{"customer_id":"3","full_name":"After list 000123","country":"EG","created_at":"2026-10-22T21:03:10.260"},"ts_ms":1792702999709}
+
+# exit code: 0

@@ -1,0 +1,20 @@
+# Captured: 2026-10-22T21:03:37Z
+# Command:  bash lab/experiments/no-data-connector-paused.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 1. pause the connector
+connector=PAUSED task=PAUSED== 2. write a row while it is paused
+-- waiting 30 s for the event (expect none):
+TIMEOUT: no event containing 'PAUSE000338' on sybase.phoenix_test.payment after 30s
+no event (as expected)
+-- RepAgent view from ASE:
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error 
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ---------- 
+ phoenix_test   21 (65549,40)   (65549,43) (65549,43)     not sleeping sleeping           0          0 
+(1 row affected)
+== 3. resume and measure the delay
+{"payment_id":"3"} | {"op":"c","before":null,"after":{"payment_id":"3","account_no":"PAUSE000338","amount":"1","currency":"EUR","created_at":"2026-10-22T21:03:44.523"},"ts_ms":1792703064791}
+-- delivered 8 s after resume
+
+# exit code: 0

@@ -1,0 +1,29 @@
+<section>
+<h2 id="keys-and-topics" data-keywords="message key primary key topic name topic.prefix partition ordering converter json">Message keys and topic naming</h2>
+<p>Two choices shape how consumers use your events: which topic a change goes to, and which key it carries. The connector makes both choices for you, and you can see them in the output from the first section.</p>
+
+<h3 id="keys-topic">Topic: one per table</h3>
+<p>The topic is <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config (<code>"topic.prefix": "sybase"</code>, database <code>phoenix_test</code>) the topics I saw were:</p>
+<pre><code>sybase.phoenix_test.customer
+sybase.phoenix_test.ltl_types
+sybase.phoenix_test.payment</code></pre>
+<p>(listed with <code>kafka-topics.sh --list</code> in <a href="evidence/32-topics.txt">evidence/32</a>). I did not create or configure these topics, so they have the broker defaults: the same file shows <b>one partition</b> and replication factor 1 for each. That is fine for a single-broker lab and is not a production setting. I did not check whether the connector or one of my own consumer scripts created each topic first, so I make no claim about automatic topic creation by the connector.</p>
+<p>Changing <code>topic.prefix</code> changes the names of all topics. I did not run that change in the lab (<em>not run</em>); if you change it on a running pipeline, consumers must switch topics.</p>
+
+<h3 id="keys-key">Key: the primary key columns</h3>
+<p>The key of each record holds the primary key columns that RepAgent flags, as JSON:</p>
+<pre><code>{"payment_id":"1"}  | {"op":"c", ...}
+{"payment_id":"1"}  | {"op":"u", ...}
+{"payment_id":"2"}  | {"op":"d", ...}</code></pre>
+<p>All changes to the same row carry the same key. Kafka sends records with the same key to the same partition, so a consumer sees the changes to one row <em>in order</em>. With only one partition, as here, that is true for the whole topic. If a table has no primary key, the connector sets no key (from <code>ChangeEventMapper.key()</code>; I did not test it, <em>not run</em>).</p>
+<p>The key and the value are written as JSON <b>without a schema</b>: the connector config sets <code>key.converter.schemas.enable</code> and <code>value.converter.schemas.enable</code> to <code>false</code>. Consumers must know the shape of the data; the data types section lists it.</p>
+
+<h3 id="keys-delete">A delete is an event, not a tombstone</h3>
+<p>A delete produces a normal record with <code>"op":"d"</code>, the old row in <code>before</code>, and <code>after</code> set to <code>null</code>. It does not produce a Kafka tombstone (a record with a null value). A consumer that builds a table from a topic must handle <code>d</code> itself.</p>
+
+<h3 id="keys-check">Check yourself</h3>
+<details class="check"><summary>1. Two updates to the same row land in a topic with several partitions. Can a consumer see them out of order?</summary>
+<p>No. Both carry the same key, so they go to the same partition, and a partition keeps its order.</p></details>
+<details class="check"><summary>2. A consumer reads a delete event and sees <code>after: null</code>. Where is the data of the deleted row?</summary>
+<p>In <code>before</code>.</p></details>
+</section>

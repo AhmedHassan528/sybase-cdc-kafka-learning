@@ -1,0 +1,61 @@
+<section>
+<h2 id="try-it-at-home" data-keywords="setup docker compose start lab prerequisites first event quickstart">Try it at home</h2>
+<p>Before we explain anything, let us watch a change travel from ASE to Kafka. With the container images already on my machine, the whole sequence below took <b>125 seconds</b> from a clean reset to the fourth event (measured in <a href="evidence/19-section2-dry-run.txt">evidence/19</a>); expect longer on the first run, which I have not measured. Every step ends with a <b>check</b>: if the check does not match, stop and read "Why is there no data?" before going on.</p>
+
+<h3 id="try-prereqs">What you need</h3>
+<ul>
+<li><b>Knowledge:</b> basic SQL, a command line, and (for the build-along) basic Java.</li>
+<li><b>Software:</b> Docker with Compose, Java 17 and Maven 3.9 or newer (build-along only), Node.js 18 or newer (only to rebuild this article).</li>
+<li><b>Resources:</b> about 15 GB of free disk and 8 GB of RAM. The ASE image alone is about 9 GB on disk. I did not measure a first-time image download on a clean machine, so I cannot give you a download time.</li>
+<li><b>Licence:</b> the ASE image is the Developer Edition published as <code>datagrip/sybase</code>. You use it under its own terms. It was last built in 2019 and runs an ASE build from 2015, so it is for learning only.</li>
+</ul>
+<p>All commands are run from the repository root. The scripts used in this section (<code>start</code>, <code>register-connector</code>, <code>changes</code>, <code>consume</code>, <code>reset</code>) and <code>sample-data</code> also exist as <code>.ps1</code> for Windows PowerShell; I ran them from a clean lab (<a href="evidence/22-powershell-path.txt">evidence/22</a>). The output below was captured with the <code>.sh</code> versions in Git Bash. The helper scripts used in later sections (<code>set-tables</code>, <code>await-event</code>) and everything in <code>lab/experiments/</code> exist only as bash scripts, so on Windows run those in Git Bash.</p>
+
+<h3 id="try-start">Step 1. Start the lab</h3>
+<pre data-lang="bash"><code>lab/env/start.sh</code></pre>
+<p>This starts four containers: ASE (<code>cdc-lab-sybase</code>), Kafka (<code>cdc-lab-kafka</code>), Kafka Connect with our connector (<code>cdc-lab-connect</code>) and Kafka UI (<code>cdc-lab-kafka-ui</code>). On first boot ASE creates the database <code>phoenix_test</code> and the table <code>payment</code> from the scripts in <code>sybase/</code>.</p>
+<p><b>Accounts and exposure.</b> Besides creating the database, <code>start.sh</code> creates two ASE logins with a random password each, kept in the git-ignored file <code>lab/env/.lab-secrets</code>: <code>cdc_admin</code>, which holds only <code>replication_role</code> and is used to configure and start the RepAgent, and <code>cdc_app</code>, which can only read and change the sample tables and is used for the scripted changes. The <code>sa</code> login is used only for one-time setup. Every port the lab publishes is bound to <code>127.0.0.1</code>, so nothing is reachable from other machines. This is a local learning lab: TLS and SASL were <em>not performed</em> and nothing here claims production security. The tests behind these statements are in <a href="evidence/21-lab-security.txt">evidence/21-lab-security.txt</a> (78 checks, all passed).</p>
+<p><b>Check:</b> the script ends with these lines:</p>
+<pre><code>ok: ASE finished first-boot init (READY)
+ok: Kafka healthy
+ok: Kafka Connect REST answers
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+Lab is up. Next: lab/env/register-connector.sh, then lab/env/changes.sh</code></pre>
+<p>Then <code>docker ps</code> should list four <code>cdc-lab-*</code> containers. You can also open Kafka UI at <a href="http://localhost:8080">http://localhost:8080</a>.</p>
+
+<h3 id="try-register">Step 2. Register the connector</h3>
+<pre data-lang="bash"><code>lab/env/register-connector.sh</code></pre>
+<p>This posts <code>connectors/sybase-cdc-phoenix.json</code> to Kafka Connect and then starts the RepAgent inside ASE. The order matters: the connector must be listening before RepAgent starts (see "Source database prerequisites").</p>
+<p><b>Check:</b> the connector and its task are <code>RUNNING</code>, and ASE says the RepAgent thread started. Before that you will also see ASE confirm the RepAgent <code>retry timeout</code> setting (<code>10</code>); the lab lowers it from 60 so reconnects are quick:</p>
+<pre><code>Replication Agent thread is started for database 'phoenix_test'.
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING",...},"tasks":[{"id":0,"state":"RUNNING",...}],"type":"source"}</code></pre>
+
+<h3 id="try-changes">Step 3. Change some rows</h3>
+<pre data-lang="bash"><code>lab/env/changes.sh</code></pre>
+<p>The script runs <code>lab/env/changes.sql</code>: two inserts, one update and one delete on <code>payment</code>.</p>
+<p><b>Check:</b> ASE prints <code>(1 row affected)</code> four times, then the remaining rows of the table.</p>
+
+<h3 id="try-consume">Step 4. Read the events from Kafka</h3>
+<pre data-lang="bash"><code>lab/env/consume.sh</code></pre>
+<p><b>Check:</b> you see four events, one per change, in this order. Each line is <code>key | value</code>. I have shortened the <code>source</code> block here; the full lines are in <a href="evidence/14-lab-first-event.txt">evidence/14-lab-first-event.txt</a>.</p>
+<pre><code>{"payment_id":"1"} | {"op":"c","before":null,"after":{"payment_id":"1","account_no":"ACC-1001","amount":"125.5","currency":"EUR","created_at":"2026-10-22T20:12:45.593"},"source":{...},"ts_ms":...}
+{"payment_id":"2"} | {"op":"c","before":null,"after":{"payment_id":"2","account_no":"ACC-1002","amount":"80","currency":"USD",...},"source":{...},"ts_ms":...}
+{"payment_id":"1"} | {"op":"u","before":{...,"amount":"125.5",...},"after":{...,"amount":"130",...},"source":{...},"ts_ms":...}
+{"payment_id":"2"} | {"op":"d","before":{"payment_id":"2",...,"amount":"80",...},"after":null,"source":{...},"ts_ms":...}</code></pre>
+<p>Read one line carefully:</p>
+<ul>
+<li><code>op</code> is <code>c</code> (create, an insert), <code>u</code> (update) or <code>d</code> (delete).</li>
+<li><code>before</code> is the row before the change (updates and deletes). <code>after</code> is the row after it (inserts and updates). The one that does not apply is <code>null</code>.</li>
+<li><code>source</code> says where the change came from, including <code>oqid</code>, the unique, ordered id of this change. We use it later to spot duplicates.</li>
+<li>The key is the table's primary key. It is quoted as a string because the column is <code>numeric</code>; the data types section explains why.</li>
+</ul>
+
+<h3 id="try-reset">Starting over</h3>
+<p>To get a clean lab, run <code>lab/env/reset.sh</code>. It removes the four <code>cdc-lab-*</code> containers and their data. The next <code>start.sh</code> creates everything again. A faster reset that keeps the containers is not built yet.</p>
+
+<h3 id="try-check">Check yourself</h3>
+<details class="check"><summary>1. In Step 4 the update event has both <code>before</code> and <code>after</code>. Why is that useful to a consumer?</summary>
+<p>The consumer can see exactly which column changed and what the old value was, without keeping its own copy of the row.</p></details>
+<details class="check"><summary>2. Why does Step 2 register the connector before it starts the RepAgent?</summary>
+<p>RepAgent connects to the connector as soon as it starts. If nothing is listening yet, the connection fails and RepAgent stops.</p></details>
+</section>
