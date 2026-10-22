@@ -32,3 +32,7 @@ wait_for() {  # wait_for <description> <timeout-seconds> <command...>
   done
   echo "ok: $what"
 }
+
+# Maven runs in a container (no local Java or Maven needed). Pinned by digest like the other images.
+MAVEN_IMAGE=maven:3.9-eclipse-temurin-17@sha256:1a352420f7aba21f5ad08df31bab55f74c013fb491f1ae8ab1dd7ff9ed698584
+MAVEN_CACHE_VOLUME=cdc-m2-cache
