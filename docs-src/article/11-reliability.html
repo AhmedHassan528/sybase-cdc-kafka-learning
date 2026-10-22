@@ -1,4 +1,61 @@
 <section>
-<h2 id="reliability">Reliability experiments</h2>
-<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+<h2 id="reliability" data-keywords="reliability at-least-once duplicates rollback restart crash oqid transaction order exactly-once">Reliability experiments</h2>
+<p>The promise of this pipeline is <b>at-least-once delivery</b>: nothing that was committed in ASE is lost, but after a failure the same change can arrive more than once. This section checks that promise with four experiments. In each script the expected result is written in the header <em>before</em> the first run, and below I put what actually happened next to it. All scripts are bash (on Windows use Git Bash) and live in <code>lab/experiments/</code>.</p>
+
+<h3 id="rel-summary">Summary</h3>
+<div class="tbl"><table>
+<thead><tr><th>Experiment</th><th>Expected</th><th>Observed</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Rollback</td><td>the rolled-back row never reaches Kafka</td><td>0 events for it; the committed row after it arrived</td><td><a href="evidence/23-rollback.txt">23</a></td></tr>
+<tr><td>Several rows in one transaction</td><td>events in statement order, one <code>xid</code></td><td>5 events: <code>c c c u d</code>, <code>seq</code> 0 to 4, <code>txn_rows</code> 5, one <code>xid</code></td><td><a href="evidence/24-multi-row-transaction.txt">24</a></td></tr>
+<tr><td>Restart the connector while writing</td><td>no row missing; duplicates allowed</td><td>30 of 30 rows, 30 distinct <code>oqid</code>, <b>0 duplicates</b></td><td><a href="evidence/25-restart-connector.txt">25</a></td></tr>
+<tr><td>Kill the connector right after it published</td><td>no row missing; duplicates possible, depending on timing</td><td>6 of 6 rows, 11 events, 6 distinct <code>oqid</code>, <b>5 duplicates</b></td><td><a href="evidence/26-crash-duplicates.txt">26</a></td></tr>
+</tbody></table></div>
+
+<h3 id="rel-rollback">1. A rolled-back transaction produces no events</h3>
+<p><code>rollback.sh</code> runs two transactions: one inserts a row and rolls back, the next inserts a row and commits. ASE itself holds only the committed row. In Kafka there were <b>0</b> events for the rolled-back row and one event for the committed row. ASE does send the rolled-back row to the connector (the original project’s capture of the raw change stream, <code>captures/ltl-types.txt</code>, contains an insert with the text “rolled back”); the connector buffers it and, as the test shows, publishes nothing for it.</p>
+
+<h3 id="rel-order">2. A transaction keeps its order</h3>
+<p><code>multi-row-transaction.sh</code> runs three inserts, an update of the second row and a delete of the first row in one transaction. The events came out in that order:</p>
+<pre><code>"op":"c"  "MR001238-1"  "seq":0  "txn_rows":5
+"op":"c"  "MR001238-2"  "seq":1  "txn_rows":5
+"op":"c"  "MR001238-3"  "seq":2  "txn_rows":5
+"op":"u"  "MR001238-2"  "seq":3  "txn_rows":5
+"op":"d"  "MR001238-1"  "seq":4  "txn_rows":5</code></pre>
+<p>All five share one <code>xid</code> (the script printed "distinct xid values: 1"). Because they were published to one topic with one partition, Kafka kept their order. Across different topics there is no such guarantee, as the multiple-tables section explains.</p>
+
+<h3 id="rel-restart">3. Restarting the connector mid-stream</h3>
+<p><code>restart-connector.sh</code> writes 30 rows one by one in the background and, 5 seconds in, restarts the Connect container (<code>docker restart</code>, a graceful stop). When the writer finished and Connect was back, I waited until all 30 rows had arrived. Result: <b>30 events, 30 distinct <code>source.oqid</code>, 0 duplicates</b>. No row was missing, and this restart happened to produce no duplicates.</p>
+<p>That is only one run. It does not show that restarts never duplicate; the next experiment shows they can.</p>
+
+<h3 id="rel-crash">4. Killing the connector right after it published</h3>
+<p>Connect saves the connector's position only every 5 seconds (<code>offset.flush.interval.ms=5000</code> in <code>connect-distributed.properties</code>). If the process dies after rows were published but before that save, the restarted connector reports an older position to ASE and ASE sends the later rows again. <code>crash-duplicates.sh</code> writes 5 rows, waits 1 second, kills the container with <code>docker kill</code> (no graceful shutdown), starts it again, and writes a sixth row so that ASE has something to send and reconnects. Output of the first attempt:</p>
+<pre><code>events with tag CR004213A1: 11
+distinct source.oqid: 6   (distinct rows by account_no: 6)
+duplicated events:    5
+oqids seen more than once:
+  seen 2x  "oqid":"…008f…"
+  seen 2x  "oqid":"…0092…"
+  … (five in total)</code></pre>
+<p>All 6 rows were delivered (nothing lost) and each of the first five arrived twice with the <em>same</em> <code>source.oqid</code>. That is at-least-once delivery in action.</p>
+<p>Timing matters. An earlier version of the experiment waited until it saw the last row in Kafka and then killed the connector, about a second later; it produced no duplicates in six events. I did not keep that output, so treat it as an observation, not evidence. The script now repeats with different delays and stops at the first duplicate; it needed one attempt.</p>
+
+<h3 id="rel-detect">Detecting and handling duplicates</h3>
+<p><code>find-duplicates.sh &lt;topic&gt; &lt;tag&gt;</code> counts the events for a tag, counts the distinct <code>source.oqid</code> values and lists the ids seen more than once. In the crash run it reported 11 events and 6 distinct ids. The rule for a consumer follows from that: <b>the id that identifies a change is <code>source.oqid</code></b>. Two events with the same <code>oqid</code> are the same change delivered twice; two real updates to the same row have different ones. A consumer that must not process a change twice has to remember the <code>oqid</code> values it has handled, or write its results idempotently (for example "set this row to these values" instead of "add 10").</p>
+<p>I did not run a consumer that does this de-duplication, so I only show the detection (<em>not run</em> for a working de-duplicating consumer).</p>
+
+<h3 id="rel-limits">What these experiments do not show</h3>
+<ul>
+<li>Exactly-once delivery. The design does not provide it, and nothing here tests it.</li>
+<li>Behaviour under heavy load, long outages or a full ASE log. The original project tested some of these; see the handbook's test chapter (<a href="index.html#ch-tests">index.html</a>).</li>
+<li>A crash of ASE or of Kafka. Restarting ASE in the middle of a check is planned as a separate experiment (<em>not run</em>).</li>
+</ul>
+
+<h3 id="rel-check">Check yourself</h3>
+<details class="check"><summary>1. The restart experiment delivered 30 of 30 rows with no duplicates. Does that show the pipeline never duplicates?</summary>
+<p>No. It was one graceful restart. The crash experiment, which kills the process before Connect saves its position, produced 5 duplicates. Whether duplicates appear depends on timing.</p></details>
+<details class="check"><summary>2. Two events on the payment topic have the same <code>source.oqid</code>. Are they two changes?</summary>
+<p>No, they are one change delivered twice. Two separate changes always have different <code>oqid</code> values.</p></details>
+<details class="check"><summary>3. Why did the crash script write a sixth row after restarting the connector?</summary>
+<p>ASE only notices that the connector is back when it has something to send. The extra row makes it reconnect, and the reconnect is when it sends the rows again.</p></details>
 </section>

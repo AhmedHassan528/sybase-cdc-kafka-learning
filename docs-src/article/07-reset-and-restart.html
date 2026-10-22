@@ -1,4 +1,60 @@
 <section>
-<h2 id="reset-and-restart">Resetting and restarting from a chosen point</h2>
-<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+<h2 id="reset-and-restart" data-keywords="reset restart offsets _connect-offsets commit_oqid rewind replay tombstone stop resume position">Resetting and restarting from a chosen point</h2>
+<p>"Start again" can mean three different things, and they behave very differently. This section separates them and then shows, with a real experiment, how to choose the point the connector restarts from. The script is <code>lab/experiments/offsets.sh</code> (bash only; on Windows run it in Git Bash) and its full output is <a href="evidence/37-offsets.txt">evidence/37</a>.</p>
+
+<h3 id="reset-three">Three kinds of restart</h3>
+<div class="tbl"><table>
+<thead><tr><th>What you do</th><th>What survives</th><th>Where it is shown</th></tr></thead>
+<tbody>
+<tr><td><b>Reset the lab</b>: <code>lab/env/reset.sh</code> (or <code>reset.ps1</code>)</td><td>Nothing. Containers, the ASE database, the topics and the connector's stored position are all removed.</td><td>Section "Try it at home"</td></tr>
+<tr><td><b>Restart the connector</b>: restart the container, or stop and resume the connector</td><td>The stored position. The connector continues from it; a graceful restart delivered all 30 rows with no duplicates in one run, a kill right after publishing produced duplicates.</td><td>"Reliability experiments" (evidence 25 and 26)</td></tr>
+<tr><td><b>Change the stored position</b></td><td>You decide which position the connector reports to ASE. ASE then sends again what follows that position.</td><td>This section (evidence 37)</td></tr>
+</tbody></table></div>
+
+<h3 id="reset-where">Where the position lives</h3>
+<p>The connector's position is the <code>commit_oqid</code> of the last transaction Kafka has confirmed. Kafka Connect keeps it in the internal topic <code>_connect-offsets</code>. You can read it directly:</p>
+<pre data-lang="bash"><code>export MSYS_NO_PATHCONV=1    # Git Bash only
+docker exec cdc-lab-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 \
+  --topic _connect-offsets --from-beginning --timeout-ms 6000 \
+  --property print.key=true --property key.separator=' => '</code></pre>
+<p>Each record looks like this (from evidence 37):</p>
+<pre><code>["sybase-cdc-phoenix",{"database":"phoenix_test","server":"MYSYBASE"}] => {"commit_oqid":"00000000000015b0…0000"}</code></pre>
+<p>The key names the connector and the source (<code>database</code> and <code>server</code>); the value is the position. A newer record for the same key replaces the older one, so the last record is the current position. When the connector starts, its log says which position it found:</p>
+<pre><code>Starting Sybase CDC task for MYSYBASE.phoenix_test; last committed OQID in Kafka: 00000000000015b0…0000</code></pre>
+
+<h3 id="reset-rest">The REST offsets API does not move this connector</h3>
+<p>Kafka Connect has a REST API for offsets (<code>GET</code> and <code>PATCH /connectors/&lt;name&gt;/offsets</code>). In the experiment, on a freshly built lab:</p>
+<ul>
+<li><code>GET</code> returned <code>"offset": null</code> although the topic held a position.</li>
+<li>After <code>PATCH</code> with an older position, <code>GET</code> showed that older position, but when the connector was resumed it started from its <em>own</em> stored position, not from the one I patched.</li>
+</ul>
+<p>The two disagree because the REST view and the task write the key with its fields in a different order (<code>server</code>, <code>database</code> against <code>database</code>, <code>server</code>), so they are two different keys. I confirmed the symptom; the key order is my explanation from the stored key, not something I tested further. The engineering handbook lists a related symptom (<a href="index.html#ts-offsets">troubleshooting entry</a>) and says it does not occur on a fresh environment; in this fresh lab it did.</p>
+
+<h3 id="reset-choose">Choosing the point: write the record yourself</h3>
+<p>What did work was writing the record into <code>_connect-offsets</code> with the exact key the task uses, <b>while the connector is stopped</b>:</p>
+<pre data-lang="bash"><code>curl -X PUT localhost:8083/connectors/sybase-cdc-phoenix/stop
+printf '%s\n' '["sybase-cdc-phoenix",{"database":"phoenix_test","server":"MYSYBASE"}]|{"commit_oqid":"&lt;older position&gt;"}' | \
+  docker exec -i cdc-lab-kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:9092 \
+  --topic _connect-offsets --property parse.key=true --property 'key.separator=|'
+curl -X PUT localhost:8083/connectors/sybase-cdc-phoenix/resume</code></pre>
+<p>Result: the task log printed the position I had written, and after one new row made ASE reconnect, the three rows written earlier arrived <b>again</b>: the event count for the test tag went from 3 to 7 (the three rows again, plus the new row), with only 4 distinct <code>oqid</code> values. ASE sends again everything after the position the connector reports, as long as ASE still holds it in its log. I rewound by a few minutes; I did not test rewinding far back or beyond what ASE still holds (<em>not run</em>), so I cannot say what ASE does then.</p>
+
+<h3 id="reset-none">Resetting to nothing</h3>
+<p>Writing a record with a null value (a tombstone) for the same key removes the position. The next start logs <code>last committed OQID in Kafka: none (first start)</code>, and ASE again sent what it still held: the duplicated events for the test tag rose to 7 in total, from 5 distinct changes. Nothing was lost; the consumers simply see old changes again.</p>
+
+<h3 id="reset-warnings">Before you try this anywhere that matters</h3>
+<ul>
+<li>Every rewind or reset <b>creates duplicates</b> for consumers. Use <code>source.oqid</code> to tell them apart (see "Reliability experiments").</li>
+<li>Stop the connector first. I did not test writing the record while it was running (<em>not run</em>).</li>
+<li>After each experiment the connector was <code>RUNNING</code> and the RepAgent was <code>sleeping</code>, which is its healthy idle state here. I ran this only on the local lab.</li>
+<li>I did not test starting under a new connector name, which the handbook's runbook mentions as another way to reset (<em>not run</em>).</li>
+</ul>
+
+<h3 id="reset-check">Check yourself</h3>
+<details class="check"><summary>1. You rewind the stored position by a few minutes. What do consumers of the topic see?</summary>
+<p>The changes after that position arrive a second time, with the same <code>source.oqid</code> as before. Nothing is lost, but they are duplicates.</p></details>
+<details class="check"><summary>2. You use the REST <code>PATCH</code> to set the position and resume the connector. Where does it start from?</summary>
+<p>From its own stored position, not the patched one, in this lab. Write the record into <code>_connect-offsets</code> with the task's key instead, with the connector stopped.</p></details>
+<details class="check"><summary>3. What does "none (first start)" in the task log tell you?</summary>
+<p>That no position is stored for the connector, so it reports nothing to ASE and ASE sends again what it still holds.</p></details>
 </section>

@@ -12,7 +12,7 @@ events=$(TOPIC=$topic "$LAB_ENV_DIR/consume.sh" "$topic" 6000 | grep -F "\"$tag"
 total=$(printf '%s\n' "$events" | wc -l | tr -d ' ')
 oqids=$(printf '%s\n' "$events" | grep -o '"oqid":"[0-9a-f]*"')
 distinct=$(printf '%s\n' "$oqids" | sort -u | wc -l | tr -d ' ')
-rows=$(printf '%s\n' "$events" | grep -oE "\"$tag-[0-9]+\"" | sort -u | wc -l | tr -d ' ')
+rows=$(printf '%s\n' "$events" | grep -oE "\"$tag-[0-9A-Za-z]+\"" | sort -u | wc -l | tr -d ' ')
 echo "events with tag $tag: $total"
 echo "distinct source.oqid: $distinct   (distinct rows by account_no: $rows)"
 echo "duplicated events:    $((total - distinct))"

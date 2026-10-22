@@ -1,0 +1,33 @@
+# Captured: 2026-10-22T21:56:01Z
+# Command:  bash lab/experiments/offsets.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 0. three rows (tag OS005602), delivered normally
+events: events with tag OS005602: 3 distinct source.oqid: 3 (distinct rows by account_no: 3) duplicated events: 0 
+newest stored position: 00000000000015b00001000900420001000900400000b4eb0169769f00000000
+
+== 1. REST offsets view compared with the topic
+REST GET : {"offsets":[{"partition":{"server":"MYSYBASE","database":"phoenix_test"},"offset":null}]}
+topic    : ["sybase-cdc-phoenix",{"database":"phoenix_test","server":"MYSYBASE"}] => {"commit_oqid":"00000000000015b00001000900420001000900400000b4eb0169769f00000000"}
+REST PATCH to an older value (00000000000015b00001000900390001000900370000b4eb01695cd700000000):
+{"message":"The Connect framework-managed offsets for this connector have been altered successfully. However, if this co
+
+REST GET after PATCH: {"offsets":[{"partition":{"server":"MYSYBASE","database":"phoenix_test"},"offset":{"commit_oqid":"00000000000015b00001000900390001000900370000b4eb01695cd700000000"}}]}
+ok: connector task RUNNING
+task started from   : 00000000000015b00001000900420001000900400000b4eb0169769f00000000
+(newest stored was  : 00000000000015b00001000900420001000900400000b4eb0169769f00000000)
+
+== 2. write an older position directly into _connect-offsets (connector stopped)
+ok: connector task RUNNING
+task started from   : 00000000000015b00001000900390001000900370000b4eb01695cd700000000
+(chosen position    : 00000000000015b00001000900390001000900370000b4eb01695cd700000000)
+events with tag before / after the rewind: events with tag OS005602: 3 distinct source.oqid: 3 (distinct rows by account_no: 3) duplicated events: 0  / events with tag OS005602: 7 distinct source.oqid: 4 (distinct rows by account_no: 4) duplicated events: 3 
+
+== 3. reset to none with a tombstone (connector stopped)
+ok: connector task RUNNING
+task started from   : none (first start)
+events with tag before / after the reset  : events with tag OS005602: 11 distinct source.oqid: 4 (distinct rows by account_no: 4) duplicated events: 7  / events with tag OS005602: 12 distinct source.oqid: 5 (distinct rows by account_no: 5) duplicated events: 7 
+
+== 4. restore: the connector is "state":"RUNNING", RepAgent:  phoenix_test 21 (65545,90) (65545,93) (65545,93) not sleeping sleeping 0 0 
+
+# exit code: 0

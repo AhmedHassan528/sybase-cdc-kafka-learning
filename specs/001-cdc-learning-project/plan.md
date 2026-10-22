@@ -34,7 +34,7 @@ Produce a long-form, first-person deep-dive article (Confluent "JDBC Source Conn
 
 | Principle | Gate (requirements it covers) | Status |
 |-----------|-------------------------------|--------|
-| I. Evidence-Based Claims | Every behavior claim in the article links to `docs/evidence/` or is marked "not run" (FR-004, FR-005, FR-006, FR-009, FR-014, FR-019, FR-020) | Pass: sections 1-4, 6, 8-10 written with evidence files 14-19; remaining sections still to be written under the same rule |
+| I. Evidence-Based Claims | Every behavior claim in the article links to `docs/evidence/` or is marked "not run" (FR-004, FR-005, FR-006, FR-009, FR-014, FR-019, FR-020) | Pass so far: sections 1-4, 6-11 written with evidence files 14-26, 32, 37; remaining sections still to be written under the same rule |
 | II. Kafka Connect Contract Fidelity | Build-along uses only public `connect-api`; offsets commit only after acknowledgement (FR-005, FR-019, FR-020) | Not yet verified: increments 4 and 5 and the restart experiment are not built yet |
 | III. Test-First for Core Logic | Each increment ships tests before its reference solution; unit suite passes before delivery (FR-017, FR-018) | Not yet verified: the increments are not built yet |
 | IV. Secure by Default: verified capabilities | Least-privilege accounts (FR-021), loopback-only ports (FR-022), generated git-ignored passwords (FR-023), labelled public test values only in files (FR-010), argument checks (FR-024), secret scan (FR-010) | **Verified by running**: `lab/env/verify-security.sh` passed 78 of 78 checks (evidence 21); the PowerShell scripts were run from a clean lab (evidence 22) |
