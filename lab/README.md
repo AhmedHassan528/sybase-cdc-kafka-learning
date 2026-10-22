@@ -6,7 +6,7 @@ connector in six checkpoints, against the real change feed from a local ASE cont
 ## Prerequisites
 
 - Docker with about 15 GB free disk and 8 GB RAM (the ASE image alone is about 9 GB)
-- Java 17, Maven 3.9+, Node.js 18+ (only to rebuild the article)
+- Docker only for the build-along (Maven runs in a container; no local Java or Maven), and Node.js 18+ only to rebuild the article
 - Basic SQL, a command line, and basic Java
 
 ## Layout

@@ -58,4 +58,6 @@ oqids seen more than once:
 <p>No, they are one change delivered twice. Two separate changes always have different <code>oqid</code> values.</p></details>
 <details class="check"><summary>3. Why did the crash script write a sixth row after restarting the connector?</summary>
 <p>ASE only notices that the connector is back when it has something to send. The extra row makes it reconnect, and the reconnect is when it sends the rows again.</p></details>
+<details class="check"><summary>4. A transaction inserts a row and then rolls back. What does the topic contain for that row?</summary>
+<p>Nothing. ASE sends the row to the connector, but the connector buffers it and publishes nothing when the rollback arrives (<a href="evidence/23-rollback.txt">evidence/23</a>: 0 events for the rolled-back row).</p></details>
 </section>

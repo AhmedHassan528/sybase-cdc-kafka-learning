@@ -157,7 +157,9 @@ final class LtlSession implements Runnable {
             }
             listener.onCommands(cmds);
             // Exactly one DONE per TDS message. This only lines up with RepAgent if the packet size it
-            // asked for was confirmed at login (see login()).
+            // asked for was confirmed at login (see login()); otherwise CT-Lib re-splits its buffers,
+            // EOM flags land mid-batch, we answer twice, and RepAgent later reads the extra DONE as the
+            // answer to "get truncation" (CT-Lib result type CS_CMD_SUCCEED = 4047) and aborts.
             ch.sendResponse(tokens().done(TdsTokens.DONE_FINAL, 0).bytes());
         } else if (lower.startsWith("connect source")) {
             // connect source lti "SERVER"."db" 760 passthru

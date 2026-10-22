@@ -1,4 +1,67 @@
 <section>
-<h2 id="where-next">Where to go from here</h2>
-<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+<h2 id="where-next" data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps">Where to go from here</h2>
+<p>You have a working pipeline and you built the connector yourself. This last section is about the distance between this <b>local, offline learning lab</b> and a real deployment. It does not close that distance: it tells you where it is, and it is strict about what was actually tested.</p>
+
+<h3 id="next-three">Three sources of evidence</h3>
+<p>Everything below is labelled with where it comes from, because they are not equally strong:</p>
+<ul>
+<li><b>Tested in this lab</b>: run on the local containers, with the output saved under <code>docs/evidence/</code>.</li>
+<li><b>From the original project</b>: tested earlier on the same kind of local setup and written up in the engineering handbook (<a href="index.html">index.html</a>). I did not re-run these for this article.</li>
+<li><b>Not run</b>: nobody has tested it here. Do not treat it as working.</li>
+</ul>
+
+<h3 id="next-table">What was and was not tested</h3>
+<div class="tbl"><table>
+<thead><tr><th>Topic</th><th>Status</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Insert, update, delete, rollback, transaction order, several tables</td><td>Tested in this lab</td><td>Evidence 14, 18, 23, 24</td></tr>
+<tr><td>Restart and crash of the connector, duplicates</td><td>Tested in this lab (one graceful restart: no duplicates; one kill: 5 duplicates)</td><td>Evidence 25, 26</td></tr>
+<tr><td>Choosing or resetting the restart position</td><td>Tested in this lab</td><td>Evidence 37</td></tr>
+<tr><td>All ASE data types in the table of the data types section</td><td>Tested in this lab</td><td>Evidence 15</td></tr>
+<tr><td>Least-privilege ASE logins, localhost-only ports, generated passwords out of git, argument checks</td><td>Tested in this lab (78 checks)</td><td>Evidence 21; PowerShell scripts: evidence 22</td></tr>
+<tr><td>Building the connector step by step</td><td>Tested in this lab (starter fails, solution passes, live check on the real ASE, for all six steps)</td><td>Evidence 35, 38</td></tr>
+<tr><td>Tables without a primary key (no key on the record)</td><td>Not run (read from the code only)</td><td>Section "Message keys and topic naming"</td></tr>
+<tr><td>Transactions over 200,000 rows, long outages, soak tests</td><td>Not run. The original project saw the Connect heap reach 1,954 MiB at 10,000-row transactions under load</td><td>Handbook, <a href="index.html#ch-tests">test chapter</a></td></tr>
+<tr><td>ASE builds other than 16.0 SP02 PL02 (the target of the original project is SP04 PL07 HF1; the image tag <code>16.0</code> is a different, newer build)</td><td><b>Not run</b></td><td>Evidence 20</td></tr>
+<tr><td>OpenShift and IBM Event Streams</td><td><b>Not run</b>: the templates in <code>deploy/openshift/</code> are untested</td><td>Handbook, <a href="index.html#ch-openshift">OpenShift chapter</a></td></tr>
+<tr><td>Invalid configuration cases</td><td><b>Not run</b></td><td>Handbook, <a href="index.html#ch-tests">test chapter</a></td></tr>
+<tr><td>TLS and SASL (Kafka, Connect REST API, the ASE connection) and secret rotation</td><td><b>Not run</b></td><td>See the security note below</td></tr>
+<tr><td>Exactly-once delivery</td><td>Not provided by the design; not tested</td><td>Section "Reliability experiments"</td></tr>
+<tr><td>A full ASE log (the connector down for long enough)</td><td>Not run (deliberately). The handbook describes the risk and an emergency procedure that needs a DBA</td><td>Handbook, <a href="index.html#ch-runbooks">runbooks</a></td></tr>
+<tr><td>A learner working through the build-along</td><td>Not run: the checks show the starters fail and the solutions pass, not how long a learner needs</td><td>Section "How changes are read and delivered"</td></tr>
+</tbody></table></div>
+
+<h3 id="next-security">Security note: what the lab tested, and what it did not</h3>
+<p>The lab is a local, offline learning environment on one machine. Within that scope I tested, with <code>lab/env/verify-security.sh</code> (<a href="evidence/21-lab-security.txt">evidence/21</a>):</p>
+<ul>
+<li>every published port is bound to <code>127.0.0.1</code> and the LTL port is not published at all; a connection attempt from the machine's network address on the four published ports did not answer;</li>
+<li>two ASE logins with only the permissions the lab needs (<code>cdc_admin</code> with <code>replication_role</code> only, <code>cdc_app</code> with data changes on the sample tables), including that each is refused the other's actions;</li>
+<li>generated lab passwords stay out of git and its history;</li>
+<li>scripts that take arguments reject anything outside a strict character set.</li>
+</ul>
+<p>I did <b>not</b> test TLS or SASL anywhere: in the lab, ASE, Kafka and Kafka Connect talk in plain text on the local Docker network and on loopback. The fixed passwords in the repository (<code>sa</code> is the public default of the ASE image; <code>rs_user</code> / <code>rs_password</code> is the connector login) are public test values that protect nothing outside the lab. <b>This lab is not evidence that a production deployment is secure</b>, and nothing here claims that production security requirements were tested or met.</p>
+
+<h3 id="next-prod">What changes for a real deployment (from the original project, not re-run)</h3>
+<ul>
+<li><b>One worker, one port.</b> RepAgent connects to a single host and port, so the Connect cluster that runs this connector must have one replica; more replicas would send RepAgent to workers that have no listener (comment in <code>deploy/openshift/02-kafkaconnect-eventstreams.yaml</code>).</li>
+<li><b>The RepAgent login travels in clear text</b> in the setup the original project tested; the handbook rates this a high risk (<a href="index.html#ch-security">security chapter</a>).</li>
+<li><b>Log growth.</b> While the connector is down, ASE keeps its log. The original project reproduced the alert threshold and wrote down the emergency procedure; I did not repeat it.</li>
+<li><b>Memory.</b> A transaction is held in memory until its commit, so very large transactions need a larger heap.</li>
+<li><b>Ownership.</b> The original project's completion report (<code>docs/COMPLETION.md</code>) lists open questions that only the owning teams can answer, including the licensing and support position on RepAgent talking to a third-party endpoint, and who owns and supports the connector code. Its verdict for the original project is "not production-ready" (see also the handbook's <a href="index.html#ch-readiness">readiness chapter</a>).</li>
+</ul>
+
+<h3 id="next-read">Where to read more</h3>
+<ul>
+<li>The engineering handbook, <a href="index.html">index.html</a>: architecture, the wire protocol, every class annotated, deployment templates, runbooks and a migration plan.</li>
+<li>The finished connector in <code>sybase-cdc-connector/</code>, and the build-along solutions in <code>lab/solutions/</code>.</li>
+<li>The Confluent article that inspired this one, for comparison with the polling approach: "Kafka Connect Deep Dive – JDBC Source Connector".</li>
+</ul>
+
+<h3 id="next-check">Check yourself</h3>
+<details class="check"><summary>1. A colleague says "the lab passed 78 security checks, so we can deploy it". What is wrong with that?</summary>
+<p>The checks cover a local lab: loopback-only ports, two least-privilege logins, secrets out of git, argument checks. TLS and SASL were not tested, and the fixed passwords are public test values. Nothing there says a production deployment is secure.</p></details>
+<details class="check"><summary>2. Why must the Connect cluster that runs this connector have one replica?</summary>
+<p>RepAgent connects to one host and port. Only the worker that runs the task has the listener open, so a second replica would receive RepAgent connections it cannot serve.</p></details>
+<details class="check"><summary>3. The image tag <code>16.0</code> of the ASE image looks newer than the one the lab uses. Can you switch to it?</summary>
+<p>Not on the strength of this lab. It is a different build (16 layers against 12) that was never tested here (evidence 20), so everything in this article would need to be re-run on it.</p></details>
 </section>

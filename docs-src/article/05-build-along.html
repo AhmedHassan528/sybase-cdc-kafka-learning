@@ -1,4 +1,111 @@
 <section>
-<h2 id="build-along">How changes are read and delivered</h2>
-<p><em>Draft: written in a later task (see specs/001-cdc-learning-project/tasks.md).</em></p>
+<h2 id="build-along" data-keywords="build along connector increments listener parser transaction buffer mapper ack tracker task package plugin maven shade live check">How changes are read and delivered</h2>
+<p>So far we used a connector somebody else wrote. Now we build it. The build-along has six steps, and each one ends with a check against the real ASE, so you see your own code receive real changes.</p>
+
+<div class="note"><b>A word about "increment".</b> In this article an <em>increment</em> is only one numbered step of the build. It has nothing to do with the "incremental" mode of the JDBC source connector, which polls the table with <code>SELECT ... WHERE id &gt; last</code> again and again. This connector <b>never runs a SELECT</b>: I searched the finished source for JDBC and SQL use and found none. ASE's RepAgent reads the transaction log and <em>pushes</em> the changes to a listener, and building that listener is what you do here.</div>
+
+<h3 id="build-how">How each step works</h3>
+<ul>
+<li><b>A starter</b> (<code>lab/increments/NN-name/starter</code>): the project with the code you write replaced by hinted TODOs. It compiles and every new test fails.</li>
+<li><b>Tests</b> that replay packets captured from a real ASE RepAgent, so what passes is what the real thing sends.</li>
+<li><b>A live check</b> (<code>verify-live.sh</code>): it stops the connector for a minute, runs <em>your</em> code in its place, writes a row, and passes only if the real RepAgent talked to your code correctly.</li>
+<li><b>A reference solution</b> (<code>lab/solutions/NN-name</code>) to compare with when you are stuck.</li>
+</ul>
+<p>You need Docker and nothing else for the build: Maven runs in a container (<code>lab/env/mvn.sh</code>), so there is no local Java or Maven to install. The first build downloads the dependencies into a Docker volume; I did not test building from an empty cache without internet (<em>not run</em>). The scripts are bash; on Windows run them in Git Bash.</p>
+<pre data-lang="bash"><code>lab/increments/01-listener/verify.sh             # the unit checkpoints on your starter
+lab/increments/01-listener/verify-live.sh        # your code against the real ASE (lab must be running)
+lab/increments/01-listener/verify.sh solution    # the same tests on the reference solution</code></pre>
+<p>Each step builds on the previous solution, and the earlier tests keep running, so a later step cannot silently break an earlier one.</p>
+
+<h3 id="build-map">The pieces, and where each step fits</h3>
+<pre><code>RepAgent --LTL--> (1) listener --> (2) parser --> (3) transaction buffer --COMMIT--> queue --> (4) mapper --> Kafka
+    ^                                                                                                      |
+    +----------- "get truncation" <-- (5) ack tracker <-- (6) Connect task: commitRecord() <-- Kafka ack --+</code></pre>
+
+<h3 id="build-1">Step 1. The listener RepAgent connects to</h3>
+<p>RepAgent can only send to "a Replication Server" named in the ASE interfaces file. Your listener pretends to be one. It must answer, in order: the TDS login, <code>connect source</code> (two result sets), <code>get maintenance user</code>, <code>get truncation</code>, and then acknowledge each batch of LTL text with exactly one DONE. The byte-level TDS classes are given; you write the accept loop (<code>LtlServer</code>) and the handshake (<code>LtlSession</code>). Six checkpoints.</p>
+<p>Live check, reference solution (<code>[inc1]</code> lines are printed by the listener):</p>
+<pre><code>[inc1] login user=rs_user accepted=true
+[inc1] connect source MYSYBASE.phoenix_test LTL 760
+[inc1] LTL 10434 bytes: distribute 1 ~*620261022 21:55:29:876,4 0x00000000000015b0...
+PASS  01-listener (solution): the real RepAgent logged in, connected its source and sent LTL to your listener</code></pre>
+<p>ASE sent about 10 KB of LTL in one batch. It sends the changes it still holds, which can include older ones it has not yet been told it may forget.</p>
+
+<h3 id="build-2">Step 2. Reading LTL</h3>
+<p>LTL looks like text but values are length-prefixed: <code>~"$abc</code> is a 3-character string, because the character after the marker is a length digit in base 64 starting at <code>!</code>. A tokenizer is given; you write the value decoder (<code>LtlValues</code>) and the grammar (<code>LtlParser</code>): tags, <code>begin</code>/<code>commit</code>/<code>rollback</code> and <code>applied ... rs_insert|rs_update|rs_delete</code>. An update's <code>after</code> image arrives with only the changed columns, so you rebuild the full row from the before image. 15 new checkpoints; 16 of 21 tests fail on the starter.</p>
+<pre><code>[inc2] INSERT payment before=null after={payment_id=11, account_no=LIVE011706-1, amount=1, currency=EUR, created_at=2026-10-22T22:17:18.563}
+PASS  02-ltl-parser (solution): your parser decoded the row we just wrote (account_no=LIVE011706-1) from the real RepAgent's LTL</code></pre>
+<p>The line is Java printing a map, so strings have no quotes. The exact decimal <code>amount</code> is held as a string, and in Kafka it travels as a string too (see the data types section).</p>
+
+<h3 id="build-3">Step 3. Nothing is real until COMMIT</h3>
+<p>The buffer is the reason a rolled-back row never reaches Kafka. The core idea fits in a few lines:</p>
+<pre data-lang="java"><code>case BEGIN  -&gt; open.put(xid, new Open(...));
+case INSERT, UPDATE, DELETE -&gt; open.computeIfAbsent(xid, k -&gt; new Open()).changes.add(c);
+case COMMIT -&gt; { Open o = open.remove(xid); ... return Optional.of(new CommittedTransaction(...)); }
+case ROLLBACK -&gt; open.remove(xid);</code></pre>
+<p>(simplified from the reference solution). The live check writes one row inside a transaction it rolls back and one in a committed transaction; your buffer must report only the second:</p>
+<pre><code>[inc3] COMMITTED xid=00000000000015b000804d59... rows=1 [payment:account_no=LIVE012345-1]
+PASS  03-transaction-buffer (solution): the committed row (LIVE012345-1) was released at COMMIT and the rolled-back row (LIVE012345-RB) never was</code></pre>
+
+<h3 id="build-4">Step 4. The event Kafka sees</h3>
+<p>The mapper builds the topic (<code>&lt;prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>), the key (the primary key columns) and the value with <code>op</code>, <code>before</code>, <code>after</code>, <code>source</code> and <code>ts_ms</code>, in that order. The live check compares what your mapper builds for a real row with the shape of the real events from the first section:</p>
+<pre><code>[inc4] topic=sybase.phoenix_test.payment key={payment_id=19} value={op=c, before=null, after={payment_id=19, account_no=LIVE013014-1, ...}, source={server=MYSYBASE, db=phoenix_test, owner=dbo, table=payment, xid=..., user=cdc_app, seq=0, txn_rows=1}, ts_ms=...}</code></pre>
+
+<h3 id="build-5">Step 5. Telling ASE what is safe to forget</h3>
+<p>ASE keeps its log until the connector reports a position it can free. Kafka confirms records one by one and out of order, so the reported position must never pass a transaction that is not fully confirmed. The whole rule is this loop:</p>
+<pre data-lang="java"><code>private void advance() {
+    while (!queue.isEmpty() &amp;&amp; queue.peekFirst().remaining &lt;= 0) {
+        acked = queue.pollFirst().oqid;
+    }
+}</code></pre>
+<p>The live check uses two real transactions and a fake Kafka that confirms the newer one first. The watermark must wait:</p>
+<pre><code>[inc5] confirmed commit_oqid=…001a… watermark=null              (the newer transaction; the older is still unconfirmed)
+[inc5] confirmed commit_oqid=…0017… watermark=…001a…           (the older one is confirmed: the watermark jumps to the newer)</code></pre>
+
+<h3 id="build-6">Step 6. The connector, packaged and running</h3>
+<p>The Kafka Connect task connects the listener, parser, buffer, mapper and tracker. Only the last record of a transaction may carry the offset that says "this whole transaction is done"; if Connect crashed between two records of one transaction, the stored position must still be the one before it, so the transaction is sent again and nothing is lost. The price is a possible duplicate, as the reliability section showed. You also package everything as one JAR with the Maven shade plugin, which is the plugin Kafka Connect loads.</p>
+<p>The live check builds your JAR, starts a <em>separate</em> temporary Connect worker that has only your plugin (the finished connector is stopped, not changed, and is started again afterwards), registers your connector, writes a row and waits for its event in Kafka:</p>
+<pre><code>ok: Connect lists your connector class (the plugin JAR is packaged correctly)
+ok: your task is RUNNING
+event on lab6.phoenix_test.payment: {"payment_id":"22"} | {"op":"c","before":null,"after":{"payment_id":"22","account_no":"LAB6014353-1",...
+PASS  06-package-and-run (solution): your packaged connector delivered the real change (LAB6014353-1) to Kafka</code></pre>
+<p>Rows written during that check go to <code>lab6.*</code> topics, not to the <code>sybase.*</code> topics.</p>
+
+<h3 id="build-result">What the checks showed</h3>
+<div class="tbl"><table>
+<thead><tr><th>Step</th><th>Checkpoints (solution)</th><th>Failing on the starter</th><th>Live check on the real ASE</th></tr></thead>
+<tbody>
+<tr><td>1 listener</td><td>6</td><td>6 of 6</td><td>starter fails, solution passes</td></tr>
+<tr><td>2 parser</td><td>21</td><td>16 of 21</td><td>starter fails, solution passes</td></tr>
+<tr><td>3 buffer</td><td>28</td><td>7 of 28</td><td>starter fails, solution passes</td></tr>
+<tr><td>4 mapper</td><td>36</td><td>8 of 36</td><td>starter fails, solution passes</td></tr>
+<tr><td>5 tracker</td><td>42</td><td>6 of 42</td><td>starter fails, solution passes</td></tr>
+<tr><td>6 task and plugin</td><td>51</td><td>9 of 51</td><td>starter fails, solution passes</td></tr>
+</tbody></table></div>
+<p>The counts are cumulative because each step keeps the earlier tests. I ran the unit tests, and then each live check once for the starter and once for the solution, while writing the steps. The final full run of all 24 checks is recorded in <a href="evidence/35-increments-verify.txt">evidence/35</a>.</p>
+<p>How close is the final solution to the finished connector? The finished project's own 11 unit tests pass (<a href="evidence/38-final-solution-comparison.txt">evidence/38</a>), and the two source trees differ only in the <code>ltl</code> package (the listener interface, a <code>localPort()</code> helper in <code>LtlServer</code> and a shorter <code>LtlSession</code> without the packet-dump diagnostics) and in the diagnostic <code>tools</code> folder, which is not part of the connector.</p>
+
+<h3 id="build-notrun">Not run</h3>
+<ul>
+<li>Running your plugin on OpenShift or IBM Event Streams, and anything with TLS or SASL.</li>
+<li>Very large transactions and long outages.</li>
+<li>PowerShell versions of the step scripts (they are bash only).</li>
+<li>A learner actually working through the steps: the checks show the starters fail and the solutions pass, not how long a learner needs.</li>
+</ul>
+
+<h3 id="build-check">Check yourself</h3>
+<details class="check"><summary>1. Step 1: why does the listener answer every batch of LTL with exactly one DONE?</summary>
+<p>RepAgent expects one answer per message. A second DONE is read later as the answer to <code>get truncation</code> and RepAgent aborts (see the comment in <code>lab/solutions/01-listener/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java</code>).</p></details>
+<details class="check"><summary>2. Step 2: an update arrives with only the changed columns. How do you build the <code>after</code> image?</summary>
+<p>Start from the <code>before</code> image and put the changed columns over it, keeping column order (<code>LtlParser.command()</code> in <code>lab/solutions/02-ltl-parser</code>).</p></details>
+<details class="check"><summary>3. Step 3: a transaction has no <code>BEGIN</code> in the batch you received. Do you drop its rows?</summary>
+<p>No. RepAgent may have restarted inside the transaction, so the buffer creates the transaction on the first row and keeps it (<code>TransactionBuffer.accept()</code> in <code>lab/solutions/03-transaction-buffer</code>).</p></details>
+<details class="check"><summary>4. Step 4: why does a delete take its key from the <code>before</code> image?</summary>
+<p>A delete has no <code>after</code> image; the deleted row's values are in <code>before</code> (<code>ChangeEventMapper.key()</code> in <code>lab/solutions/04-connect-records</code>).</p></details>
+<details class="check"><summary>5. Step 5: transactions A (2 records) and B (1 record) are registered; B is confirmed first. What is the watermark?</summary>
+<p>Still the old one. B is done, but A, before it, is not, and the watermark only moves past a transaction when everything before it is done (<code>AckTracker.advance()</code> in <code>lab/solutions/05-acks-and-offsets</code>).</p></details>
+<details class="check"><summary>6. Step 6: why may only the last record of a transaction carry the "done" offset?</summary>
+<p>If Connect crashed after publishing some records of a transaction, the stored position must still be the one before the transaction, so the whole transaction is sent again instead of its tail being lost (<code>SybaseCdcSourceTask.poll()</code> in <code>lab/solutions/06-package-and-run</code>).</p></details>
+<details class="check"><summary>7. Does this connector query your tables?</summary>
+<p>No. It never runs a SELECT. ASE's RepAgent reads the transaction log and sends the changes to the listener you built in step 1.</p></details>
 </section>

@@ -1,0 +1,78 @@
+# Captured: 2026-10-22T22:50:38Z
+# Command:  bash lab/experiments/compare-final-solution.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 1. the finished project's own unit tests
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.211 s -- in com.phoenix.cdc.sybase.cdc.AckTrackerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.127 s -- in com.phoenix.cdc.sybase.cdc.TransactionBufferTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.264 s -- in com.phoenix.cdc.sybase.ltl.LtlParserTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.009 s -- in com.phoenix.cdc.sybase.ltl.LtlValuesTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+
+== 2. differences between the finished sources and lab/solutions/06-package-and-run (main code)
+Files FINISHED/com/phoenix/cdc/sybase/ltl/LtlListener.java and SOLUTION/com/phoenix/cdc/sybase/ltl/LtlListener.java differ
+Files FINISHED/com/phoenix/cdc/sybase/ltl/LtlServer.java and SOLUTION/com/phoenix/cdc/sybase/ltl/LtlServer.java differ
+Files FINISHED/com/phoenix/cdc/sybase/ltl/LtlSession.java and SOLUTION/com/phoenix/cdc/sybase/ltl/LtlSession.java differ
+Only in FINISHED/com/phoenix/cdc/sybase: tools
+
+-- the differences, line by line (FINISHED vs SOLUTION):
+### ltl/LtlListener.java
+-/** What the LTL server needs from its owner (the Kafka Connect task, or the probe tool). */
++/**
++ * What the LTL server needs from its owner (the Kafka Connect task in the finished connector, or a small
++ * main class in the first increments).
++ *
++ * Increment 2: the session parses each LTL batch and hands over the commands (increment 1 passed the raw text).
++ */
+-     * we return the version to use (must be <= the proposal). Throw to refuse.
++     * we return the version to use (must be &lt;= the proposal). Throw to refuse.
+### ltl/LtlServer.java
+-        acceptThread = new Thread(this::acceptLoop, "ltl-accept-" + port);
++        acceptThread = new Thread(this::acceptLoop, "ltl-accept-" + ss.getLocalPort());
+-        log.info("LTL server listening on {}:{}", host, port);
++        log.info("LTL server listening on {}:{}", host, ss.getLocalPort());
++    }
++    /** The port actually bound (useful when the server was asked for port 0 in a test). */
++    public int localPort() {
++        return serverSocket.getLocalPort();
+### ltl/LtlSession.java
+-import java.nio.file.Files;
+-import java.nio.file.Path;
+-import java.util.concurrent.atomic.AtomicLong;
+-    private static final String DUMP_DIR = System.getProperty("ltl.dump.dir");
+-    private static final AtomicLong DUMP_SEQ = new AtomicLong();
+-                dump(m);
+-                if (trace && m.type() != TdsChannel.PKT_NORMAL) {
+-                    log.info("TDS message type=0x{} len={} head={}", Integer.toHexString(m.type()), m.payload().length, hex(m.payload(), 8));
+-                }
+-                        log.warn("Unhandled TDS packet type 0x{} ({} bytes): {}", Integer.toHexString(m.type()),
+-                            m.payload().length, hex(m.payload(), 256));
++                        log.warn("Unhandled TDS packet type 0x{} ({} bytes)", Integer.toHexString(m.type()), m.payload().length);
+-        if (trace) log.info("Login packet: {}", hex(payload, payload.length));
+-        if (trace) log.info("TDS message type=0x0f len={} head={}", p.length, hex(p, 8));
+-        log.warn("Unhandled TDS token 0x{} ({} bytes): {}", Integer.toHexString(p.length > 0 ? p[0] & 0xff : 0),
+-            p.length, hex(p, 256));
++        log.warn("Unhandled TDS token 0x{} ({} bytes)", Integer.toHexString(p.length > 0 ? p[0] & 0xff : 0), p.length);
+-    /**
+-     * With -Dltl.dump.dir=/some/dir every message RepAgent sends is saved as NNNNNN-type.bin, so the
+-     * exact LTL bytes of a new ASE version can be studied offline (e.g. with od -c).
+-     */
+-    private void dump(TdsChannel.Message m) {
+-        if (DUMP_DIR == null) return;
+-        try {
+-            Path dir = Path.of(DUMP_DIR);
+-            Files.createDirectories(dir);
+-            Files.write(dir.resolve(String.format("%06d-%02x.bin", DUMP_SEQ.incrementAndGet(), m.type())), m.payload());
+-        } catch (IOException e) {
+-            log.warn("Cannot dump LTL message: {}", e.toString());
+-        }
+-    }
+-    private static String hex(byte[] b, int max) {
+-        int n = Math.min(b.length, max);
+-        return HexFormat.of().formatHex(b, 0, n) + (b.length > n ? "..." : "");
+-    }
+
+== 3. files identical in both trees: 18 java files in both, of which 15 are byte-for-byte the same
+
+# exit code: 0

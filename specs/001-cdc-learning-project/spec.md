@@ -149,12 +149,12 @@ A learner builds the connector incrementally, from reading the first change reco
 
 ### Measurable Outcomes
 
-- **SC-001**: A learner who meets the prerequisites completes the core hands-on path, including the build-along, in under 12 hours of study, and sees their first change event within the first 4 hours.
+- **SC-001**: Machine-time check. Starting from a reset lab with the images already pulled, Section 2's steps produce the first change events in under 5 minutes of machine time (measured 69 s in `docs/evidence/19-section2-dry-run.txt` and 66 s for the PowerShell path in `docs/evidence/22-powershell-path.txt`), and the six build-along steps each pass their checks (`docs/evidence/35-increments-verify.txt`). How long a learner needs is not measured and no claim is made about it.
 - **SC-002**: Walkthrough check. Following Section 2 exactly as written, starting from a reset lab, produces the four events of the scripted changes (`op` values `c`, `c`, `u`, `d`) and every step's stated check matches. Verified reproducibly by `lab/experiments/section2-dry-run.sh`; the latest run is `docs/evidence/19-section2-dry-run.txt`. No claim is made about the share of learners who succeed unaided: that would need a user study, and none is planned.
 - **SC-003**: Review check. Every written article section has at least two check questions, each with an answer in the article that is consistent with the evidence (counted per chapter file by the number of `class="check"` entries, and reviewed in the Principle I audit, task T057). No claim is made about learner scores.
 - **SC-004**: 100% of behavior and test claims link to evidence or are marked as not run.
 - **SC-005**: 100% of internal links resolve, and every setup step has a success check.
-- **SC-006**: A learner can explain the end-to-end path and name three reliability concerns after finishing.
+- **SC-006**: Review check. The article contains check questions about the end-to-end path (Section 1) and about at least three reliability concerns: what a rollback produces and how duplicates are recognised (Section 11), and what the restart position is (Section 7). No claim is made about what a learner can explain.
 
 ## Assumptions
 

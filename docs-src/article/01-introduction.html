@@ -9,9 +9,10 @@
 <li><b>The application commits a row change.</b> ASE writes it to its transaction log first, before it counts as durable.</li>
 <li><b>RepAgent reads the log.</b> RepAgent is a thread inside ASE. It is built to feed a <em>Replication Server</em>, and it sends changes in a text-like format called LTL (Log Transfer Language) over the TDS protocol.</li>
 <li><b>Our connector pretends to be that Replication Server.</b> We register a fake server name, <code>CDC_RS</code>, in the ASE interfaces file and point it at the connector's port <code>11752</code>. RepAgent connects, logs in, and streams LTL to us. No real Replication Server is involved.</li>
-<li><b>The connector holds rows until COMMIT.</b> RepAgent forwards changes of transactions that are still open, and even of ones that later roll back. The connector buffers them and publishes a transaction only when its commit arrives.</li>
+<li><b>The connector holds rows until COMMIT.</b> RepAgent forwards changes of transactions that are still open, and even of ones that later roll back (a raw capture from the original project shows a rolled-back insert being sent, and the lab's rollback test shows that nothing reaches Kafka: <a href="evidence/23-rollback.txt">evidence/23</a>). The connector buffers them and publishes a transaction only when its commit arrives.</li>
 <li><b>Kafka stores the events, then we acknowledge.</b> Only after Kafka has the events does the connector tell ASE it may discard that part of its log.</li>
 </ol>
+<p>This description of the stops comes from the engineering handbook (<a href="index.html#ch-architecture">architecture chapter</a>) and the original project's captures; the sections that follow test each stop in the lab.</p>
 
 <figure-diagram src="02-cdc-data-flow" n="02" title="End-to-end flow of one committed row change">
 <p><b>How to read it:</b> follow the numbers. Nothing reaches Kafka before the commit step; a rollback ends the path early and publishes nothing.</p>

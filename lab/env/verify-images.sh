@@ -6,9 +6,11 @@ set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 cd "$LAB_ROOT"
 
-refs=$(grep -hE '^\s*image: [^ ]+@sha256:|^FROM [^ ]+@sha256:' lab/env/docker-compose.yml deploy/docker/Dockerfile.connect \
-       | sed -E 's/^\s*image: //; s/^FROM //; s/ .*//' | sort -u)
-unpinned=$(grep -hE '^\s*image: ' lab/env/docker-compose.yml | grep -v '@sha256:' | grep -v 'sybase-cdc-connect:' || true)
+refs=$( { grep -hE '^\s*image: [^ ]+@sha256:|^FROM [^ ]+@sha256:' lab/env/docker-compose.yml deploy/docker/Dockerfile.connect \
+             | sed -E 's/^\s*image: //; s/^FROM //; s/ .*//'
+           grep -hE '^MAVEN_IMAGE=[^ ]+@sha256:' lab/env/_common.sh | sed -E 's/^MAVEN_IMAGE=//'; } | sort -u)
+unpinned=$( { grep -hE '^\s*image: ' lab/env/docker-compose.yml | grep -v '@sha256:' | grep -v 'sybase-cdc-connect:'
+              grep -hE '^MAVEN_IMAGE=' lab/env/_common.sh | grep -v '@sha256:'; } || true)
 [ -n "$unpinned" ] && { echo "NOT PINNED BY DIGEST:"; echo "$unpinned"; }
 
 fail=0

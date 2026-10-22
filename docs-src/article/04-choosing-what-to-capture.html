@@ -4,13 +4,13 @@
 
 <h3 id="capture-two">Two filters</h3>
 <ol>
-<li><b>In the database:</b> only tables marked with <code>sp_setreptable &lt;table&gt;, true</code> send changes at all.</li>
-<li><b>In the connector:</b> <code>table.include.list</code> lists which of those tables become topics. Empty means every marked table. The match ignores case.</li>
+<li><b>In the database:</b> only tables marked with <code>sp_setreptable &lt;table&gt;, true</code> send changes at all. Every table that produced events in the lab was marked this way (<code>sybase/01_setup.sql</code>, <code>lab/env/sample-data.sql</code>, <code>lab/env/types.sql</code>). I did not write to an unmarked table to confirm that it sends nothing (<em>not run</em>); this is how ASE documents the feature and how the original project's troubleshooting guide describes it.</li>
+<li><b>In the connector:</b> <code>table.include.list</code> lists which of those tables become topics. The setting's description in <code>SybaseCdcConfig</code> says an empty list means every marked table and that the match ignores case; I only ran non-empty lists (<em>not run</em> for the empty list and for upper-case names). The next sections show what happens when a table is missing from the list.</li>
 </ol>
 <p>A table must pass both. The connector config used in the lab is <code>connectors/sybase-cdc-phoenix.json</code>; it starts with <code>"table.include.list": "payment"</code>.</p>
 
 <h3 id="capture-topics">Topic names</h3>
-<p>Each table gets its own topic named <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config that is <code>sybase.phoenix_test.payment</code>. The key of each record is the table's primary key columns, for example <code>{"payment_id":"1"}</code>, so all changes to one row go to the same partition in order.</p>
+<p>Each table gets its own topic named <code>&lt;topic.prefix&gt;.&lt;database&gt;.&lt;table&gt;</code>. With the lab config that is <code>sybase.phoenix_test.payment</code>; the topics the lab produced are listed in <a href="evidence/32-topics.txt">evidence/32</a>. The key of each record is the table's primary key columns, for example <code>{"payment_id":"1"}</code> (see the first section's output, <a href="evidence/14-lab-first-event.txt">evidence/14</a>), so all changes to one row go to the same partition in order.</p>
 
 <h3 id="capture-maint">One more filter: the maintenance user</h3>
 <p>The setting <code>database.maintenance.user</code> (default <code>cdc_maint</code>) names a login whose transactions RepAgent does not forward. In ordinary replication that login is the Replication Server's own writer, so its changes are not sent back in a loop. Here it is useful for the same reason: changes made by that login never appear in Kafka. I have not tested this setting in the lab (<em>not run</em>).</p>

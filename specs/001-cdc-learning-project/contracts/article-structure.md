@@ -8,7 +8,7 @@ The article is the main deliverable (FR-013, FR-014). Output: `docs/article.html
 2. Try it at home (lab setup, prerequisites, reset)
 3. Source database prerequisites
 4. Choosing what to capture
-5. How changes are read and delivered (build-along increments 1 to 5 live here)
+5. How changes are read and delivered (the six build-along increments live here)
 6. Why is there no data? (troubleshooting by symptom)
 7. Resetting and restarting from a chosen point
 8. Message keys and topic naming

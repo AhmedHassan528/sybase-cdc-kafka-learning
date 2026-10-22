@@ -24,5 +24,5 @@
 <details class="check"><summary>1. You insert a row into a table and nothing shows up in Kafka. Which two preparations would you check first?</summary>
 <p>Whether the table was marked with <code>sp_setreptable</code>, and whether the RepAgent is running and connected (<code>sp_help_rep_agent phoenix_test, 'process'</code>).</p></details>
 <details class="check"><summary>2. Why is the RepAgent started after the connector, not before?</summary>
-<p>RepAgent connects to the connector as soon as it starts. If the connector is not listening yet, the connection is refused and RepAgent stops its thread and waits for an administrator.</p></details>
+<p>RepAgent connects to the connector as soon as it starts. The setup script (<code>sybase/02_repagent.sql</code>) says not to start the RepAgent until the connector listens. I did not start it too early to see what ASE does (<em>not run</em>); in the lab, a RepAgent whose connector was away kept retrying (see "Why is there no data?").</p></details>
 </section>

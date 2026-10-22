@@ -1,0 +1,62 @@
+# Captured: 2026-10-22T22:51:02Z
+# Command:  bash lab/experiments/verify-all-increments.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== increment 01-listener
+01-listener starter  unit tests    must FAIL got FAIL  as required
+      FAIL  01-listener (starter): 6 of 6 checkpoints fail. First failing checkpoint:
+01-listener solution unit tests    must PASS got PASS  as required
+      PASS  01-listener (solution): all 6 checkpoints pass
+01-listener starter  live check    must FAIL got FAIL  as required
+      FAIL  01-listener (starter): missing from the listener output:
+01-listener solution live check    must PASS got PASS  as required
+      PASS  01-listener (solution): the real RepAgent logged in, connected its source and sent LTL to your listener
+== increment 02-ltl-parser
+02-ltl-parser starter  unit tests  must FAIL got FAIL  as required
+      FAIL  02-ltl-parser (starter): 16 of 21 checkpoints fail. First failing checkpoint:
+02-ltl-parser solution unit tests  must PASS got PASS  as required
+      PASS  02-ltl-parser (solution): all 21 checkpoints pass
+02-ltl-parser starter  live check  must FAIL got FAIL  as required
+      FAIL  02-ltl-parser (starter): missing from the listener output:
+02-ltl-parser solution live check  must PASS got PASS  as required
+      PASS  02-ltl-parser (solution): your parser decoded the row we just wrote (account_no=LIVE015538-1) from the real RepAgent's LTL
+== increment 03-transaction-buffer
+03-transaction-buffer starter  unit tests must FAIL got FAIL  as required
+      FAIL  03-transaction-buffer (starter): 7 of 28 checkpoints fail. First failing checkpoint:
+03-transaction-buffer solution unit tests must PASS got PASS  as required
+      PASS  03-transaction-buffer (solution): all 28 checkpoints pass
+03-transaction-buffer starter  live check must FAIL got FAIL  as required
+      FAIL  03-transaction-buffer (starter):
+03-transaction-buffer solution live check must PASS got PASS  as required
+      PASS  03-transaction-buffer (solution): the committed row (LIVE015926-1) was released at COMMIT and the rolled-back row (LIVE015926-RB) never was
+== increment 04-connect-records
+04-connect-records starter  unit tests must FAIL got FAIL  as required
+      FAIL  04-connect-records (starter): 8 of 36 checkpoints fail. First failing checkpoint:
+04-connect-records solution unit tests must PASS got PASS  as required
+      PASS  04-connect-records (solution): all 36 checkpoints pass
+04-connect-records starter  live check must FAIL got FAIL  as required
+      FAIL  04-connect-records (starter): missing from the listener output:
+04-connect-records solution live check must PASS got PASS  as required
+      PASS  04-connect-records (solution): your mapper built the event for the row we just wrote (LIVE020048-1) from the real RepAgent's changes
+== increment 05-acks-and-offsets
+05-acks-and-offsets starter  unit tests must FAIL got FAIL  as required
+      FAIL  05-acks-and-offsets (starter): 6 of 42 checkpoints fail. First failing checkpoint:
+05-acks-and-offsets solution unit tests must PASS got PASS  as required
+      PASS  05-acks-and-offsets (solution): all 42 checkpoints pass
+05-acks-and-offsets starter  live check must FAIL got FAIL  as required
+      FAIL  05-acks-and-offsets (starter): missing from the listener output:
+05-acks-and-offsets solution live check must PASS got FAIL  UNEXPECTED
+      FAIL  05-acks-and-offsets (solution): missing from the listener output:
+== increment 06-package-and-run
+06-package-and-run starter  unit tests must FAIL got FAIL  as required
+      FAIL  06-package-and-run (starter): 9 of 51 checkpoints fail. First failing checkpoint:
+06-package-and-run solution unit tests must PASS got PASS  as required
+      PASS  06-package-and-run (solution): all 51 checkpoints pass
+06-package-and-run starter  live check must FAIL got FAIL  as required
+      FAIL  06-package-and-run (starter):
+06-package-and-run solution live check must PASS got PASS  as required
+      PASS  06-package-and-run (solution): your packaged connector delivered the real change (LAB6020354-1) to Kafka
+
+SUMMARY: 24 checks run in 827 s, 1 came out differently from what they must do
+
+# exit code: 1

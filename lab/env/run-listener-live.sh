@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run a listener of your own in place of the connector, so the real ASE RepAgent talks to your code.
-# Usage: run-listener-live.sh <jar relative to the repository root> <main class> [--wait-for <text>] [--also-rollback] [-- <args for the class>]
+# Usage: run-listener-live.sh <jar relative to the repository root> <main class> [--wait-for <text>] [--also-rollback] [--second-row] [--settle <seconds>] [-- <args for the class>]
 #   e.g. run-listener-live.sh lab/solutions/01-listener/target/cdc-lab-01-listener-0.1.0.jar com.phoenix.cdc.lab.Increment1Main --wait-for "[inc1] LTL"
 #
 # What it does: stops the connector (a stopped connector frees port 11752; a paused one does not), copies the jar into the
@@ -10,17 +10,21 @@
 # mentions the tag (the RepAgent first replays older changes), then ALWAYS stops the listener
 # and resumes the connector. Rows the listener saw are still delivered later by the connector (evidence 34).
 # --also-rollback first writes a row (TAG-RB) inside a transaction that is rolled back, then the committed row (TAG-1).
+# --second-row then writes a second committed row (TAG-2) in its own transaction after TAG-1.
+# --settle waits that many extra seconds after --wait-for was found before printing (default 2).
 # Exit code: 0 the listener ran and the text appeared, 1 otherwise, 2 bad arguments.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/_common.sh"
 
 jar=${1:?usage: run-listener-live.sh <jar> <main class> [--wait-for <text>] [-- <class args>]}; main=${2:?main class}; shift 2
-wait_text=""; class_args=(); also_rollback=0
+wait_text=""; class_args=(); also_rollback=0; second_row=0; settle=2
 while [ $# -gt 0 ]; do
   case "$1" in
     --wait-for) wait_text=${2:?--wait-for needs text}; shift 2 ;;
     --also-rollback) also_rollback=1; shift ;;
+    --second-row) second_row=1; shift ;;
+    --settle) settle=${2:?--settle needs seconds}; [[ "$settle" =~ ^[0-9]+$ ]] || { echo "invalid --settle" >&2; exit 2; }; shift 2 ;;
     --) shift; class_args=("$@"); break ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -67,6 +71,12 @@ ase_app >/dev/null <<SQL
 insert into payment (account_no, amount, currency) values ('$TAG-1', 1, 'EUR')
 go
 SQL
+if [ "$second_row" -eq 1 ]; then
+  ase_app >/dev/null <<SQL
+insert into payment (account_no, amount, currency) values ('$TAG-2', 2, 'EUR')
+go
+SQL
+fi
 found=1
 wait_text=${wait_text//@TAG@/$TAG}
 if [ -n "$wait_text" ]; then
@@ -76,10 +86,12 @@ if [ -n "$wait_text" ]; then
     sleep 3
   done
 fi
-sleep 2
+sleep "$settle"
 echo "== listener output (tag $TAG), first lines:"
 docker exec "$CONNECT" sh -c 'head -n 12 /tmp/live-listener.log' | cut -c1-200
 echo "== lines that mention $TAG:"
 docker exec -e TAG="$TAG" "$CONNECT" sh -c 'grep -F -- "$TAG" /tmp/live-listener.log | head -n 10' | cut -c1-1500
+echo "== output from the first mention of $TAG onward (up to 40 lines):"
+docker exec -e TAG="$TAG" "$CONNECT" sh -c 'sed -n "/$TAG/,\$p" /tmp/live-listener.log | head -n 40' | cut -c1-400
 [ "$found" -eq 1 ] || { echo "== TIMEOUT: '$wait_text' never appeared in the listener output"; exit 1; }
 exit 0
