@@ -1,0 +1,149 @@
+# Captured: 2026-10-23T11:25:59Z
+# Command:  bash -c export BROWSER=edge; for c in offline overflow search keyboard print; do echo "=== $c (Microsoft Edge)"; node docs-src/site-checks/$c.js || exit 1; done
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+=== offline (Microsoft Edge)
+offline: loading every page with outside requests blocked (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+ok   evidence/index.html                local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/01-listener.html             local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/02-ltl-parser.html           local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/03-transaction-buffer.html   local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/04-connect-records.html      local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/05-acks-and-offsets.html     local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/06-package-and-run.html      local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/index.html                   local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   index.html                         local requests= 4 outside=0 failed=0 images=1 broken=0 script-errors=0 stylesheet=true
+pages: 9; local requests: 28; outside requests attempted: 0; pages with problems: 0
+=== overflow (Microsoft Edge)
+overflow: page-level horizontal scroll at 320, 375, 768, 1280 px, themes: light, dark (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+ok   light  320 px  evidence/index.html                scrollWidth=305 viewport=305 boxes=6 scrolling-inside=5
+ok   light  375 px  evidence/index.html                scrollWidth=360 viewport=360 boxes=6 scrolling-inside=2
+ok   light  768 px  evidence/index.html                scrollWidth=753 viewport=753 boxes=6 scrolling-inside=0
+ok   light 1280 px  evidence/index.html                scrollWidth=1265 viewport=1265 boxes=6 scrolling-inside=0
+ok   light  320 px  guide/01-listener.html             scrollWidth=305 viewport=305 boxes=4 scrolling-inside=4
+ok   light  375 px  guide/01-listener.html             scrollWidth=360 viewport=360 boxes=4 scrolling-inside=4
+ok   light  768 px  guide/01-listener.html             scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/01-listener.html             scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/02-ltl-parser.html           scrollWidth=305 viewport=305 boxes=4 scrolling-inside=4
+ok   light  375 px  guide/02-ltl-parser.html           scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/02-ltl-parser.html           scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/02-ltl-parser.html           scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/03-transaction-buffer.html   scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/03-transaction-buffer.html   scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/03-transaction-buffer.html   scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/03-transaction-buffer.html   scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/04-connect-records.html      scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/04-connect-records.html      scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/04-connect-records.html      scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/04-connect-records.html      scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/05-acks-and-offsets.html     scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/05-acks-and-offsets.html     scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/05-acks-and-offsets.html     scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/05-acks-and-offsets.html     scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/06-package-and-run.html      scrollWidth=305 viewport=305 boxes=5 scrolling-inside=4
+ok   light  375 px  guide/06-package-and-run.html      scrollWidth=360 viewport=360 boxes=5 scrolling-inside=4
+ok   light  768 px  guide/06-package-and-run.html      scrollWidth=753 viewport=753 boxes=5 scrolling-inside=3
+ok   light 1280 px  guide/06-package-and-run.html      scrollWidth=1265 viewport=1265 boxes=5 scrolling-inside=3
+ok   light  320 px  guide/index.html                   scrollWidth=305 viewport=305 boxes=3 scrolling-inside=3
+ok   light  375 px  guide/index.html                   scrollWidth=360 viewport=360 boxes=3 scrolling-inside=3
+ok   light  768 px  guide/index.html                   scrollWidth=753 viewport=753 boxes=3 scrolling-inside=2
+ok   light 1280 px  guide/index.html                   scrollWidth=1265 viewport=1265 boxes=3 scrolling-inside=2
+ok   light  320 px  index.html                         scrollWidth=305 viewport=305 boxes=36 scrolling-inside=33
+ok   light  375 px  index.html                         scrollWidth=360 viewport=360 boxes=36 scrolling-inside=31
+ok   light  768 px  index.html                         scrollWidth=753 viewport=753 boxes=36 scrolling-inside=17
+ok   light 1280 px  index.html                         scrollWidth=1265 viewport=1265 boxes=36 scrolling-inside=16
+ok   dark   320 px  evidence/index.html                scrollWidth=305 viewport=305 boxes=6 scrolling-inside=5
+ok   dark   375 px  evidence/index.html                scrollWidth=360 viewport=360 boxes=6 scrolling-inside=2
+ok   dark   768 px  evidence/index.html                scrollWidth=753 viewport=753 boxes=6 scrolling-inside=0
+ok   dark  1280 px  evidence/index.html                scrollWidth=1265 viewport=1265 boxes=6 scrolling-inside=0
+ok   dark   320 px  guide/01-listener.html             scrollWidth=305 viewport=305 boxes=4 scrolling-inside=4
+ok   dark   375 px  guide/01-listener.html             scrollWidth=360 viewport=360 boxes=4 scrolling-inside=4
+ok   dark   768 px  guide/01-listener.html             scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/01-listener.html             scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/02-ltl-parser.html           scrollWidth=305 viewport=305 boxes=4 scrolling-inside=4
+ok   dark   375 px  guide/02-ltl-parser.html           scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/02-ltl-parser.html           scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/02-ltl-parser.html           scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/03-transaction-buffer.html   scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/03-transaction-buffer.html   scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/03-transaction-buffer.html   scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/03-transaction-buffer.html   scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/04-connect-records.html      scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/04-connect-records.html      scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/04-connect-records.html      scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/04-connect-records.html      scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/05-acks-and-offsets.html     scrollWidth=305 viewport=305 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/05-acks-and-offsets.html     scrollWidth=360 viewport=360 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/05-acks-and-offsets.html     scrollWidth=753 viewport=753 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/05-acks-and-offsets.html     scrollWidth=1265 viewport=1265 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/06-package-and-run.html      scrollWidth=305 viewport=305 boxes=5 scrolling-inside=4
+ok   dark   375 px  guide/06-package-and-run.html      scrollWidth=360 viewport=360 boxes=5 scrolling-inside=4
+ok   dark   768 px  guide/06-package-and-run.html      scrollWidth=753 viewport=753 boxes=5 scrolling-inside=3
+ok   dark  1280 px  guide/06-package-and-run.html      scrollWidth=1265 viewport=1265 boxes=5 scrolling-inside=3
+ok   dark   320 px  guide/index.html                   scrollWidth=305 viewport=305 boxes=3 scrolling-inside=3
+ok   dark   375 px  guide/index.html                   scrollWidth=360 viewport=360 boxes=3 scrolling-inside=3
+ok   dark   768 px  guide/index.html                   scrollWidth=753 viewport=753 boxes=3 scrolling-inside=2
+ok   dark  1280 px  guide/index.html                   scrollWidth=1265 viewport=1265 boxes=3 scrolling-inside=2
+ok   dark   320 px  index.html                         scrollWidth=305 viewport=305 boxes=36 scrolling-inside=33
+ok   dark   375 px  index.html                         scrollWidth=360 viewport=360 boxes=36 scrolling-inside=31
+ok   dark   768 px  index.html                         scrollWidth=753 viewport=753 boxes=36 scrolling-inside=17
+ok   dark  1280 px  index.html                         scrollWidth=1265 viewport=1265 boxes=36 scrolling-inside=16
+checked 72 page/width/theme combinations; failures: 0
+=== search (Microsoft Edge)
+search: results, empty result and contents clicks (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+ok   "oqid": 12 result(s)
+ok   "oqid": the target section #intro-promise contains the term
+ok   "oqid": Enter lands on #intro-promise (location hash #intro-promise)
+ok   "retry timeout": 2 result(s)
+ok   "retry timeout": the target section #try-register contains the term
+ok   "retry timeout": Enter lands on #try-register (location hash #try-register)
+ok   "tombstone": 3 result(s)
+ok   "tombstone": first result is #keys-delete (expected #keys-delete)
+ok   "tombstone": the target section #keys-delete contains the term
+ok   "tombstone": Enter lands on #keys-delete (location hash #keys-delete)
+ok   "TransactionBuffer": 5 result(s)
+ok   "TransactionBuffer": Enter opens /E:/ADIB/docs/site/guide/03-transaction-buffer.html#increment-3-nothing-is-real-until-commit and the heading exists
+ok   nonsense term shows: "Nothing found for zzqxvv"
+ok   contents lists 12 sections
+ok   contents entry 1 (#introduction): heading in view (top 80 px)
+ok   contents entry 2 (#try-it-at-home): heading in view (top 80 px)
+ok   contents entry 3 (#source-prerequisites): heading in view (top 80 px)
+ok   contents entry 4 (#choosing-what-to-capture): heading in view (top 80 px)
+ok   contents entry 5 (#build-along): heading in view (top 80 px)
+ok   contents entry 6 (#why-no-data): heading in view (top 80 px)
+ok   contents entry 7 (#reset-and-restart): heading in view (top 80 px)
+ok   contents entry 8 (#keys-and-topics): heading in view (top 80 px)
+ok   contents entry 9 (#data-types): heading in view (top 80 px)
+ok   contents entry 10 (#multiple-tables): heading in view (top 80 px)
+ok   contents entry 11 (#reliability): heading in view (top 80 px)
+ok   contents entry 12 (#where-next): heading in view (top 80 px)
+failures: 0
+=== keyboard (Microsoft Edge)
+keyboard: six actions with keys only, plus edge cases (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+ok   1 contents: reached the Contents summary after 9 Tab presses
+ok   1 contents: Enter opens the menu
+ok   1 contents: Enter on an entry goes to #introduction and closes the menu
+ok   2 search: reached the search box after 7 Tab presses
+ok   2 search: typing, ArrowDown, Enter lands on #keys-delete
+ok   3 theme: Enter toggles dark true -> false, aria-pressed true -> false
+ok   4 copy: Enter copies exactly the block text (16 characters), button says "Copied"
+ok   5 check question: Space opens the answer (after 99 Tab presses)
+ok   6 next: Enter goes to #try-it-at-home and the heading is in view (top 80 px)
+ok   keyboard-only actions passed: 6 of 6
+ok   edge: clipboard denied shows "Copy failed" and the code stays selectable
+ok   edge: scripts off: article text present (9587 words), 85 contents links, 22 previous/next links, script-only controls hidden=true
+ok   edge: #rel-rollback lands in view (top 80 px) with "1. A rolled-back transaction produces no events" marked in the contents
+failures: 0
+=== print (Microsoft Edge)
+print: print media at A4 width (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+ok   index.html: header, contents, previous/next, copy buttons and footer hidden in print ({"header":true,"contents":true,"pn":true,"copy":true,"footer":true})
+ok   index.html: 27 code blocks, 27 wrap, 0 cut off
+ok   index.html: no horizontal overflow, text rgb(0, 0, 0) on rgb(255, 255, 255)
+ok   index.html: PDF rendered, 1020 KB, 31 pages
+ok   guide/03-transaction-buffer.html: header, contents, previous/next, copy buttons and footer hidden in print ({"header":true,"contents":true,"pn":true,"copy":true,"footer":true})
+ok   guide/03-transaction-buffer.html: 3 code blocks, 3 wrap, 0 cut off
+ok   guide/03-transaction-buffer.html: no horizontal overflow, text rgb(0, 0, 0) on rgb(255, 255, 255)
+ok   guide/03-transaction-buffer.html: PDF rendered, 108 KB, 2 pages
+failures: 0
+
+# exit code: 0

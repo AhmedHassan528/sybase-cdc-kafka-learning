@@ -92,7 +92,7 @@ Date: 2026-10-21
 ## Test status (all run in this session, output in `docs/evidence/`)
 - PASS (13 of 13 scenarios, evidence 50): clean install and build; two builds byte-identical (47); body text of 12 article sections (27 code blocks exact, 1 figure) and 7 guide pages equals the sources, 0 differences (39); 0 link problems on 9 pages, and the existing link check still 0 on 25 pages (40); 0 outside requests with outside requests blocked (43); no horizontal page scroll at 320, 375, 768 and 1280 px in both themes, 72 combinations (41); 6 of 6 keyboard-only actions plus the edge cases scripts off, failed copy and a bookmarked heading (44); search and all 12 contents entries (42); contrast at least 4.5:1 in both themes and page structure (45); print style, PDF renders (46); size budgets (48); secret scan; checksums.
 - Look review against the reference post (49): measured side by side; both have a headline block with date and read time, a single text column (720 vs 680 px), light grey code panels, a numbered side contents list on the right and a blue link colour. Differences: system fonts instead of the reference web font, solid indigo instead of a gradient headline, and this site lists sub-headings in the contents (85 entries against 15).
-- NOT RUN: browsers other than Chrome (Edge did not launch headless through puppeteer-core here; the cause was not investigated), a physical printer, a screen reader (only structure and contrast were checked), public hosting.
+- NOT RUN: browsers other than Chrome (superseded: see the Edge update below), a physical printer, a screen reader (only structure and contrast were checked), public hosting.
 - Bugs found by the checks and fixed: the copy button lost keyboard focus after the fallback copy (found by `keyboard.js`); a bookmarked heading link landed too low because smooth scrolling started before the diagram loaded (found by `keyboard.js`).
 - The old plain `docs/article.html` is unchanged and still built; dropping it is the user's decision.
 - The reference page was only viewed for comparison. Its screenshots are kept local and git-ignored; no text, image or branding of it is in the repository.
@@ -110,3 +110,7 @@ Date: 2026-10-21
 | SC-008 look against the reference | PASS as a measured side-by-side list with differences stated (fonts, headline colour, sub-headings in the contents) | 49, site-look screenshots |
 
 Gaps: Chrome only; Edge did not launch headless here; printer, screen reader and public hosting not run. The wording "increment" in the guide pages is the README's own (the increments-to-steps rename is still undecided).
+
+## Update: Microsoft Edge run (2026-10-23)
+- PASS on Edge 155 (evidence 51): offline, overflow (72 combinations), search and contents clicks, keyboard (6 of 6 plus edge cases) and print. The earlier "Edge did not launch" was the puppeteer-core launcher: the Edge launcher process exits at once with code 0. The checks now start Edge themselves with a debugging port and a temporary profile and connect to it (`BROWSER=edge node docs-src/site-checks/<check>.js`).
+- Still NOT RUN: Firefox and Safari, a physical printer, a screen reader, public hosting. The browsers run so far are Chrome 155 and Edge 155 (both Chromium).

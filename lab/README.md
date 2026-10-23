@@ -68,5 +68,5 @@ bash docs-src/site-checks/run-all.sh   # the 13 validation scenarios (about 90 s
 ```
 
 The build tools (Tailwind 3.4.17, marked 12.0.2, puppeteer-core 25.12.0) are pinned in `docs-src/package-lock.json` and do not
-ship in the site. Results are in `docs/evidence/39` to `50`. Run on Chrome only: Edge did not launch headless through
-puppeteer-core here, and other browsers, a physical printer, a screen reader and public hosting were not run.
+ship in the site. Results are in `docs/evidence/39` to `51`. Run on Chrome 155 and Edge 155 (`BROWSER=edge node docs-src/site-checks/<check>.js`, evidence 51). Firefox, Safari,
+a physical printer, a screen reader and public hosting were not run.
