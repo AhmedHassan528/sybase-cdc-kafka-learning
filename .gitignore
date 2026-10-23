@@ -14,3 +14,9 @@ Thumbs.db
 
 # Generated lab account passwords (never commit)
 lab/env/.lab-secrets
+
+# Local-only screenshots of the third-party reference page (never commit)
+docs/evidence/site-look/reference-*
+
+# Build-time dependencies of the article website (restore with: npm ci --prefix docs-src)
+docs-src/node_modules/

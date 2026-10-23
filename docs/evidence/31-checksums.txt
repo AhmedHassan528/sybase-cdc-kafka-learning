@@ -1,4 +1,4 @@
-# Captured: 2026-10-23T09:43:30Z
+# Captured: 2026-10-23T10:34:02Z
 # Command:  bash lab/experiments/checksums-negative-test.sh
 # Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
 
@@ -6,25 +6,34 @@
 OK       plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar
 OK       docs/index.html
 OK       docs/article.html
+OK       docs/site/index.html
+OK       docs/site/assets/site.css
+OK       docs/site/assets/site.js
 OK       lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar
 OK       deliverables/images/sybase-cdc-connect-0.1.0.tar.gz
-5 checked, 0 failed, 0 skipped
+8 checked, 0 failed, 0 skipped
 -> clean verify: exit 0 as expected
 == 2. verify a copy where one byte of docs/article.html was changed
 OK       plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar
 OK       docs/index.html
 FAILED   docs/article.html (expected a330aa2da28f..., got 1a96b7a7f8f6...)
+OK       docs/site/index.html
+OK       docs/site/assets/site.css
+OK       docs/site/assets/site.js
 FAILED   lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar (file missing)
 FAILED   deliverables/images/sybase-cdc-connect-0.1.0.tar.gz (file missing)
-5 checked, 3 failed, 0 skipped
+8 checked, 3 failed, 0 skipped
 -> one byte changed: exit 1 as expected
 == 3. verify a copy where docs/index.html is missing
 OK       plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar
 FAILED   docs/index.html (file missing)
 OK       docs/article.html
+OK       docs/site/index.html
+OK       docs/site/assets/site.css
+OK       docs/site/assets/site.js
 FAILED   lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar (file missing)
 FAILED   deliverables/images/sybase-cdc-connect-0.1.0.tar.gz (file missing)
-5 checked, 3 failed, 0 skipped
+8 checked, 3 failed, 0 skipped
 -> file missing: exit 1 as expected
 
 # exit code: 0

@@ -1,0 +1,8 @@
+# Captured: 2026-10-23T10:32:42Z
+# Command:  node docs-src/site-checks/links.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+links: every local link and anchor in docs/site
+pages=9 local links checked=478 problems=0 external=1
+
+# exit code: 0

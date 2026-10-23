@@ -47,3 +47,11 @@ node docs-src/publish-variant.js <out.html>                            # page bo
 - [x] Quickstart walkthrough 11 of 11 (36), after fixing a path bug in the walkthrough script
 - [x] Known gaps recorded in `lab/README.md`: `register-connector.sh` and `sample-data.sh` second run
 - [ ] Not run: TLS/SASL, ASE crash, OpenShift/Event Streams (see COMPLETION.md)
+
+## Article website  [2026-10-23]
+- [x] Setup and foundation: pinned Tailwind, marked and puppeteer-core; builder; text-compare and link checks written before the builder
+- [x] US1 article page (title block, side contents, copy buttons, callouts, previous/next, progress)
+- [x] US2 search, build-along guide pages, evidence index
+- [x] US3 dark theme, print style, keyboard and structure checks, offline proof
+- [x] Polish: reproducible build, checksums, size budgets, look review, quickstart 13 of 13 (evidence 39 to 50)
+- [ ] Not run: other browsers (Edge did not launch headless), physical printer, screen reader, public hosting

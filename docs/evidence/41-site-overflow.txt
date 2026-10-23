@@ -1,0 +1,80 @@
+# Captured: 2026-10-23T10:32:43Z
+# Command:  node docs-src/site-checks/overflow.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+overflow: page-level horizontal scroll at 320, 375, 768, 1280 px, themes: light, dark (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+ok   light  320 px  evidence/index.html                scrollWidth=320 viewport=320 boxes=6 scrolling-inside=4
+ok   light  375 px  evidence/index.html                scrollWidth=375 viewport=375 boxes=6 scrolling-inside=1
+ok   light  768 px  evidence/index.html                scrollWidth=768 viewport=768 boxes=6 scrolling-inside=0
+ok   light 1280 px  evidence/index.html                scrollWidth=1280 viewport=1280 boxes=6 scrolling-inside=0
+ok   light  320 px  guide/01-listener.html             scrollWidth=320 viewport=320 boxes=4 scrolling-inside=4
+ok   light  375 px  guide/01-listener.html             scrollWidth=375 viewport=375 boxes=4 scrolling-inside=4
+ok   light  768 px  guide/01-listener.html             scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/01-listener.html             scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/02-ltl-parser.html           scrollWidth=320 viewport=320 boxes=4 scrolling-inside=4
+ok   light  375 px  guide/02-ltl-parser.html           scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/02-ltl-parser.html           scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/02-ltl-parser.html           scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/03-transaction-buffer.html   scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/03-transaction-buffer.html   scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/03-transaction-buffer.html   scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/03-transaction-buffer.html   scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/04-connect-records.html      scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/04-connect-records.html      scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/04-connect-records.html      scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/04-connect-records.html      scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/05-acks-and-offsets.html     scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   light  375 px  guide/05-acks-and-offsets.html     scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   light  768 px  guide/05-acks-and-offsets.html     scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   light 1280 px  guide/05-acks-and-offsets.html     scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   light  320 px  guide/06-package-and-run.html      scrollWidth=320 viewport=320 boxes=5 scrolling-inside=4
+ok   light  375 px  guide/06-package-and-run.html      scrollWidth=375 viewport=375 boxes=5 scrolling-inside=4
+ok   light  768 px  guide/06-package-and-run.html      scrollWidth=768 viewport=768 boxes=5 scrolling-inside=3
+ok   light 1280 px  guide/06-package-and-run.html      scrollWidth=1280 viewport=1280 boxes=5 scrolling-inside=3
+ok   light  320 px  guide/index.html                   scrollWidth=320 viewport=320 boxes=3 scrolling-inside=3
+ok   light  375 px  guide/index.html                   scrollWidth=375 viewport=375 boxes=3 scrolling-inside=3
+ok   light  768 px  guide/index.html                   scrollWidth=768 viewport=768 boxes=3 scrolling-inside=2
+ok   light 1280 px  guide/index.html                   scrollWidth=1280 viewport=1280 boxes=3 scrolling-inside=2
+ok   light  320 px  index.html                         scrollWidth=320 viewport=320 boxes=36 scrolling-inside=31
+ok   light  375 px  index.html                         scrollWidth=375 viewport=375 boxes=36 scrolling-inside=29
+ok   light  768 px  index.html                         scrollWidth=768 viewport=768 boxes=36 scrolling-inside=16
+ok   light 1280 px  index.html                         scrollWidth=1280 viewport=1280 boxes=36 scrolling-inside=16
+ok   dark   320 px  evidence/index.html                scrollWidth=320 viewport=320 boxes=6 scrolling-inside=4
+ok   dark   375 px  evidence/index.html                scrollWidth=375 viewport=375 boxes=6 scrolling-inside=1
+ok   dark   768 px  evidence/index.html                scrollWidth=768 viewport=768 boxes=6 scrolling-inside=0
+ok   dark  1280 px  evidence/index.html                scrollWidth=1280 viewport=1280 boxes=6 scrolling-inside=0
+ok   dark   320 px  guide/01-listener.html             scrollWidth=320 viewport=320 boxes=4 scrolling-inside=4
+ok   dark   375 px  guide/01-listener.html             scrollWidth=375 viewport=375 boxes=4 scrolling-inside=4
+ok   dark   768 px  guide/01-listener.html             scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/01-listener.html             scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/02-ltl-parser.html           scrollWidth=320 viewport=320 boxes=4 scrolling-inside=4
+ok   dark   375 px  guide/02-ltl-parser.html           scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/02-ltl-parser.html           scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/02-ltl-parser.html           scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/03-transaction-buffer.html   scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/03-transaction-buffer.html   scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/03-transaction-buffer.html   scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/03-transaction-buffer.html   scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/04-connect-records.html      scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/04-connect-records.html      scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/04-connect-records.html      scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/04-connect-records.html      scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/05-acks-and-offsets.html     scrollWidth=320 viewport=320 boxes=4 scrolling-inside=3
+ok   dark   375 px  guide/05-acks-and-offsets.html     scrollWidth=375 viewport=375 boxes=4 scrolling-inside=3
+ok   dark   768 px  guide/05-acks-and-offsets.html     scrollWidth=768 viewport=768 boxes=4 scrolling-inside=2
+ok   dark  1280 px  guide/05-acks-and-offsets.html     scrollWidth=1280 viewport=1280 boxes=4 scrolling-inside=2
+ok   dark   320 px  guide/06-package-and-run.html      scrollWidth=320 viewport=320 boxes=5 scrolling-inside=4
+ok   dark   375 px  guide/06-package-and-run.html      scrollWidth=375 viewport=375 boxes=5 scrolling-inside=4
+ok   dark   768 px  guide/06-package-and-run.html      scrollWidth=768 viewport=768 boxes=5 scrolling-inside=3
+ok   dark  1280 px  guide/06-package-and-run.html      scrollWidth=1280 viewport=1280 boxes=5 scrolling-inside=3
+ok   dark   320 px  guide/index.html                   scrollWidth=320 viewport=320 boxes=3 scrolling-inside=3
+ok   dark   375 px  guide/index.html                   scrollWidth=375 viewport=375 boxes=3 scrolling-inside=3
+ok   dark   768 px  guide/index.html                   scrollWidth=768 viewport=768 boxes=3 scrolling-inside=2
+ok   dark  1280 px  guide/index.html                   scrollWidth=1280 viewport=1280 boxes=3 scrolling-inside=2
+ok   dark   320 px  index.html                         scrollWidth=320 viewport=320 boxes=36 scrolling-inside=31
+ok   dark   375 px  index.html                         scrollWidth=375 viewport=375 boxes=36 scrolling-inside=29
+ok   dark   768 px  index.html                         scrollWidth=768 viewport=768 boxes=36 scrolling-inside=16
+ok   dark  1280 px  index.html                         scrollWidth=1280 viewport=1280 boxes=36 scrolling-inside=16
+checked 72 page/width/theme combinations; failures: 0
+
+# exit code: 0

@@ -1,0 +1,21 @@
+# Captured: 2026-10-23T10:33:19Z
+# Command:  node docs-src/site-checks/keyboard.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+keyboard: six actions with keys only, plus edge cases (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+ok   1 contents: reached the Contents summary after 9 Tab presses
+ok   1 contents: Enter opens the menu
+ok   1 contents: Enter on an entry goes to #introduction and closes the menu
+ok   2 search: reached the search box after 7 Tab presses
+ok   2 search: typing, ArrowDown, Enter lands on #keys-delete
+ok   3 theme: Enter toggles dark true -> false, aria-pressed true -> false
+ok   4 copy: Enter copies exactly the block text (16 characters), button says "Copied"
+ok   5 check question: Space opens the answer (after 99 Tab presses)
+ok   6 next: Enter goes to #try-it-at-home and the heading is in view (top 80 px)
+ok   keyboard-only actions passed: 6 of 6
+ok   edge: clipboard denied shows "Copy failed" and the code stays selectable
+ok   edge: scripts off: article text present (9587 words), 85 contents links, 22 previous/next links, script-only controls hidden=true
+ok   edge: #rel-rollback lands in view (top 80 px) with "1. A rolled-back transaction produces no events" marked in the contents
+failures: 0
+
+# exit code: 0

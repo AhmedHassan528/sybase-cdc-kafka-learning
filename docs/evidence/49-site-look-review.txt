@@ -1,0 +1,40 @@
+# Captured: 2026-10-23T10:33:44Z
+# Command:  node docs-src/site-checks/look-review.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+look review: measured values, this site vs the reference post, light mode, 1280 px (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+Headline block (headline, crumb line with date and read time, summary)
+  this site : size 41.6, weight 700, font system-ui, color rgb(43, 29, 151), metaLine Read time: 50 min
+  reference : size 38.8, weight 600, font Poppins, color gradient text, metaLine Read Time: 30 min
+  verdict   : both present, large and bold; sizes 41.6 vs 38.8 px, weight 700 vs 600; the reference uses a web font and gradient colour, this site uses system fonts and a solid indigo
+
+Reading column
+  this site : size 18, line 30.6, font system-ui, column 720
+  reference : size 16, line 24.8, font Poppins, column 680
+  verdict   : both a single text column; width 720 vs 680 px (similar), text 18 vs 16 px
+
+Heading scale
+  this site : size 32, weight 800
+  reference : size 30.8, weight 600
+  verdict   : sizes 32 vs 30.8 px
+
+Code panels
+  this site : bg rgb(246, 247, 249), border 1, radius 8
+  reference : bg rgb(245, 245, 245), border 0, radius 0
+  verdict   : both a light grey panel (rgb(246, 247, 249) vs rgb(245, 245, 245)); this site adds a 1 px border and 8 px corners
+
+Side contents
+  this site : right true, items 85, numbered true, underlined true
+  reference : right true, items 15, numbered true, underlined true
+  verdict   : both on the right of the text (true vs true); numbered true vs true; underlined links true vs true; entries 85 vs 15 (this site also lists sub-headings, which the spec requires)
+
+Accent colour (links)
+  this site : color rgb(29, 78, 216), underline true
+  reference : color rgb(37, 123, 215), underline false
+  verdict   : link colours rgb(29, 78, 216) vs rgb(37, 123, 215); blue family: this site true, reference true; underlined true vs false
+
+headline meta line: this site "Read time: 50 min"; reference "Read Time: 30 min"
+page background: this site rgb(255, 255, 255); reference rgb(255, 255, 255)
+Not copied on purpose: the reference text, images, logo, author photo, cookie banner and brand colours.
+
+# exit code: 0

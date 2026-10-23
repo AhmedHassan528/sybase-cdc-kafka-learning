@@ -1,0 +1,17 @@
+# Captured: 2026-10-23T10:33:08Z
+# Command:  node docs-src/site-checks/offline.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+offline: loading every page with outside requests blocked (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+ok   evidence/index.html                local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/01-listener.html             local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/02-ltl-parser.html           local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/03-transaction-buffer.html   local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/04-connect-records.html      local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/05-acks-and-offsets.html     local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/06-package-and-run.html      local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   guide/index.html                   local requests= 3 outside=0 failed=0 images=0 broken=0 script-errors=0 stylesheet=true
+ok   index.html                         local requests= 4 outside=0 failed=0 images=1 broken=0 script-errors=0 stylesheet=true
+pages: 9; local requests: 28; outside requests attempted: 0; pages with problems: 0
+
+# exit code: 0

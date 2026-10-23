@@ -55,3 +55,18 @@ Results: `start.sh`, `create-accounts.sh` and `set-tables.sh` pass both times. T
   `sp_setreptable` returns a nonzero status on a table that is already marked. Run it once on a fresh lab. I did not
   change the script.
 - `changes.sh` is not idempotent by design: every run writes new events.
+
+## The website (article, build-along guide, evidence index)
+
+`docs/site/` is the article as a website: open `docs/site/index.html` in a browser (from disk, no server and no internet needed).
+It is generated; change the sources and rebuild:
+
+```sh
+npm ci --prefix docs-src            # once; needs the internet to fetch the pinned build tools
+node docs-src/build.js site         # writes docs/site/ (article, build-along guide, evidence index)
+bash docs-src/site-checks/run-all.sh   # the 13 validation scenarios (about 90 seconds, needs Chrome installed)
+```
+
+The build tools (Tailwind 3.4.17, marked 12.0.2, puppeteer-core 25.12.0) are pinned in `docs-src/package-lock.json` and do not
+ship in the site. Results are in `docs/evidence/39` to `50`. Run on Chrome only: Edge did not launch headless through
+puppeteer-core here, and other browsers, a physical printer, a screen reader and public hosting were not run.

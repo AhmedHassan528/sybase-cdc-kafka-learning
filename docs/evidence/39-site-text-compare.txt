@@ -1,0 +1,8 @@
+# Captured: 2026-10-23T10:32:41Z
+# Command:  node docs-src/site-checks/text-compare.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+text-compare: body text of docs/site pages against their sources
+compared 12 article sections (1 figures, 27 code blocks compared exactly) and 7 guide pages; differences: 0
+
+# exit code: 0

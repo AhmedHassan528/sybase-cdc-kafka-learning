@@ -1,0 +1,10 @@
+# Captured: 2026-10-23T10:33:39Z
+# Command:  node docs-src/site-checks/reproducible.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+reproducible: two builds from the same sources
+build 1: site: docs/site: 12 article sections, 85 headings, 7 guide pages, 1 evidence index, 197 search entries, 50 min read
+build 2: site: docs/site: 12 article sections, 85 headings, 7 guide pages, 1 evidence index, 197 search entries, 50 min read
+12 files compared; differing: 0; combined sha256 of build 1: 10426749c354ff56596eaf218f17f874fca43aa925cc77e1d7714b179a1882c1
+
+# exit code: 0

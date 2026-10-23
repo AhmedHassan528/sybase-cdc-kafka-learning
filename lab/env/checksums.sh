@@ -8,13 +8,14 @@
 #   lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar   the build-along plugin (SKIPPED if not built)
 #   deliverables/images/sybase-cdc-connect-0.1.0.tar.gz              the worker image archive (SKIPPED if absent: it is git-ignored, too large for git)
 #   docs/index.html  docs/article.html                               the handbook and the article (required)
+#   docs/site/index.html  docs/site/assets/site.css  docs/site/assets/site.js   the article website (required; rebuild with: node docs-src/build.js site)
 # Exit code of verify: 1 if any file FAILED, is missing, or a required deliverable is not in the checksum list; 2 bad usage.
 # CHECKSUM_ROOT=<dir> verifies a copy of the tree (used to test that a changed byte is detected).
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 ROOT=${CHECKSUM_ROOT:-$LAB_ROOT}
 LIST="$LAB_ROOT/docs/checksums.sha256"
-required=(plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar docs/index.html docs/article.html)
+required=(plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar docs/index.html docs/article.html docs/site/index.html docs/site/assets/site.css docs/site/assets/site.js)
 optional=(lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar deliverables/images/sybase-cdc-connect-0.1.0.tar.gz)
 
 case "${1:-}" in

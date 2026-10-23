@@ -14,8 +14,10 @@ echo "== 1. verify on the real tree"
 bash "$CS" verify; expect "clean verify" 0 $?
 
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/docs" "$tmp/plugins/sybase-cdc"
+mkdir -p "$tmp/docs/site/assets" "$tmp/plugins/sybase-cdc"
 cp "$REPO/docs/index.html" "$REPO/docs/article.html" "$tmp/docs/"
+cp "$REPO/docs/site/index.html" "$tmp/docs/site/"
+cp "$REPO/docs/site/assets/site.css" "$REPO/docs/site/assets/site.js" "$tmp/docs/site/assets/"
 cp "$REPO/plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar" "$tmp/plugins/sybase-cdc/"
 
 echo "== 2. verify a copy where one byte of docs/article.html was changed"

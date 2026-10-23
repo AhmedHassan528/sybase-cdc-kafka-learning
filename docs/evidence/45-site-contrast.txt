@@ -1,0 +1,38 @@
+# Captured: 2026-10-23T10:33:32Z
+# Command:  node docs-src/site-checks/contrast.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+contrast: text colour pairs from docs-src/site/styles/site.css (minimum 4.5:1)
+ok   light ink    on page   #101828 / #ffffff = 17.75:1
+ok   light mute   on page   #475467 / #ffffff = 7.69:1
+ok   light ink    on panel  #101828 / #f6f7f9 = 16.56:1
+ok   light mute   on panel  #475467 / #f6f7f9 = 7.17:1
+ok   light ink    on soft   #101828 / #eff4ff = 16.10:1
+ok   light mute   on soft   #475467 / #eff4ff = 6.97:1
+ok   light accent on page   #1d4ed8 / #ffffff = 6.70:1
+ok   light accent on soft   #1d4ed8 / #eff4ff = 6.08:1
+ok   light accent on panel  #1d4ed8 / #f6f7f9 = 6.25:1
+ok   light page   on accent #ffffff / #1d4ed8 = 6.70:1
+ok   dark  ink    on page   #e6eaf2 / #0b1220 = 15.53:1
+ok   dark  mute   on page   #a3adc2 / #0b1220 = 8.30:1
+ok   dark  ink    on panel  #e6eaf2 / #121a2b = 14.41:1
+ok   dark  mute   on panel  #a3adc2 / #121a2b = 7.71:1
+ok   dark  ink    on soft   #e6eaf2 / #14213d = 13.25:1
+ok   dark  mute   on soft   #a3adc2 / #14213d = 7.08:1
+ok   dark  accent on page   #8ab4ff / #0b1220 = 8.96:1
+ok   dark  accent on soft   #8ab4ff / #14213d = 7.65:1
+ok   dark  accent on panel  #8ab4ff / #121a2b = 8.32:1
+ok   dark  page   on accent #0b1220 / #8ab4ff = 8.96:1
+structure: every page
+ok   evidence/index.html                lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/01-listener.html             lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/02-ltl-parser.html           lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/03-transaction-buffer.html   lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/04-connect-records.html      lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/05-acks-and-offsets.html     lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/06-package-and-run.html      lang, one h1, landmarks, skip link, alt text, button and input names
+ok   guide/index.html                   lang, one h1, landmarks, skip link, alt text, button and input names
+ok   index.html                         lang, one h1, landmarks, skip link, alt text, button and input names
+failures: 0
+
+# exit code: 0

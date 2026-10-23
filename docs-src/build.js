@@ -1,6 +1,7 @@
 // Builds docs/index.html from docs-src/chapters/*.html (in file-name order).
 //   node docs-src/build.js            -> docs/index.html (engineering handbook, from docs-src/chapters)
 //   node docs-src/build.js article    -> docs/article.html (learning article, from docs-src/article)
+//   node docs-src/build.js site       -> docs/site/ (the article website: article, build-along guide, evidence index)
 // - <h2 id="..."> become numbered chapters; <h2>/<h3> with ids form the table of contents.
 // - <figure-diagram src="NN-name" n="NN" title="..."> ...explanation... </figure-diagram>
 //     embeds docs/diagrams/src/svg/NN-name.svg and links the editable .drawio source.
@@ -9,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
+if (process.argv[2] === 'site') { require('./site/build-site.js'); return; }
 const MODE = process.argv[2] === 'article' ? 'article' : 'handbook';
 const CH = path.join(__dirname, MODE === 'article' ? 'article' : 'chapters');
 const OUT = path.join(ROOT, 'docs', MODE === 'article' ? 'article.html' : 'index.html');

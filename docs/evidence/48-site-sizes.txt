@@ -1,0 +1,11 @@
+# Captured: 2026-10-23T10:33:43Z
+# Command:  node docs-src/site-checks/sizes.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+sizes: budgets from specs/002-article-website/plan.md
+ok   index.html         185.2 KB (budget 400 KB)
+ok   assets/site.css    16.8 KB (budget 60 KB)
+ok   assets/site.js     11.0 KB (budget 30 KB)
+whole docs/site folder: 1041.1 KB
+
+# exit code: 0

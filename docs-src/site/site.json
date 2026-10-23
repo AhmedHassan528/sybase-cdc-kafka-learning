@@ -1,0 +1,8 @@
+{
+  "name": "Sybase CDC Deep Dive",
+  "date": "2026-10-23",
+  "category": "Deep dive",
+  "title": "Building a Sybase ASE to Kafka Change Data Capture Connector",
+  "summary": "Run a log-based change data capture pipeline from Sybase ASE to Apache Kafka, see every event it produces, and then build the connector yourself, step by step.",
+  "topic": "Change data capture"
+}
