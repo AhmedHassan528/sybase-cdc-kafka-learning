@@ -6,6 +6,7 @@ const path = require('path');
 const { Marked } = require('marked');
 const { esc, text, excerpt } = require('./util');
 const { contents, prevNext } = require('./templates/article');
+const { load } = require('./code-map');
 
 exports.build = function ({ ROOT, OUT, cfg, problem }) {
   const inc = path.join(ROOT, 'lab', 'increments');
@@ -14,6 +15,7 @@ exports.build = function ({ ROOT, OUT, cfg, problem }) {
     const f = path.join(inc, d, 'README.md');
     if (fs.existsSync(f)) sources.push({ file: f, src: `lab/increments/${d}/README.md`, page: `guide/${d}.html`, step: String(Number(d.slice(0, 2))) });
   });
+  const codeSteps = load(ROOT).steps;
   const pageOf = new Map(sources.map(s => [path.normalize(s.file), s.page]));
   const guideDir = path.join(OUT, 'guide');
   const rel = p => p.split(path.sep).join('/');
@@ -23,6 +25,14 @@ exports.build = function ({ ROOT, OUT, cfg, problem }) {
     const m = fs.readFileSync(s.file, 'utf8').match(/^#\s+(.+)$/m);
     return m ? m[1].trim() : s.src;
   });
+
+  // Links to the Java code of this increment, added after the README text (the README itself is not changed).
+  const codeBox = s => {
+    const st = codeSteps.find(x => String(x.number) === s.step);
+    if (!st) return s.step ? '' : `<aside class="note code-link"><p><strong>Code:</strong> <a href="../code/index.html">the Java source of the connector and the pom.xml that builds the JAR</a>.</p></aside>`;
+    const list = key => st.files.map(f => `<a href="../${f[key]}">${esc(f.cls)}.java</a>`).join(' · ');
+    return `<aside class="note code-link"><p><strong>Code for this increment.</strong> Starter (you write): ${list('starterPage')}. Reference solution: ${list('solutionPage')}. <a href="../code/index.html">All connector files</a>.</p></aside>`;
+  };
 
   const pages = [], entries = [];
   sources.forEach((s, i) => {
@@ -67,6 +77,7 @@ exports.build = function ({ ROOT, OUT, cfg, problem }) {
 ${contents(items)}
 <article class="prose-site guide-body" id="article">
 <!--src:${s.src}-->${html}<!--/src-->
+${codeBox(s)}
 ${prevNext(prev, next)}
 </article>
 </div>`;

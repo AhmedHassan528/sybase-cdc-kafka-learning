@@ -52,5 +52,22 @@ for (const g of guideMap()) {
   if (body === null) { fail(`${g.page}: no body marker`); continue; }
   compare(g.page, marked.parse(fs.readFileSync(path.join(ROOT, g.src), 'utf8')), body); guides++;
 }
+// Code pages: the <pre> must equal the source file exactly (every character, every line).
+let codePages = 0, codeLines = 0;
+{
+  const map = require('../site/code-map').load(ROOT);
+  const all = [...map.final, map.pom, ...map.steps.flatMap(s => s.files.flatMap(f => [{ page: f.starterPage, src: f.starterSrc }, { page: f.solutionPage, src: f.solutionSrc }]))];
+  for (const c of all) {
+    const p = path.join(SITE, c.page);
+    if (!fs.existsSync(p)) { fail(`${c.page}: not built`); continue; }
+    const body = between(fs.readFileSync(p, 'utf8'), c.src);
+    if (body === null) { fail(`${c.page}: no body marker`); continue; }
+    const [code] = pres(body);
+    const want = fs.readFileSync(path.join(ROOT, c.src), 'utf8');
+    if (code !== want) fail(`${c.page}: code differs from ${c.src} (${code.length} vs ${want.length} characters)`);
+    codePages++; codeLines += want.split('\n').length;
+  }
+}
+console.log(`code pages compared exactly with their source files: ${codePages} (${codeLines} lines)`);
 console.log(`compared ${sections} article sections (${figs} figures, ${codeBlocks} code blocks compared exactly) and ${guides} guide pages; differences: ${diffs}`);
 process.exit(diffs ? 1 : 0);

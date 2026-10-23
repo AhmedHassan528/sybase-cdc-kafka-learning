@@ -1,19 +1,19 @@
-# Captured: 2026-10-23T10:31:02Z
+# Captured: 2026-10-23T11:53:36Z
 # Command:  bash docs-src/site-checks/run-all.sh
 # Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
 
 == scenario 1: clean install and build
-1   npm ci, then node docs-src/build.js site             PASS (site: docs/site: 12 article sections, 85 headings, 7 guide pages, 1 evidence index, 197 search entries, 50 min)
+1   npm ci, then node docs-src/build.js site             PASS (site: docs/site: 13 article sections, 90 headings, 7 guide pages, 36 code pages, 1 evidence index, 242 search )
 == scenario 2: reproducible build and checksums
 2   two builds identical, checksums generate and verify  PASS (8 checked, 0 failed, 0 skipped)
 == scenario 3: text unchanged
-3   text-compare                                         PASS (compared 12 article sections (1 figures, 27 code blocks compared exactly) and 7 guide pages; differences: 0)
+3   text-compare                                         PASS (compared 13 article sections (1 figures, 28 code blocks compared exactly) and 7 guide pages; differences: 0)
 == scenario 4: links
-4   links (site) and the existing link check             PASS (pages=25 local links checked=812 problems=0 external=18)
+4   links (site) and the existing link check             PASS (pages=25 local links checked=844 problems=0 external=18)
 == scenario 5: offline
-5   offline                                              PASS (pages: 9; local requests: 28; outside requests attempted: 0; pages with problems: 0)
+5   offline                                              PASS (pages: 45; local requests: 136; outside requests attempted: 0; pages with problems: 0)
 == scenario 6: no horizontal scroll
-6   overflow at 320/375/768/1280 px, both themes         PASS (checked 72 page/width/theme combinations; failures: 0)
+6   overflow at 320/375/768/1280 px, both themes         PASS (checked 360 page/width/theme combinations; failures: 0)
 == scenario 7: keyboard
 7   keyboard (6 actions and edge cases)                  PASS (failures: 0)
 == scenario 8: search
@@ -25,8 +25,9 @@
 == extras from the plan
 11  contrast and page structure                          PASS (failures: 0)
 12  print style                                          PASS (failures: 0)
-13  size budgets                                         PASS (whole docs/site folder: 1041.1 KB)
+13  size budgets                                         PASS (whole docs/site folder: 4987.9 KB)
+14  build the JAR and inspect it (Maven in a container)  PASS (ok: no JUnit classes (org/junit/) are packaged)
 
-SUMMARY: 13 scenarios, 0 failed, 93 s
+SUMMARY: 14 scenarios, 0 failed, 178 s
 
 # exit code: 0

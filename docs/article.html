@@ -86,7 +86,12 @@
 <li class="sub" data-keywords=""><a href="#rel-detect">Detecting and handling duplicates</a></li>
 <li class="sub" data-keywords=""><a href="#rel-limits">What these experiments do not show</a></li>
 <li class="sub" data-keywords=""><a href="#rel-check">Check yourself</a></li>
-<li data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><a href="#where-next"><span class="num">12</span>Where to go from here</a></li>
+<li data-keywords="java source code jar maven shade pom connector class build package plugin starter solution todo"><a href="#source-code"><span class="num">12</span>The source code and the JAR</a></li>
+<li class="sub" data-keywords=""><a href="#src-jar">Build the JAR</a></li>
+<li class="sub" data-keywords=""><a href="#src-what">What is in the JAR, and what is not</a></li>
+<li class="sub" data-keywords=""><a href="#src-files">The files you write</a></li>
+<li class="sub" data-keywords=""><a href="#src-check">Check yourself</a></li>
+<li data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><a href="#where-next"><span class="num">13</span>Where to go from here</a></li>
 <li class="sub" data-keywords=""><a href="#next-three">Three sources of evidence</a></li>
 <li class="sub" data-keywords=""><a href="#next-table">What was and was not tested</a></li>
 <li class="sub" data-keywords=""><a href="#next-security">Security note: what the lab tested, and what it did not</a></li>
@@ -175,7 +180,12 @@
 <li class="sub" data-keywords=""><a href="#rel-detect">Detecting and handling duplicates</a></li>
 <li class="sub" data-keywords=""><a href="#rel-limits">What these experiments do not show</a></li>
 <li class="sub" data-keywords=""><a href="#rel-check">Check yourself</a></li>
-<li data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><a href="#where-next"><span class="num">12</span>Where to go from here</a></li>
+<li data-keywords="java source code jar maven shade pom connector class build package plugin starter solution todo"><a href="#source-code"><span class="num">12</span>The source code and the JAR</a></li>
+<li class="sub" data-keywords=""><a href="#src-jar">Build the JAR</a></li>
+<li class="sub" data-keywords=""><a href="#src-what">What is in the JAR, and what is not</a></li>
+<li class="sub" data-keywords=""><a href="#src-files">The files you write</a></li>
+<li class="sub" data-keywords=""><a href="#src-check">Check yourself</a></li>
+<li data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><a href="#where-next"><span class="num">13</span>Where to go from here</a></li>
 <li class="sub" data-keywords=""><a href="#next-three">Three sources of evidence</a></li>
 <li class="sub" data-keywords=""><a href="#next-table">What was and was not tested</a></li>
 <li class="sub" data-keywords=""><a href="#next-security">Security note: what the lab tested, and what it did not</a></li>
@@ -802,9 +812,47 @@ oqids seen more than once:
 </section>
 
 
+<!-- 11a-source-code.html -->
+<section>
+<h2 id="source-code" data-keywords="java source code jar maven shade pom connector class build package plugin starter solution todo"><span class="chno">12.</span>The source code and the JAR</h2>
+<p>Everything you build in the six increments ends in one file: a JAR that Kafka Connect loads as a plugin. This section shows where the Java code is, how it becomes that JAR, and what is inside. The code on this site is the reference solution of increment 6; it passes all 51 checkpoints (<a href="evidence/35-increments-verify.txt">evidence/35</a>). Each code page is the real file, copied when the site is built, not retyped, so it cannot drift from the repository.</p>
+<p>Start with <a href="site/code/index.html">the code index</a>: every file of the connector with a one-sentence summary, and the starter and solution files per increment.</p>
+
+<h3 id="src-jar">Build the JAR</h3>
+<pre data-lang="bash">lab/env/mvn.sh solutions/06-package-and-run package -DskipTests</pre>
+<p>Maven runs in a container, so you only need Docker. I ran exactly this (<a href="evidence/52-build-jar.txt">evidence/52</a>): Maven exited with code 0 after 15 seconds, with the dependency cache already warm. It wrote <code>lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar</code>, 60,281 bytes, holding 31 class files: 7 in <code>cdc</code>, 8 in <code>connect</code>, 10 in <code>ltl</code> and 6 in <code>tds</code>. <code>lab/experiments/build-jar.sh</code> repeats the build and the checks below.</p>
+
+<h3 id="src-what">What is in the JAR, and what is not</h3>
+<p>The build file is <a href="site/code/src/pom.html">pom.xml</a>. It compiles for Java 17, and the maven-shade-plugin writes the single JAR during the <code>package</code> step. The Kafka Connect API (<code>connect-api</code> 3.8.0) and slf4j (<code>slf4j-api</code> 1.7.36) are marked <code>provided</code>: the Connect worker already has them, so they are compiled against and not packaged. The checks in evidence 52 confirm it: the JAR holds <code>SybaseCdcSourceConnector.class</code> and <code>SybaseCdcSourceTask.class</code>, and no class under <code>org/apache/kafka/connect/</code>, <code>org/slf4j/</code> or <code>org/junit/</code>. In this build the JAR contains only our own 31 classes.</p>
+<p>Increment 6's live check then copies your JAR into a temporary Connect worker, and the worker lists your connector class and runs it (<a href="evidence/35-increments-verify.txt">evidence/35</a>). That is how you know the JAR is packaged correctly.</p>
+
+<h3 id="src-files">The files you write</h3>
+<p>The starters contain TODO comments for exactly these files. Everything else in an increment is given. Each cell opens the real file.</p>
+<div class="tbl"><table>
+<thead><tr><th>Increment</th><th>File you write</th><th>Starter (with TODOs)</th><th>Reference solution</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>LtlServer</code></td><td><a href="site/code/starter/01-listener/LtlServer.html">starter</a></td><td><a href="site/code/solution/01-listener/LtlServer.html">solution</a></td></tr>
+<tr><td>1</td><td><code>LtlSession</code></td><td><a href="site/code/starter/01-listener/LtlSession.html">starter</a></td><td><a href="site/code/solution/01-listener/LtlSession.html">solution</a></td></tr>
+<tr><td>2</td><td><code>LtlParser</code></td><td><a href="site/code/starter/02-ltl-parser/LtlParser.html">starter</a></td><td><a href="site/code/solution/02-ltl-parser/LtlParser.html">solution</a></td></tr>
+<tr><td>2</td><td><code>LtlValues</code></td><td><a href="site/code/starter/02-ltl-parser/LtlValues.html">starter</a></td><td><a href="site/code/solution/02-ltl-parser/LtlValues.html">solution</a></td></tr>
+<tr><td>3</td><td><code>TransactionBuffer</code></td><td><a href="site/code/starter/03-transaction-buffer/TransactionBuffer.html">starter</a></td><td><a href="site/code/solution/03-transaction-buffer/TransactionBuffer.html">solution</a></td></tr>
+<tr><td>4</td><td><code>ChangeEventMapper</code></td><td><a href="site/code/starter/04-connect-records/ChangeEventMapper.html">starter</a></td><td><a href="site/code/solution/04-connect-records/ChangeEventMapper.html">solution</a></td></tr>
+<tr><td>5</td><td><code>AckTracker</code></td><td><a href="site/code/starter/05-acks-and-offsets/AckTracker.html">starter</a></td><td><a href="site/code/solution/05-acks-and-offsets/AckTracker.html">solution</a></td></tr>
+<tr><td>6</td><td><code>SybaseCdcSourceTask</code></td><td><a href="site/code/starter/06-package-and-run/SybaseCdcSourceTask.html">starter</a></td><td><a href="site/code/solution/06-package-and-run/SybaseCdcSourceTask.html">solution</a></td></tr>
+</tbody></table></div>
+<p>The class Connect loads first is <code>SybaseCdcSourceConnector</code> (<a href="site/code/src/SybaseCdcSourceConnector.html">source</a>); it always starts exactly one task, <code>SybaseCdcSourceTask</code>, because RepAgent connects to one host and port per database.</p>
+
+<h3 id="src-check">Check yourself</h3>
+<details class="check"><summary>1. The pom marks <code>connect-api</code> and <code>slf4j-api</code> as <code>provided</code>. What does that mean for the JAR, and how do you know?</summary>
+<p>They are used to compile the code but are not packaged, because the Connect worker supplies them. The check in evidence 52 found no classes under <code>org/apache/kafka/connect/</code> or <code>org/slf4j/</code> in the 31-class JAR.</p></details>
+<details class="check"><summary>2. Which class does Kafka Connect list as your connector, and how many tasks does it run?</summary>
+<p><code>SybaseCdcSourceConnector</code>, with exactly one task, <code>SybaseCdcSourceTask</code>. RepAgent connects to one host and port per database.</p></details>
+</section>
+
+
 <!-- 12-where-next.html -->
 <section>
-<h2 id="where-next" data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><span class="chno">12.</span>Where to go from here</h2>
+<h2 id="where-next" data-keywords="production openshift event streams security tls sasl not run untested limits readiness next steps"><span class="chno">13.</span>Where to go from here</h2>
 <p>You have a working pipeline and you built the connector yourself. This last section is about the distance between this <b>local, offline learning lab</b> and a real deployment. It does not close that distance: it tells you where it is, and it is strict about what was actually tested.</p>
 
 <h3 id="next-three">Three sources of evidence</h3>

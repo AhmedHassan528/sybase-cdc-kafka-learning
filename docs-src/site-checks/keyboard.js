@@ -111,7 +111,7 @@ const clipboardStub = mode => `(() => {
       pn: document.querySelectorAll('.pn a').length,
       hiddenControls: [...document.querySelectorAll('.js-only')].every(e => getComputedStyle(e).display === 'none'),
     }));
-    ok(nojs.noJsClass && nojs.words > 5000 && nojs.links >= 85 && nojs.pn >= 22 && nojs.hiddenControls,
+    ok(nojs.noJsClass && nojs.words > 5000 && nojs.links >= 90 && nojs.pn >= 24 && nojs.hiddenControls,
       `edge: scripts off: article text present (${nojs.words} words), ${nojs.links} contents links, ${nojs.pn} previous/next links, script-only controls hidden=${nojs.hiddenControls}`);
     await page.close();
 

@@ -1,16 +1,16 @@
-# Captured: 2026-10-23T10:33:32Z
+# Captured: 2026-10-23T11:58:43Z
 # Command:  node docs-src/site-checks/print.js
 # Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
 
 print: print media at A4 width (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
 ok   index.html: header, contents, previous/next, copy buttons and footer hidden in print ({"header":true,"contents":true,"pn":true,"copy":true,"footer":true})
-ok   index.html: 27 code blocks, 27 wrap, 0 cut off
+ok   index.html: 28 code blocks, 28 wrap, 0 cut off
 ok   index.html: no horizontal overflow, text rgb(0, 0, 0) on rgb(255, 255, 255)
-ok   index.html: PDF rendered, 1020 KB, 31 pages
+ok   index.html: PDF rendered, 1083 KB, 33 pages
 ok   guide/03-transaction-buffer.html: header, contents, previous/next, copy buttons and footer hidden in print ({"header":true,"contents":true,"pn":true,"copy":true,"footer":true})
 ok   guide/03-transaction-buffer.html: 3 code blocks, 3 wrap, 0 cut off
 ok   guide/03-transaction-buffer.html: no horizontal overflow, text rgb(0, 0, 0) on rgb(255, 255, 255)
-ok   guide/03-transaction-buffer.html: PDF rendered, 108 KB, 2 pages
+ok   guide/03-transaction-buffer.html: PDF rendered, 112 KB, 2 pages
 failures: 0
 
 # exit code: 0

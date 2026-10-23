@@ -40,7 +40,7 @@ A reader opens the site and lands on the article, "Kafka Connect Deep Dive: Syba
 
 A reader who wants one fact (for example "what is an oqid" or "why is no data arriving") can search the site and jump to the matching section or heading. The site also links the article to the rest of the material: the build-along guide, the handbook, and the evidence files, from a clear top navigation.
 
-**Why this priority**: The article is long (12 sections). Search and navigation turn it from a one-time read into a reference.
+**Why this priority**: The article is long (13 sections). Search and navigation turn it from a one-time read into a reference.
 
 **Independent Test**: Type a term from Section 6 into the search; the result list shows the matching headings and following a result lands on the right place. Use the top navigation to reach the handbook and an evidence file.
 
@@ -82,7 +82,7 @@ A reader can switch between light and dark themes (the site starts with their de
 
 ### Functional Requirements
 
-- **FR-001**: The site MUST present the 12-section article as a long-form blog-style page: title block (title, one-sentence summary, date, reading time), a single readable text column, and consistent heading, paragraph, list, table and figure styles. (US1; Principle V)
+- **FR-001**: The site MUST present the 13-section article as a long-form blog-style page: title block (title, one-sentence summary, date, reading time), a single readable text column, and consistent heading, paragraph, list, table and figure styles. (US1; Principle V)
 - **FR-002**: The site MUST show a table of contents listing every section and sub-heading, keep it visible while reading on wide windows, mark the section currently in view, and offer it as an openable menu on narrow windows. (US1)
 - **FR-003**: Code, command and output blocks MUST be visually distinct from prose, keep their line breaks, scroll inside their own box when too wide, and carry a copy control that copies exactly the block text and confirms the copy. (US1)
 - **FR-004**: Notes, warnings and "not run" labels in the article MUST be shown as visibly distinct callouts, and the "Check yourself" questions MUST be collapsible with the answer hidden until opened. The visual styles MUST not change any statement's wording. (US1; Principle I)
@@ -96,11 +96,12 @@ A reader can switch between light and dark themes (the site starts with their de
 - **FR-012**: The site MUST be generated from the existing article sources by the recorded build command; the table of contents, search index and previous/next links MUST be produced by that build, and generated files MUST NOT be hand-edited. (Principle V)
 - **FR-013**: The site MUST NOT add, change or remove any claim, number, command or output of the article; it changes presentation only. A check MUST confirm, section by section, that the text of each article section body and each guide page body in the built site equals its source text. The comparison covers the body only: added page parts (title block, header, contents, previous/next links, buttons) are excluded, and guide pages are compared with their README after Markdown rendering with tags removed. (Principle I)
 - **FR-014**: The existing handbook (`docs/index.html`) MUST keep working unchanged in content, with its links still resolving; it is reached from the new navigation. (Principle V)
+- **FR-016**: The site MUST show the Java source of the connector and the file that builds the JAR (added after review, when the first version showed only snippets): a code index page, one page per Java file of the finished connector and for each increment's starter and reference-solution files, and an article section that states the build command and what the JAR contains. Each code page MUST equal its source file exactly, and the build command and JAR contents MUST be checked by running them. (Principles I, V)
 - **FR-015**: The site MUST carry no secrets and MUST pass the repository secret scan; the deliverable MUST be listed in the checksum file. (Principles IV, V)
 
 ### Key Entities
 
-- **Article section**: one of the 12 chapters; has a number, title, heading anchors, body, check questions, and previous/next neighbours.
+- **Article section**: one of the 13 chapters; has a number, title, heading anchors, body, check questions, and previous/next neighbours.
 - **Site page**: the article page, the build-along guide page, the evidence index page; each has a title and navigation.
 - **Search entry**: a heading or section with its text and its anchor, produced at build time.
 - **Reader preference**: the chosen theme; kept only in the reader's own browser.
@@ -109,7 +110,7 @@ A reader can switch between light and dark themes (the site starts with their de
 
 ### Measurable Outcomes
 
-- **SC-001**: A reader can reach any of the 12 sections from the table of contents in one click (checked by clicking all 12 entries), and any heading found by search in at most two actions (type, choose). Checked by walking all 12 sections.
+- **SC-001**: A reader can reach any of the 13 sections from the table of contents in one click (checked by clicking all 13 entries), and any heading found by search in at most two actions (type, choose). Checked by walking all 12 sections.
 - **SC-002**: At widths 320, 375, 768 and 1280 px, 0 pages need horizontal page scrolling. Checked by a scripted measurement at each width and recorded as evidence.
 - **SC-003**: 100% of internal links and anchors on the site resolve (link check reports `problems=0`).
 - **SC-004**: With the network disconnected, 100% of pages display fully (0 failed resource requests). Checked by loading every page with outside requests blocked.

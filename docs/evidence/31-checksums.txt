@@ -1,4 +1,4 @@
-# Captured: 2026-10-23T10:34:02Z
+# Captured: 2026-10-23T12:02:19Z
 # Command:  bash lab/experiments/checksums-negative-test.sh
 # Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
 
@@ -16,7 +16,7 @@ OK       deliverables/images/sybase-cdc-connect-0.1.0.tar.gz
 == 2. verify a copy where one byte of docs/article.html was changed
 OK       plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar
 OK       docs/index.html
-FAILED   docs/article.html (expected a330aa2da28f..., got 1a96b7a7f8f6...)
+FAILED   docs/article.html (expected efa508db893b..., got 456835678f68...)
 OK       docs/site/index.html
 OK       docs/site/assets/site.css
 OK       docs/site/assets/site.js

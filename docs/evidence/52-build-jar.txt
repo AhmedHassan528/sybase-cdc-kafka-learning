@@ -1,0 +1,20 @@
+# Captured: 2026-10-23T11:59:10Z
+# Command:  bash lab/experiments/build-jar.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+$ lab/env/mvn.sh solutions/06-package-and-run package -DskipTests
+maven exit code: 0, 15 s
+file: lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar  (60281 bytes)
+classes in the JAR: 31
+class files per package of ours:
+        7 com/phoenix/cdc/sybase/cdc/
+        8 com/phoenix/cdc/sybase/connect/
+       10 com/phoenix/cdc/sybase/ltl/
+        6 com/phoenix/cdc/sybase/tds/
+ok: the connector class com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.class is in the JAR
+ok: the task class SybaseCdcSourceTask.class is in the JAR
+ok: no Kafka Connect API classes (org/apache/kafka/connect/) are packaged
+ok: no slf4j classes (org/slf4j/) are packaged
+ok: no JUnit classes (org/junit/) are packaged
+
+# exit code: 0

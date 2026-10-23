@@ -4,6 +4,7 @@ const { esc, jsonForScript } = require('../util');
 const NAV = [
   { key: 'article', label: 'Article', href: 'index.html' },
   { key: 'guide', label: 'Build-along', href: 'guide/index.html' },
+  { key: 'code', label: 'Code', href: 'code/index.html' },
   { key: 'handbook', label: 'Handbook', href: '../index.html' },
   { key: 'evidence', label: 'Evidence', href: 'evidence/index.html' },
 ];

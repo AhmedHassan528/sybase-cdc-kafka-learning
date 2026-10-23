@@ -56,3 +56,4 @@ node docs-src/publish-variant.js <out.html>                            # page bo
 - [x] Polish: reproducible build, checksums, size budgets, look review, quickstart 13 of 13 (evidence 39 to 50)
 - [ ] Not run: other browsers (Edge did not launch headless), physical printer, screen reader, public hosting
 - [x] Edge run: offline, overflow, search, keyboard and print pass on Edge 155 (evidence 51); still not run: Firefox, Safari, printer, screen reader, hosting
+- [x] Source code pages: 36 code pages, article section 12 'The source code and the JAR', JAR build run and captured (evidence 52); quickstart 14 of 14, Edge run repeated (51)

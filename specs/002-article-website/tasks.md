@@ -94,6 +94,13 @@ description: "Task list for the article website"
 - [x] T037 [P] Update `docs/PROGRESS.md` and `docs/COMPLETION.md` with the site deliverable, PASS / PARTIAL / NOT RUN counts (not run: browsers other than Chrome, physical printer, screen reader, public hosting), and the date; add a short "Website" section to `lab/README.md` or `README.md` with the build command
 - [x] T038 Re-check SC-001 to SC-008 against the evidence with measured values, record gaps in the completion report, then run `/speckit-analyze` for this feature and fix any finding
 
+## Phase 7: Source code pages (added after review: "I can't see the part with the Java code that creates the JAR")
+
+- [x] T039 [US1] Run the JAR build for real and capture it: write `lab/experiments/build-jar.sh` (Maven in a container, then inspect the JAR: size, class count per package, the connector and task classes present, no Kafka Connect API, slf4j or JUnit classes) and save its output to `docs/evidence/52-build-jar.txt`
+- [x] T040 [US1] Write `docs-src/site/code-map.js` (finds the final connector files and, per increment, the starter files with TODOs and their reference-solution files) and `docs-src/site/build-code.js` (code index page, one page per file, copied byte for byte, a "Code" link in the top navigation in `docs-src/site/templates/shell.js`)
+- [x] T041 [US1] Add the article section "The source code and the JAR" in `docs-src/article/11a-source-code.html` (build command, observed output, what is in the JAR, files you write per increment, two check questions), with links rewritten for the site in `docs-src/site/build-site.js`; add a "Code for this increment" box to each guide step page in `docs-src/site/build-guide.js`
+- [x] T042 [US1] Extend `docs-src/site-checks/text-compare.js` so every code page equals its source file exactly (35 pages), update the counts in `search.js` and `keyboard.js` for 13 sections, add the JAR build as scenario 14 of `run-all.sh`, rebuild `docs/article.html`, and re-capture evidence 39 to 52
+
 ## Dependencies and Execution Order
 
 - **Phase 1** first. **Phase 2** blocks everything else. T004 and T005 are written before T006 to T010 are accepted.

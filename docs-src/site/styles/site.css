@@ -68,6 +68,7 @@ html.dark {
   .title-block .crumbs { display: flex; gap: .6rem; margin: 0; color: var(--accent); }
   .title-block .meta { margin: 0; color: var(--mute); font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
   .title-block .meta .rt { margin-left: 1rem; color: var(--ink); }
+  .title-block > .meta { margin: 1.25rem 0 0; }
   .title-block .lede { font-size: 1.25rem; line-height: 1.6; color: var(--ink); margin: 1.75rem 0 0; }
   .title-block .category { color: var(--accent); font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 .75rem; }
 
@@ -89,7 +90,7 @@ html.dark {
   .contents-list .lvl2 a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .contents-list .lvl3 a { padding-left: 1.5rem; font-size: .8125rem; }
   .contents-list .num { display: inline-block; min-width: 1.4em; color: var(--mute); font-weight: 500; }
-  .contents-list a[aria-current="true"] { color: var(--accent); border-left-color: var(--accent); }
+  .contents-list a[aria-current="true"], .contents-list a[aria-current="page"] { color: var(--accent); border-left-color: var(--accent); }
 
   /* Reading column */
   .prose-site { font-size: 1.125rem; line-height: 1.7; min-width: 0; overflow-wrap: break-word; }
@@ -138,6 +139,7 @@ html.dark {
   /* Guide and evidence pages */
   .guide-head { padding: 2.25rem 0 0; }
   .guide-head .category { color: var(--accent); font-size: .8125rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+  .title-block .meta-line { color: var(--mute); font-size: .95rem; margin: 1rem 0 0; overflow-wrap: anywhere; }
   .cat-meta { color: var(--mute); font-weight: 500; letter-spacing: 0; text-transform: none; }
   .guide-head .meta { color: var(--mute); font-size: .9rem; margin: .5rem 0 0; }
   .evidence-table td, .evidence-table th { white-space: normal; }

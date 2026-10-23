@@ -56,7 +56,7 @@ Results: `start.sh`, `create-accounts.sh` and `set-tables.sh` pass both times. T
   change the script.
 - `changes.sh` is not idempotent by design: every run writes new events.
 
-## The website (article, build-along guide, evidence index)
+## The website (article, build-along guide, Java source, evidence index)
 
 `docs/site/` is the article as a website: open `docs/site/index.html` in a browser (from disk, no server and no internet needed).
 It is generated; change the sources and rebuild:
@@ -64,9 +64,9 @@ It is generated; change the sources and rebuild:
 ```sh
 npm ci --prefix docs-src            # once; needs the internet to fetch the pinned build tools
 node docs-src/build.js site         # writes docs/site/ (article, build-along guide, evidence index)
-bash docs-src/site-checks/run-all.sh   # the 13 validation scenarios (about 90 seconds, needs Chrome installed)
+bash docs-src/site-checks/run-all.sh   # the 14 validation scenarios (about 3 minutes, needs Chrome and Docker)
 ```
 
 The build tools (Tailwind 3.4.17, marked 12.0.2, puppeteer-core 25.12.0) are pinned in `docs-src/package-lock.json` and do not
-ship in the site. Results are in `docs/evidence/39` to `51`. Run on Chrome 155 and Edge 155 (`BROWSER=edge node docs-src/site-checks/<check>.js`, evidence 51). Firefox, Safari,
+ship in the site. Results are in `docs/evidence/39` to `52`. Run on Chrome 155 and Edge 155 (`BROWSER=edge node docs-src/site-checks/<check>.js`, evidence 51). Firefox, Safari,
 a physical printer, a screen reader and public hosting were not run.

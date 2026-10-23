@@ -42,7 +42,12 @@ echo "== extras from the plan"
 run 11 "contrast and page structure" node docs-src/site-checks/contrast.js
 run 12 "print style" node docs-src/site-checks/print.js
 run 13 "size budgets" node docs-src/site-checks/sizes.js
+if docker info >/dev/null 2>&1; then
+  run 14 "build the JAR and inspect it (Maven in a container)" bash lab/experiments/build-jar.sh
+else
+  result 14 "build the JAR and inspect it" "NOT RUN (Docker is not available)"
+fi
 
 echo
-echo "SUMMARY: 13 scenarios, $fails failed, $(( $(date +%s) - t0 )) s"
+echo "SUMMARY: 14 scenarios, $fails failed, $(( $(date +%s) - t0 )) s"
 exit $(( fails > 0 ))

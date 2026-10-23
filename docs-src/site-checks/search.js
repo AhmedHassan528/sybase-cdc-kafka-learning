@@ -6,7 +6,7 @@ const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // term -> id of a heading that must rank first, or null when only "some result whose section contains the term" is required
-const TERMS = [['oqid', null, null], ['retry timeout', null, null], ['tombstone', 'keys-delete', null], ['TransactionBuffer', null, 'guide/']];
+const TERMS = [['oqid', null, 'code/src/Oqid.html'], ['retry timeout', null, null], ['tombstone', 'keys-delete', null], ['TransactionBuffer', null, 'code/src/TransactionBuffer.html']];
 
 (async () => {
   console.log(`search: results, empty result and contents clicks (browser ${CHROME})`);
@@ -30,7 +30,7 @@ const TERMS = [['oqid', null, null], ['retry timeout', null, null], ['tombstone'
         await page.keyboard.press('Enter');
         await sleep(900);
         const where = await page.evaluate(() => ({ path: location.pathname, hash: location.hash, found: !!document.getElementById(location.hash.slice(1)) }));
-        ok(where.path.includes(expectPage) && where.found, `"${term}": Enter opens ${where.path}${where.hash} and the heading exists`);
+        ok(where.path.endsWith(expectPage) && (where.hash === '' || where.found), `"${term}": Enter opens ${where.path.split('/site/')[1]}${where.hash}`);
         continue;
       }
       // The section the first result points at must contain the term (independent of the search index).
@@ -56,7 +56,8 @@ const TERMS = [['oqid', null, null], ['retry timeout', null, null], ['tombstone'
 
     // One click on each of the 12 contents entries brings the section heading into view.
     const count = await page.$$eval('.contents-wide .lvl2 a', a => a.length);
-    ok(count === 12, `contents lists ${count} sections`);
+    const h2s = await page.$$eval('.prose-site h2', e => e.length);
+    ok(count === h2s && count >= 13, `contents lists ${count} sections (the page has ${h2s})`);
     for (let i = 0; i < count; i++) {
       await page.goto(fileUrl('index.html'), { waitUntil: 'load' });
       const id = await page.$$eval('.contents-wide .lvl2 a', (a, k) => a[k].getAttribute('href').slice(1), i);

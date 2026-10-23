@@ -1,11 +1,10 @@
-# Captured: 2026-10-23T10:32:55Z
+# Captured: 2026-10-23T11:57:32Z
 # Command:  node docs-src/site-checks/search.js
 # Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
 
 search: results, empty result and contents clicks (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
 ok   "oqid": 12 result(s)
-ok   "oqid": the target section #intro-promise contains the term
-ok   "oqid": Enter lands on #intro-promise (location hash #intro-promise)
+ok   "oqid": Enter opens code/src/Oqid.html
 ok   "retry timeout": 2 result(s)
 ok   "retry timeout": the target section #try-register contains the term
 ok   "retry timeout": Enter lands on #try-register (location hash #try-register)
@@ -13,10 +12,10 @@ ok   "tombstone": 3 result(s)
 ok   "tombstone": first result is #keys-delete (expected #keys-delete)
 ok   "tombstone": the target section #keys-delete contains the term
 ok   "tombstone": Enter lands on #keys-delete (location hash #keys-delete)
-ok   "TransactionBuffer": 5 result(s)
-ok   "TransactionBuffer": Enter opens /E:/ADIB/docs/site/guide/03-transaction-buffer.html#increment-3-nothing-is-real-until-commit and the heading exists
+ok   "TransactionBuffer": 9 result(s)
+ok   "TransactionBuffer": Enter opens code/src/TransactionBuffer.html
 ok   nonsense term shows: "Nothing found for zzqxvv"
-ok   contents lists 12 sections
+ok   contents lists 13 sections (the page has 13)
 ok   contents entry 1 (#introduction): heading in view (top 80 px)
 ok   contents entry 2 (#try-it-at-home): heading in view (top 80 px)
 ok   contents entry 3 (#source-prerequisites): heading in view (top 80 px)
@@ -28,7 +27,8 @@ ok   contents entry 8 (#keys-and-topics): heading in view (top 80 px)
 ok   contents entry 9 (#data-types): heading in view (top 80 px)
 ok   contents entry 10 (#multiple-tables): heading in view (top 80 px)
 ok   contents entry 11 (#reliability): heading in view (top 80 px)
-ok   contents entry 12 (#where-next): heading in view (top 80 px)
+ok   contents entry 12 (#source-code): heading in view (top 80 px)
+ok   contents entry 13 (#where-next): heading in view (top 80 px)
 failures: 0
 
 # exit code: 0

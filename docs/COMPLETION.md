@@ -114,3 +114,10 @@ Gaps: Chrome only; Edge did not launch headless here; printer, screen reader and
 ## Update: Microsoft Edge run (2026-10-23)
 - PASS on Edge 155 (evidence 51): offline, overflow (72 combinations), search and contents clicks, keyboard (6 of 6 plus edge cases) and print. The earlier "Edge did not launch" was the puppeteer-core launcher: the Edge launcher process exits at once with code 0. The checks now start Edge themselves with a debugging port and a temporary profile and connect to it (`BROWSER=edge node docs-src/site-checks/<check>.js`).
 - Still NOT RUN: Firefox and Safari, a physical printer, a screen reader, public hosting. The browsers run so far are Chrome 155 and Edge 155 (both Chromium).
+
+## Update: Java source and the JAR on the website (2026-10-23)
+Added after review ("I can't see the part with the Java code that creates the JAR"): the first website version showed only two short snippets.
+- New: 36 code pages under `docs/site/code/` (a code index, the 18 Java files of the finished connector, its pom.xml, and for each of the six increments the starter files with TODOs and their reference-solution files), a "Code" link in the top navigation, a "Code for this increment" box on each guide step page, and article section 12, "The source code and the JAR" (the former section 12 is now 13).
+- PASS: `lab/experiments/build-jar.sh` ran the JAR build (Maven in a container, exit 0, 15 s): 60,281 bytes, 31 class files (7 cdc, 8 connect, 10 ltl, 6 tds), the connector and task classes present, no Kafka Connect API, slf4j or JUnit classes packaged (evidence 52).
+- PASS: all 35 code pages equal their source files exactly, 3,628 lines (evidence 39); the website now has 45 pages and 14 quickstart scenarios pass (evidence 50); the Edge run repeats offline, overflow (360 combinations), search, keyboard and print on all 45 pages (evidence 51).
+- The code pages show plain text, without syntax colouring. The code is the reference solution of increment 6; the finished connector in `sybase-cdc-connector/` is a separate module whose differences are in evidence 38.

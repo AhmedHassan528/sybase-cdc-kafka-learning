@@ -42,6 +42,8 @@ ${body}</figcaption></figure>`;
 // The site sits in docs/site, one level below the files the article links to (evidence, handbook).
 function rewriteLinks(html) {
   return html.replace(/href="evidence\//g, 'href="../evidence/').replace(/href="index\.html/g, 'href="../index.html')
+    // The article sources link to the code pages as site/code/... (valid from docs/ for the plain article build too).
+    .replace(/href="site\/code\//g, 'href="code/')
     // Mark the "not run" labels so they can be styled as visible labels (presentation only: the text is unchanged).
     .replace(/<em>not run<\/em>/g, '<em class="notrun">not run</em>');
 }
@@ -84,7 +86,7 @@ function main() {
   }];
   let entries = art.entries.slice();
   const extra = [];
-  for (const name of ['build-guide', 'build-evidence']) {
+  for (const name of ['build-guide', 'build-code', 'build-evidence']) {
     const file = path.join(__dirname, name + '.js');
     if (fs.existsSync(file)) extra.push(require(file).build({ ROOT, OUT, cfg, problem }));
   }
@@ -117,6 +119,7 @@ function main() {
   if (problems.length) { console.log('site: build problems:\n  ' + problems.join('\n  ')); process.exit(1); }
   const guide = pages.filter(p => p.path.startsWith('guide/')).length;
   const ev = pages.filter(p => p.path.startsWith('evidence/')).length;
-  console.log(`site: docs/site: ${art.sections.length} article sections, ${art.items.length} headings, ${guide} guide pages, ${ev} evidence index, ${entries.length} search entries, ${art.minutes} min read`);
+  const code = pages.filter(p => p.path.startsWith('code/')).length;
+  console.log(`site: docs/site: ${art.sections.length} article sections, ${art.items.length} headings, ${guide} guide pages, ${code} code pages, ${ev} evidence index, ${entries.length} search entries, ${art.minutes} min read`);
 }
 main();
