@@ -1,0 +1,7 @@
+{
+  "lesson": "6.3",
+  "steps": [
+    { "id": "connector-log", "run": "docker logs cdc-lab-connect 2>&1 | grep -E 'Starting Sybase CDC task|LTL server listening|RepAgent connected|TDS login|proposed LTL' | cut -c1-300", "mask": ["timestamp=\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:,]+\\]", "client=/[0-9.]+:[0-9]+"] },
+    { "id": "process", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=phoenix_test) +[0-9]+"] }
+  ]
+}

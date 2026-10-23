@@ -1,0 +1,25 @@
+# Captured: 2026-10-23T20:36:46Z
+# Lesson:   6.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step interfaces
+$ MSYS_NO_PATHCONV=1 docker exec cdc-lab-sybase grep -A3 '^CDC_RS' /opt/sybase/interfaces
+CDC_RS
+	master tcp ether connect 11752
+	query tcp ether connect 11752
+# exit 0, 0.5 s
+
+## step rs-name
+$ bash lab/path/ase.sh admin "sp_config_rep_agent phoenix_test, 'rs servername'"
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ rs servername  n/a           CDC_RS       CDC_RS
+(1 row affected)
+(return status = 0)
+# exit 0, 0.7 s
+
+## step reptable
+$ bash lab/path/ase.sh sa "sp_setreptable payment"
+The replication status for 'payment' is currently true, owner_off, primary key = 'payment_paymen_5920021091'.
+(return status = 0)
+# exit 0, 0.7 s

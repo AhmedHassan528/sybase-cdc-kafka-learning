@@ -1,0 +1,45 @@
+# Captured: 2026-10-23T20:36:37Z
+# Lesson:   4.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step logins
+$ bash lab/path/ase.sh sa "select name from master..syslogins where name like 'cdc%' or name = 'sa' order by name"
+ name
+ ------------------------------
+ cdc_admin
+ cdc_app
+ sa
+(3 rows affected)
+# exit 0, 0.7 s
+
+## step app-ok
+$ bash lab/path/ase.sh app "select count(*) as payments from payment"
+ payments
+ -----------
+           0
+(1 row affected)
+# exit 0, 0.8 s
+
+## step admin-denied
+$ bash lab/path/ase.sh admin "select count(*) from payment"
+Msg 10330, Level 14, State 1:
+Server 'MYSYBASE', Line 1:
+SELECT permission denied on object payment, database phoenix_test, owner dbo
+# exit 0, 0.8 s
+
+## step app-denied
+$ bash lab/path/ase.sh app "sp_help_rep_agent phoenix_test, 'process'" | head -n 4
+Msg 10364, Level 14, State 1:
+Server 'MYSYBASE', Procedure 'sp_help_rep_agent', Line 116:
+Permission denied. You must either be the database/object owner or possess any of the following roles in order to perform this operation: 'sa_role, replication_role'.
+Msg 9222, Level 14, State 2:
+# exit 0, 0.7 s
+
+## step admin-ok
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname spid start_marker end_marker current_marker sleep_status state retry_count last_error
+ ------ ---- ------------ ---------- -------------- ------------ ----- ----------- ----------
+(1 row affected)
+(return status = 0)
+# exit 0, 0.7 s

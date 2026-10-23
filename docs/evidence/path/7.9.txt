@@ -1,0 +1,13 @@
+# Captured: 2026-10-23T20:36:56Z
+# Lesson:   7.9
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step in-lab-jar
+$ unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep '/LtlParser[.$]' | sed 's#com/phoenix/cdc/sybase/##'
+ltl/LtlParser.class
+# exit 0, 0.2 s
+
+## step lines
+$ wc -l sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java
+181 sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java
+# exit 0, 0.1 s

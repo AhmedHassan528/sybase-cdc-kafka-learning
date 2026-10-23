@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T21:07:42Z
+# Review of the five diagram topics (task T031)
+# Mechanical (docs-src/site-checks/path-diagrams.js, _diagrams.txt): 7 diagrams, 5 of 5 topics covered; each topic's diagram names a live step whose recorded output exists and is shown on the same page.
+# Topics: Docker architecture (docker-topology, lessons 2.1), transaction-log capture (log-capture, 5.1), RepAgent communication (ltl-handshake, 6.3), connector processing (connector-lifecycle, 7.22 and 8.2 / class-relationships 7.1), Kafka message delivery and acknowledgement (ack-watermark, 9.3).
+# Not done: a review by a person with the lab open comparing each drawn arrow with the live output (the diagrams were drawn from the recorded outputs and the Java notes).

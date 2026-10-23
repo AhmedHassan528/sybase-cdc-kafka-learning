@@ -1,0 +1,11 @@
+{
+  "lesson": "9.3",
+  "steps": [
+    { "id": "offsets", "run": "docker exec cdc-lab-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic _connect-offsets --from-beginning --timeout-ms 6000 --property print.key=true --property key.separator=' | ' 2>/dev/null | grep phoenix_test | tail -n 1", "mask": ["position=\"commit_oqid\":\"[0-9a-f]+\""] },
+    { "id": "markers", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=phoenix_test) +[0-9]+"] },
+    { "id": "restart", "run": "curl -s -X POST 'localhost:8083/connectors/sybase-cdc-phoenix/restart?includeTasks=true' -w 'HTTP %{http_code}\\n'", "state": "changes-state" },
+    { "id": "running", "run": "curl -s localhost:8083/connectors/sybase-cdc-phoenix/status", "wait": { "until": "\"state\":\"RUNNING\".*\"state\":\"RUNNING\"", "timeoutSeconds": 60 }, "mask": ["worker=\"worker_id\":\"[^\"]+\""] },
+    { "id": "change-again", "run": "bash lab/path/demo/change-records.sh PATH-DEMO-2", "state": "changes-state" },
+    { "id": "check-again", "run": "bash lab/path/demo/check-topic.sh PATH-DEMO-2 240", "mask": ["id=\"payment_id\":\"[0-9]+\""] }
+  ]
+}

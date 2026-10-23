@@ -1,0 +1,7 @@
+# Captured: 2026-10-23T19:52:53Z
+# Command:  node docs-src/site-checks/site-unchanged.js --record
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+site-unchanged: baseline recorded for 45 pages (134 hashed parts) in specs\003-end-to-end-learning-path\baseline\site-body-text.json
+
+# exit code: 0

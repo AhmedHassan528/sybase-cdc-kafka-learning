@@ -64,9 +64,20 @@ It is generated; change the sources and rebuild:
 ```sh
 npm ci --prefix docs-src            # once; needs the internet to fetch the pinned build tools
 node docs-src/build.js site         # writes docs/site/ (article, build-along guide, evidence index)
-bash docs-src/site-checks/run-all.sh   # the 14 validation scenarios (about 3 minutes, needs Chrome and Docker)
+bash docs-src/site-checks/run-all.sh   # the 17 validation scenarios (about 4 minutes, needs Chrome and Docker)
 ```
 
 The build tools (Tailwind 3.4.17, marked 12.0.2, puppeteer-core 25.12.0) are pinned in `docs-src/package-lock.json` and do not
 ship in the site. Results are in `docs/evidence/39` to `52`. Run on Chrome 155 and Edge 155 (`BROWSER=edge node docs-src/site-checks/<check>.js`, evidence 51). Firefox, Safari,
 a physical printer, a screen reader and public hosting were not run.
+
+### The learning path (`docs/site/path/`)
+
+Nine stages from Docker to a verified Kafka event. The commands are in `lab/path/steps/*.json`:
+
+```sh
+bash lab/path/run-path.sh       # resets the lab, runs every lesson's commands, writes docs/evidence/path/<lesson>.txt (about 4 minutes)
+bash lab/path/verify-path.sh    # runs them again and compares with the recorded output
+bash lab/path/run-lesson.sh 9.2 # one lesson
+node docs-src/site-checks/path-progress.js   # progress marks (BROWSER=edge for Edge)
+```

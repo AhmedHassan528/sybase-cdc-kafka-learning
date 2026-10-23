@@ -1,0 +1,11 @@
+[
+  { "id": "environment", "number": 1, "title": "Set up Docker", "goal": "Check that Docker works on your machine and that the lab has the room and ports it needs." },
+  { "id": "launch", "number": 2, "title": "Launch the containers", "goal": "Understand the lab's containers and start all of them." },
+  { "id": "health", "number": 3, "title": "Verify service health", "goal": "Check that each service of the lab is up and know what healthy means for each." },
+  { "id": "database", "number": 4, "title": "The database and its users", "goal": "Understand the database setup the lab performs and check the result." },
+  { "id": "log-and-repagent", "number": 5, "title": "The log and RepAgent", "goal": "See where Sybase records changes and how RepAgent reads and ships them." },
+  { "id": "replication", "number": 6, "title": "Set up replication", "goal": "Mark tables for replication, start the connector and RepAgent in the right order." },
+  { "id": "java", "number": 7, "title": "The Java connector, file by file", "goal": "Read every class of the connector with notes on what each class and method is for." },
+  { "id": "build-and-kafka", "number": 8, "title": "Build and connect to Kafka", "goal": "Build the JAR, load it into Kafka Connect and see the topics." },
+  { "id": "demo", "number": 9, "title": "End-to-end demonstration", "goal": "Change a record and verify the events in the right Kafka topic." }
+]

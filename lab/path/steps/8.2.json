@@ -1,0 +1,10 @@
+{
+  "lesson": "8.2",
+  "steps": [
+    { "id": "jar", "run": "ls -1 plugins/sybase-cdc" },
+    { "id": "in-container", "run": "MSYS_NO_PATHCONV=1 docker exec cdc-lab-connect ls /opt/connectors/sybase-cdc" },
+    { "id": "connectors", "run": "curl -s localhost:8083/connectors" },
+    { "id": "config", "run": "curl -s localhost:8083/connectors/sybase-cdc-phoenix/config" },
+    { "id": "status", "run": "curl -s localhost:8083/connectors/sybase-cdc-phoenix/status", "mask": ["worker=\"worker_id\":\"[^\"]+\""] }
+  ]
+}

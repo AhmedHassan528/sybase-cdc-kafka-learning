@@ -3,6 +3,7 @@ const { esc, jsonForScript } = require('../util');
 
 const NAV = [
   { key: 'article', label: 'Article', href: 'index.html' },
+  { key: 'path', label: 'Learning path', href: 'path/index.html' },
   { key: 'guide', label: 'Build-along', href: 'guide/index.html' },
   { key: 'code', label: 'Code', href: 'code/index.html' },
   { key: 'handbook', label: 'Handbook', href: '../index.html' },
@@ -57,7 +58,8 @@ ${p.body}
 </main>
 ${footer(p)}
 <script type="application/json" id="search-index">${jsonForScript(p.searchIndex)}</script>
-<script src="${p.root}assets/site.js" defer></script>
+<script src="${p.root}assets/site.js" defer></script>${(p.path || "").startsWith("path/") ? `
+<script src="${p.root}assets/path.js" defer></script>` : ""}
 </body>
 </html>
 `;

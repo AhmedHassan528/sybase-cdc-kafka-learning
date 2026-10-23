@@ -1,0 +1,8 @@
+{
+  "lesson": "8.3",
+  "steps": [
+    { "id": "topics", "run": "docker exec cdc-lab-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list | sort" },
+    { "id": "describe", "run": "docker exec cdc-lab-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic sybase.phoenix_test.payment", "mask": ["topic-id=TopicId: [A-Za-z0-9_-]+"] },
+    { "id": "screenshot", "run": "node docs-src/site-checks/path-screenshots.js topics", "mask": ["size=\\([0-9]+ bytes\\)"] }
+  ]
+}

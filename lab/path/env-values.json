@@ -1,0 +1,686 @@
+[
+ {
+  "name": "ltl.listen.host",
+  "kind": "host",
+  "labValue": "0.0.0.0 (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "Leave 0.0.0.0 to listen on every interface of the connector's container or host, or give one address to restrict it. The database must be able to reach this address."
+ },
+ {
+  "name": "ltl.listen.port",
+  "kind": "port",
+  "labValue": "11752",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "sybase/start.sh"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java"
+  ],
+  "covers": [
+   "json:ltl.listen.port"
+  ],
+  "change": "Any free port. It must equal the port in the CDC_RS entry of the database's interfaces file (set by sybase/start.sh); change both together, and open the port between the two hosts."
+ },
+ {
+  "name": "ltl.username",
+  "kind": "credential",
+  "labValue": "rs_user (labelled local test value)",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "sybase/02_repagent.sql"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java"
+  ],
+  "covers": [
+   "json:ltl.username",
+   "sql:rsuser:rs_user"
+  ],
+  "change": "Choose your own login name, and set the same name in sp_config_rep_agent (sybase/02_repagent.sql). It is only checked by the connector; it is not a database account."
+ },
+ {
+  "name": "ltl.password",
+  "kind": "credential",
+  "labValue": "rs_password (labelled local test value)",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "sybase/02_repagent.sql"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tools/LtlProbe.java"
+  ],
+  "covers": [
+   "json:ltl.password",
+   "sql:rspassword:rs_password"
+  ],
+  "change": "Use a real secret and keep it out of source control (for Kafka Connect use a config provider or a secret). Set the same value in sp_config_rep_agent. The lab leaves net password encryption off, which sends it in plain text."
+ },
+ {
+  "name": "ltl.charset",
+  "kind": "property",
+  "labValue": "empty (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "Leave empty to follow the character set in the RepAgent login. Set a Java charset name only if the database sends text in a set that the login does not describe correctly."
+ },
+ {
+  "name": "ltl.trace",
+  "kind": "property",
+  "labValue": "false (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "Set true only while troubleshooting: it logs every LTL message, which is very verbose and can contain data."
+ },
+ {
+  "name": "database.server.name",
+  "kind": "database",
+  "labValue": "MYSYBASE",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java"
+  ],
+  "covers": [
+   "json:database.server.name"
+  ],
+  "change": "The value select @@servername returns on your server. It is part of the stored offset key and of every event, so changing it later starts a new offset."
+ },
+ {
+  "name": "database.name",
+  "kind": "database",
+  "labValue": "phoenix_test",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "sybase/00_database.sql"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java"
+  ],
+  "covers": [
+   "json:database.name",
+   "sql:database:phoenix_test"
+  ],
+  "change": "The database you replicate. A RepAgent for any other database is refused. It is also the middle part of every topic name."
+ },
+ {
+  "name": "database.maintenance.user",
+  "kind": "credential",
+  "labValue": "cdc_maint (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "The login whose transactions RepAgent must not forward (normally the replication maintenance user of your environment)."
+ },
+ {
+  "name": "topic.prefix",
+  "kind": "topic",
+  "labValue": "sybase",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java"
+  ],
+  "covers": [
+   "json:topic.prefix"
+  ],
+  "change": "The first part of every topic name (prefix, database, table). Change it to fit your topic naming rules; consumers must use the same names."
+ },
+ {
+  "name": "table.include.list",
+  "kind": "property",
+  "labValue": "payment",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [
+   "json:table.include.list"
+  ],
+  "change": "The tables to publish. A table must also be marked with sp_setreptable in the database. Empty means every marked table."
+ },
+ {
+  "name": "queue.max.transactions",
+  "kind": "property",
+  "labValue": "1000 (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "How many committed transactions may wait between RepAgent and Kafka. Raise it for bursty workloads (uses more memory), lower it to make RepAgent wait sooner."
+ },
+ {
+  "name": "poll.max.records",
+  "kind": "property",
+  "labValue": "10000 (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java"
+  ],
+  "covers": [],
+  "change": "The most records one poll returns to Kafka Connect."
+ },
+ {
+  "name": "large.transaction.warn.rows",
+  "kind": "property",
+  "labValue": "100000 (default)",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java",
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java"
+  ],
+  "covers": [],
+  "change": "The number of rows in one open transaction at which a warning is logged. All rows of an open transaction are kept in memory."
+ },
+ {
+  "name": "replication.server.name",
+  "kind": "host",
+  "labValue": "CDC_RS",
+  "setIn": [
+   "sybase/start.sh",
+   "sybase/02_repagent.sql"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java"
+  ],
+  "covers": [
+   "sql:rs:CDC_RS"
+  ],
+  "change": "The name of the interfaces entry and of the RepAgent rs servername setting. The connector uses it only in the messages it sends; keep all three the same."
+ },
+ {
+  "name": "ltl.dump.dir",
+  "kind": "path",
+  "labValue": "not set",
+  "setIn": [],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java"
+  ],
+  "covers": [],
+  "change": "A Java system property (-Dltl.dump.dir=<directory>) that saves every message RepAgent sends. Use a directory the Connect process can write to, and only while investigating."
+ },
+ {
+  "name": "connector.class",
+  "kind": "property",
+  "labValue": "com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java"
+  ],
+  "covers": [
+   "json:connector.class"
+  ],
+  "change": "Do not change it: it names the connector class inside the JAR on the plugin path."
+ },
+ {
+  "name": "tasks.max",
+  "kind": "property",
+  "labValue": "1",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java"
+  ],
+  "covers": [
+   "json:tasks.max"
+  ],
+  "change": "Leave 1: the connector always starts exactly one task and ignores a larger value."
+ },
+ {
+  "name": "connector.name",
+  "kind": "property",
+  "labValue": "sybase-cdc-phoenix",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "lab/env/_common.sh"
+  ],
+  "usedBy": [],
+  "covers": [
+   "json:name",
+   "shell:CONNECTOR_NAME"
+  ],
+  "change": "The name under which Kafka Connect knows the connector. It appears in the REST URLs and in the stored offset key; choose one per database."
+ },
+ {
+  "name": "key.converter / value.converter",
+  "kind": "property",
+  "labValue": "org.apache.kafka.connect.json.JsonConverter",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json",
+   "connect-distributed.properties"
+  ],
+  "usedBy": [],
+  "covers": [
+   "json:key.converter",
+   "json:value.converter",
+   "worker:key.converter",
+   "worker:value.converter"
+  ],
+  "change": "The format of the Kafka messages. The consumers must read the same format. The connector builds schemaless maps, so keep the JSON converter with schemas disabled unless you add schemas."
+ },
+ {
+  "name": "key.converter.schemas.enable / value.converter.schemas.enable",
+  "kind": "property",
+  "labValue": "false",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [],
+  "covers": [
+   "json:key.converter.schemas.enable",
+   "json:value.converter.schemas.enable"
+  ],
+  "change": "Keep false: the connector does not provide schemas, and true would wrap every message in a schema envelope."
+ },
+ {
+  "name": "errors.tolerance",
+  "kind": "property",
+  "labValue": "none",
+  "setIn": [
+   "connectors/sybase-cdc-phoenix.json"
+  ],
+  "usedBy": [],
+  "covers": [
+   "json:errors.tolerance"
+  ],
+  "change": "none stops the task on the first error; all would skip failing records. Skipping records in a change data capture pipeline hides data loss, so decide deliberately."
+ },
+ {
+  "name": "Kafka bootstrap servers",
+  "kind": "host",
+  "labValue": "kafka:9092",
+  "setIn": [
+   "connect-distributed.properties",
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:bootstrap.servers"
+  ],
+  "change": "The address of your Kafka brokers as the Connect worker reaches them (host and port of a listener it can use). With TLS or SASL more settings are needed; the lab uses neither."
+ },
+ {
+  "name": "Connect group id",
+  "kind": "property",
+  "labValue": "sybase-cdc-connect",
+  "setIn": [
+   "connect-distributed.properties"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:group.id"
+  ],
+  "change": "One group id per Kafka Connect cluster; workers with the same id form one cluster."
+ },
+ {
+  "name": "Connect internal topics",
+  "kind": "topic",
+  "labValue": "_connect-configs, _connect-offsets, _connect-status",
+  "setIn": [
+   "connect-distributed.properties"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:config.storage.topic",
+   "worker:offset.storage.topic",
+   "worker:status.storage.topic"
+  ],
+  "change": "Names of the topics where Connect stores connector configurations, offsets (the connector's restart position) and status. Do not delete the offsets topic: it holds the position."
+ },
+ {
+  "name": "Connect internal topic replication",
+  "kind": "property",
+  "labValue": "1 (a single broker)",
+  "setIn": [
+   "connect-distributed.properties"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:config.storage.replication.factor",
+   "worker:offset.storage.replication.factor",
+   "worker:status.storage.replication.factor"
+  ],
+  "change": "Use 3 (or your cluster's standard) on a cluster with several brokers; 1 is only for the single-broker lab."
+ },
+ {
+  "name": "Connect REST listener",
+  "kind": "port",
+  "labValue": "http://0.0.0.0:8083, advertised as connect:8083",
+  "setIn": [
+   "connect-distributed.properties",
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:listeners",
+   "worker:rest.advertised.host.name",
+   "worker:rest.advertised.port",
+   "compose-port:connect:127.0.0.1:8083:8083"
+  ],
+  "change": "The REST API address. Advertise the host name other workers and tools use; protect the API (it can reconfigure connectors), the lab binds it to localhost only."
+ },
+ {
+  "name": "Connect plugin path",
+  "kind": "path",
+  "labValue": "/opt/connectors",
+  "setIn": [
+   "connect-distributed.properties",
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:plugin.path",
+   "compose-volume:connect:/opt/connectors"
+  ],
+  "change": "The folder Connect scans for connector JARs. Put the connector JAR (one folder per plugin) there and restart the worker."
+ },
+ {
+  "name": "Connect offset flush interval",
+  "kind": "property",
+  "labValue": "5000 ms",
+  "setIn": [
+   "connect-distributed.properties"
+  ],
+  "usedBy": [],
+  "covers": [
+   "worker:offset.flush.interval.ms"
+  ],
+  "change": "How often Connect stores offsets. A shorter interval means fewer repeated events after a crash; a longer one means less load on Kafka."
+ },
+ {
+  "name": "Sybase ASE published port",
+  "kind": "port",
+  "labValue": "127.0.0.1:5000",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-port:sybase:127.0.0.1:5000:5000"
+  ],
+  "change": "The database port for tools on your machine. In another environment the database is reached at its own host and port."
+ },
+ {
+  "name": "Kafka published port",
+  "kind": "port",
+  "labValue": "127.0.0.1:29092",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-port:kafka:127.0.0.1:29092:29092"
+  ],
+  "change": "The Kafka port for programs on your machine (the containers use kafka:9092). Use your cluster's listeners elsewhere."
+ },
+ {
+  "name": "Kafka web UI published port",
+  "kind": "port",
+  "labValue": "127.0.0.1:8080",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-port:kafka-ui:127.0.0.1:8080:8080"
+  ],
+  "change": "Where the web UI answers. Do not publish it beyond localhost without authentication."
+ },
+ {
+  "name": "Container names",
+  "kind": "host",
+  "labValue": "cdc-lab-sybase, cdc-lab-kafka, cdc-lab-connect, cdc-lab-kafka-ui",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-name:sybase:container_name",
+   "compose-name:kafka:container_name",
+   "compose-name:connect:container_name",
+   "compose-name:kafka-ui:container_name"
+  ],
+  "change": "The names the lab scripts use in docker exec. Rename them only together with the scripts that use them."
+ },
+ {
+  "name": "Container host names",
+  "kind": "host",
+  "labValue": "sybase, kafka, connect",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-name:sybase:hostname",
+   "compose-name:kafka:hostname",
+   "compose-name:connect:hostname"
+  ],
+  "change": "The names the containers use for each other on the Docker network. The interfaces entry CDC_RS points at connect; the connector reaches Kafka as kafka."
+ },
+ {
+  "name": "Sybase image settings",
+  "kind": "credential",
+  "labValue": "SYBASE_USER=sa, SYBASE_PASSWORD=myPassword (public image default), SYBASE_DB=phoenix_test",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-env:sybase:SYBASE_USER",
+   "compose-env:sybase:SYBASE_PASSWORD",
+   "compose-env:sybase:SYBASE_DB"
+  ],
+  "change": "The sa password is the public default of the image: never use it outside the lab. In a real environment the database already exists and has its own administrator."
+ },
+ {
+  "name": "Sybase setup scripts folder",
+  "kind": "path",
+  "labValue": "../../sybase mounted at /scripts (read-only)",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-volume:sybase:/scripts"
+  ],
+  "change": "The folder the first-boot script reads the SQL files from. A real database is configured with the same statements by its administrator."
+ },
+ {
+  "name": "Kafka node and roles",
+  "kind": "property",
+  "labValue": "node 1, broker and controller, quorum 1@kafka:9093",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-env:kafka:KAFKA_NODE_ID",
+   "compose-env:kafka:KAFKA_PROCESS_ROLES",
+   "compose-env:kafka:KAFKA_CONTROLLER_QUORUM_VOTERS",
+   "compose-env:kafka:KAFKA_CONTROLLER_LISTENER_NAMES"
+  ],
+  "change": "A single node does both jobs in the lab. A cluster uses separate controllers or several nodes; this is the Kafka administrator's decision."
+ },
+ {
+  "name": "Kafka listeners",
+  "kind": "port",
+  "labValue": "PLAINTEXT :9092, CONTROLLER :9093, PLAINTEXT_HOST :29092, all in plain text",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-env:kafka:KAFKA_LISTENERS",
+   "compose-env:kafka:KAFKA_ADVERTISED_LISTENERS",
+   "compose-env:kafka:KAFKA_LISTENER_SECURITY_PROTOCOL_MAP",
+   "compose-env:kafka:KAFKA_INTER_BROKER_LISTENER_NAME"
+  ],
+  "change": "The advertised listeners must be addresses the clients can reach. Production listeners use TLS and authentication; the lab does not (TLS was not run)."
+ },
+ {
+  "name": "Kafka internal replication",
+  "kind": "property",
+  "labValue": "all 1, group rebalance delay 0",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-env:kafka:KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR",
+   "compose-env:kafka:KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR",
+   "compose-env:kafka:KAFKA_TRANSACTION_STATE_LOG_MIN_ISR",
+   "compose-env:kafka:KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS"
+  ],
+  "change": "Single-broker values. Use your cluster's replication settings (for example 3 and 2)."
+ },
+ {
+  "name": "Web UI cluster settings",
+  "kind": "host",
+  "labValue": "cluster local, brokers kafka:9092, Connect http://connect:8083",
+  "setIn": [
+   "lab/env/docker-compose.yml"
+  ],
+  "usedBy": [],
+  "covers": [
+   "compose-env:kafka-ui:KAFKA_CLUSTERS_0_NAME",
+   "compose-env:kafka-ui:KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS",
+   "compose-env:kafka-ui:KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME",
+   "compose-env:kafka-ui:KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS"
+  ],
+  "change": "Point them at your own Kafka and Connect addresses, if you use the web UI at all."
+ },
+ {
+  "name": "Database devices",
+  "kind": "path",
+  "labValue": "phoenix_data 1G at /opt/sybase/data/phoenix_data.dat, phoenix_log 512M at /opt/sybase/data/phoenix_log.dat",
+  "setIn": [
+   "sybase/00_database.sql"
+  ],
+  "usedBy": [],
+  "covers": [
+   "sql:device:phoenix_data",
+   "sql:device:phoenix_log",
+   "sql:devpath:/opt/sybase/data/phoenix_data.dat",
+   "sql:devpath:/opt/sybase/data/phoenix_log.dat"
+  ],
+  "change": "Your database already has its devices. Keep the log on its own device and size it for the time the connector may be down."
+ },
+ {
+  "name": "Database accounts",
+  "kind": "credential",
+  "labValue": "sa, cdc_admin, cdc_app (passwords generated into lab/env/.lab-secrets)",
+  "setIn": [
+   "lab/env/create-accounts.sh"
+  ],
+  "usedBy": [],
+  "covers": [
+   "sql:login:cdc_admin",
+   "sql:login:cdc_app",
+   "path:lab-secrets"
+  ],
+  "change": "Use your own accounts with the same minimal rights: the replication role for the RepAgent administration, and no table rights for it. Keep passwords out of source control."
+ },
+ {
+  "name": "Interfaces file and error log",
+  "kind": "path",
+  "labValue": "/opt/sybase/interfaces, /opt/sybase/ASE-16_0/install/MYSYBASE.log",
+  "setIn": [
+   "sybase/start.sh"
+  ],
+  "usedBy": [],
+  "covers": [
+   "path:interfaces",
+   "path:errorlog"
+  ],
+  "change": "Paths inside the database container. On your server find the interfaces file (sql.ini on Windows) and the server error log in the ASE installation."
+ },
+ {
+  "name": "Demo topic",
+  "kind": "topic",
+  "labValue": "sybase.phoenix_test.payment",
+  "setIn": [
+   "lab/env/_common.sh"
+  ],
+  "usedBy": [],
+  "covers": [
+   "topic:sybase.phoenix_test.payment"
+  ],
+  "change": "The topic is topic.prefix, database.name and the table name joined by dots, so it changes with them."
+ },
+ {
+  "name": "kafka.version",
+  "kind": "property",
+  "labValue": "3.8.0",
+  "setIn": [
+   "sybase-cdc-connector/pom.xml"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/pom.xml"
+  ],
+  "covers": [
+   "pom:kafka.version"
+  ],
+  "change": "The Kafka version the connector is compiled against. Use the version of the Kafka Connect worker that will load the JAR."
+ },
+ {
+  "name": "maven.compiler.release",
+  "kind": "property",
+  "labValue": "17",
+  "setIn": [
+   "sybase-cdc-connector/pom.xml"
+  ],
+  "usedBy": [
+   "sybase-cdc-connector/pom.xml"
+  ],
+  "covers": [
+   "pom:maven.compiler.release"
+  ],
+  "change": "The Java version of the compiled classes. The Java runtime of the Kafka Connect worker must be at least this version."
+ }
+]

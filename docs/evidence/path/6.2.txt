@@ -1,0 +1,42 @@
+# Captured: 2026-10-23T20:36:50Z
+# Lesson:   6.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step before
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname spid start_marker end_marker current_marker sleep_status state retry_count last_error
+ ------ ---- ------------ ---------- -------------- ------------ ----- ----------- ----------
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s
+
+## step register
+$ bash lab/env/register-connector.sh
+registered sybase-cdc-phoenix
+ok: connector task RUNNING
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ retry timeout  60            10           10
+(1 row affected)
+Replication Agent configuration changed for database 'phoenix_test'. The changes will take effect the next time the Replication Agent thread is started.
+(return status = 0)
+Replication Agent thread is started for database 'phoenix_test'.
+(return status = 0)
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"connect:8083"}],"type":"source"}
+# exit 0, 2.0 s
+
+## step status
+$ curl -s localhost:8083/connectors/sybase-cdc-phoenix/status
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"connect:8083"}],"type":"source"}
+# exit 0, 0.3 s
+
+## step after
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ----------
+ phoenix_test   42 (65541,0)    (65545,47) (65545,47)     not sleeping sleeping           0          0
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s

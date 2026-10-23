@@ -1,0 +1,77 @@
+[
+ {
+  "id": "overview",
+  "topic": "overview",
+  "title": "The nine stages of the learning path",
+  "source": "docs-src/path/diagrams/overview.svg",
+  "alt": "Nine numbered stages in two rows, from setting up Docker to the end-to-end demonstration.",
+  "lessons": [],
+  "liveStep": ""
+ },
+ {
+  "id": "docker-topology",
+  "topic": "docker",
+  "title": "The lab containers and how they reach each other",
+  "source": "docs/diagrams/src/svg/08-docker-topology.svg",
+  "alt": "The four lab containers on one Docker network, with the ports published on localhost.",
+  "lessons": [
+   "2.1"
+  ],
+  "liveStep": "2.1/services"
+ },
+ {
+  "id": "log-capture",
+  "topic": "log-capture",
+  "title": "How one ASE transaction becomes LTL commands",
+  "source": "docs/diagrams/src/svg/03-repagent-transaction-flow.svg",
+  "alt": "The transaction log on the left, the LTL command RepAgent sends for each record in the middle, the connector action on the right.",
+  "lessons": [
+   "5.1"
+  ],
+  "liveStep": "5.1/growth"
+ },
+ {
+  "id": "ltl-handshake",
+  "topic": "repagent",
+  "title": "The LTL handshake between RepAgent and the connector",
+  "source": "docs/diagrams/src/svg/16-ltl-handshake.svg",
+  "alt": "The messages exchanged when RepAgent connects to the connector: login, handshake and acknowledgements.",
+  "lessons": [
+   "6.3"
+  ],
+  "liveStep": "6.3/connector-log"
+ },
+ {
+  "id": "connector-lifecycle",
+  "topic": "connector",
+  "title": "The life of the connector task",
+  "source": "docs/diagrams/src/svg/05-connector-lifecycle.svg",
+  "alt": "How the connector starts, listens, buffers a transaction until commit and publishes it.",
+  "lessons": [
+   "7.22"
+  ],
+  "liveStep": "7.22/event"
+ },
+ {
+  "id": "class-relationships",
+  "topic": "connector",
+  "title": "How the connector classes relate",
+  "source": "docs/diagrams/src/svg/06-class-relationships.svg",
+  "alt": "The classes of the connector and which classes use which.",
+  "lessons": [
+   "7.1"
+  ],
+  "liveStep": "7.1/classes"
+ },
+ {
+  "id": "ack-watermark",
+  "topic": "kafka-delivery",
+  "title": "How Kafka acknowledgements move the log position",
+  "source": "docs/diagrams/src/svg/17-ack-watermark.svg",
+  "alt": "Records published to Kafka, their acknowledgements and the position reported back to the database.",
+  "lessons": [
+   "9.3"
+  ],
+  "liveStep": "9.3/offsets"
+ }
+]

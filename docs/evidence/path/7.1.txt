@@ -1,0 +1,31 @@
+# Captured: 2026-10-23T20:36:52Z
+# Lesson:   7.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step classes
+$ unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep '\.class$' | grep -v '\$' | sed 's#com/phoenix/cdc/sybase/##' | sort
+cdc/AckTracker.class
+cdc/CommittedTransaction.class
+cdc/Oqid.class
+cdc/TransactionBuffer.class
+connect/ChangeEventMapper.class
+connect/SybaseCdcConfig.class
+connect/SybaseCdcSourceConnector.class
+connect/SybaseCdcSourceTask.class
+ltl/LtlCommand.class
+ltl/LtlLexer.class
+ltl/LtlListener.class
+ltl/LtlParser.class
+ltl/LtlServer.class
+ltl/LtlSession.class
+ltl/LtlValues.class
+tds/TdsChannel.class
+tds/TdsLogin.class
+tds/TdsTokens.class
+tools/LtlProbe.class
+# exit 0, 0.2 s
+
+## step lines
+$ find sybase-cdc-connector/src/main/java -name '*.java' | xargs wc -l | tail -n 1
+ 1845 total
+# exit 0, 0.2 s

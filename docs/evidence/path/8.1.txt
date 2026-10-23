@@ -1,0 +1,16 @@
+# Captured: 2026-10-23T20:37:45Z
+# Lesson:   8.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step build
+$ bash lab/path/build-connector.sh
+$ docker run --rm -v <repository>/sybase-cdc-connector:/src -w /src <pinned maven image> mvn -B -q package
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+maven exit code: 0, 16 s
+built: sybase-cdc-connector/target/sybase-cdc-connector-0.1.0.jar (65857 bytes)
+class files in the new JAR: 33
+class files in the JAR the lab runs (plugins/sybase-cdc): 33
+ok: both JARs contain exactly the same class files
+# exit 0, 17.5 s

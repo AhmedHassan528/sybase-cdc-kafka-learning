@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T20:59:46Z
+# Command:  node docs-src/site-checks/path-diagrams.js
+path-diagrams: five topics, each tied to live evidence
+diagrams: 7; topics covered: 5 of 5; problems: 0
+# exit code: 0

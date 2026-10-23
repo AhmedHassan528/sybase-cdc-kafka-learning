@@ -57,3 +57,10 @@ node docs-src/publish-variant.js <out.html>                            # page bo
 - [ ] Not run: other browsers (Edge did not launch headless), physical printer, screen reader, public hosting
 - [x] Edge run: offline, overflow, search, keyboard and print pass on Edge 155 (evidence 51); still not run: Firefox, Safari, printer, screen reader, hosting
 - [x] Source code pages: 36 code pages, article section 12 'The source code and the JAR', JAR build run and captured (evidence 52); quickstart 14 of 14, Edge run repeated (51)
+
+## Learning path (feature 003)  [2026-10-24]
+- [x] 9-stage learning path on the website (`docs/site/path/`): 42 lessons (21 hand-written, 20 generated Java file lessons, 1 labelled certificate example), 7 diagrams, 2 screenshots from the running Kafka UI, values table (46 entries covering 93 items)
+- [x] Every command was run in the lab (`bash lab/path/run-path.sh`: 41 lessons, 111 steps, about 4 minutes); `verify-path.sh` re-runs them and compares; evidence in `docs/evidence/path/`
+- [x] Checks: path-lint, path-evidence (111 commands, 111 output blocks equal), path-diagrams (5 of 5 topics), path-java (20 pages equal their files, 200 members noted), path-env, path-progress (Chrome and Edge), site-unchanged (45 pages, 0 differences)
+- [x] Site standards on all 89 pages in Chrome and Edge (`docs/evidence/path/_site-standards.txt`)
+- [ ] Not run: TLS/SASL, production security, a deployment outside the Docker lab, Firefox/Safari, screen reader

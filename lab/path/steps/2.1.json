@@ -1,0 +1,7 @@
+{
+  "lesson": "2.1",
+  "steps": [
+    { "id": "services", "run": "docker compose -f lab/env/docker-compose.yml config --services | sort" },
+    { "id": "ports", "run": "docker compose -f lab/env/docker-compose.yml config | grep -E '^  [a-z-]+:$|container_name:|hostname:|published:'" }
+  ]
+}

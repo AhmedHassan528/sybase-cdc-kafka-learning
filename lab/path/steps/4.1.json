@@ -1,0 +1,9 @@
+{
+  "lesson": "4.1",
+  "steps": [
+    { "id": "scripts", "run": "ls -1 sybase/*.sql" },
+    { "id": "database", "run": "bash lab/path/ase.sh sa \"sp_helpdb phoenix_test\"", "mask": ["date=[A-Z][a-z]{2} [0-9]{1,2},? [0-9]{4}( +[0-9]{1,2}:[0-9]{2}[AP]M)?", "kbytes=[0-9]{6,8}"] },
+    { "id": "table", "run": "bash lab/path/ase.sh app \"sp_help payment\" | head -n 15", "mask": ["date=[A-Z][a-z]{2} [0-9]{1,2},? [0-9]{4}( +[0-9]{1,2}:[0-9]{2}[AP]M)?", "object-id=[0-9]{9,}"] },
+    { "id": "replicated", "run": "bash lab/path/ase.sh sa \"sp_setreptable payment\"", "mask": ["object-id=[0-9]{9,}"] }
+  ]
+}

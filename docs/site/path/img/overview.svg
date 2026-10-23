@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" role="img" aria-labelledby="t d">
+<title id="t">The nine stages of the learning path</title>
+<desc id="d">Nine numbered boxes in two rows connected by arrows: set up Docker, launch the containers, verify service health, the database and its users, the log and RepAgent, set up replication, the Java connector, build and connect to Kafka, end-to-end demonstration.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475467"/></marker></defs>
+<rect width="960" height="330" fill="#ffffff"/>
+<g font-family="system-ui,Segoe UI,Arial,sans-serif" font-size="15" fill="#101828">
+<g fill="#eff4ff" stroke="#1d4ed8" stroke-width="1.5">
+<rect x="20" y="30" width="165" height="90" rx="10"/><rect x="215" y="30" width="165" height="90" rx="10"/><rect x="410" y="30" width="165" height="90" rx="10"/><rect x="605" y="30" width="165" height="90" rx="10"/><rect x="800" y="30" width="140" height="90" rx="10"/>
+<rect x="20" y="190" width="165" height="90" rx="10"/><rect x="215" y="190" width="165" height="90" rx="10"/><rect x="410" y="190" width="165" height="90" rx="10"/><rect x="605" y="190" width="165" height="90" rx="10"/>
+</g>
+<g font-weight="700" fill="#1d4ed8" font-size="18"><text x="34" y="56">1</text><text x="229" y="56">2</text><text x="424" y="56">3</text><text x="619" y="56">4</text><text x="814" y="56">5</text><text x="34" y="216">6</text><text x="229" y="216">7</text><text x="424" y="216">8</text><text x="619" y="216">9</text></g>
+<g text-anchor="middle">
+<text x="102" y="82">Set up Docker</text><text x="102" y="102" font-size="12" fill="#475467">check the engine</text>
+<text x="297" y="82">Launch the</text><text x="297" y="100">containers</text>
+<text x="492" y="82">Verify service</text><text x="492" y="100">health</text>
+<text x="687" y="82">The database</text><text x="687" y="100">and its users</text>
+<text x="870" y="82">The log and</text><text x="870" y="100">RepAgent</text>
+<text x="102" y="242">Set up</text><text x="102" y="260">replication</text>
+<text x="297" y="242">The Java connector,</text><text x="297" y="260">file by file</text>
+<text x="492" y="242">Build and connect</text><text x="492" y="260">to Kafka</text>
+<text x="687" y="236">End-to-end</text><text x="687" y="254">demonstration</text><text x="687" y="272" font-size="12" fill="#475467">change a record, see the event</text>
+</g></g>
+<g stroke="#475467" stroke-width="2" fill="none" marker-end="url(#a)">
+<path d="M185 75H213"/><path d="M380 75H408"/><path d="M575 75H603"/><path d="M770 75H798"/>
+<path d="M870 120V155H102V188"/>
+<path d="M185 235H213"/><path d="M380 235H408"/><path d="M575 235H603"/>
+</g>
+</svg>

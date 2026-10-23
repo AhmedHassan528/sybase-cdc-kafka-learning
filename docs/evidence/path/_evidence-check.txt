@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T20:59:46Z
+# Command:  node docs-src/site-checks/path-evidence.js
+path-evidence: commands run for real, output blocks equal the recorded evidence
+commands shown: 111; output blocks compared: 111; parts labelled "example, not run": 1; problems: 0
+# exit code: 0

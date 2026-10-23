@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T20:59:47Z
+# Command:  node docs-src/site-checks/path-env.js
+path-env: the environment-dependent values table against the repository
+items found in the repository: 93; table entries: 46; items covered: 93; problems: 0
+# exit code: 0

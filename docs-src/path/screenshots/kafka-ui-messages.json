@@ -1,0 +1,7 @@
+{
+ "name": "kafka-ui-messages",
+ "file": "kafka-ui-messages.png",
+ "alt": "The messages of the topic sybase.phoenix_test.payment in the Kafka web UI, including the three events of the demonstration row",
+ "command": "lab/path/demo/change-records.sh PATH-DEMO",
+ "capturedAt": "2026-10-23"
+}

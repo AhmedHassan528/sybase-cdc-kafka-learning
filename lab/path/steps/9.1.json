@@ -1,0 +1,6 @@
+{
+  "lesson": "9.1",
+  "steps": [
+    { "id": "change", "run": "bash lab/path/demo/change-records.sh PATH-DEMO", "state": "changes-state" }
+  ]
+}

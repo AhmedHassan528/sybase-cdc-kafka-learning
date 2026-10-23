@@ -1,0 +1,37 @@
+# Captured: 2026-10-23T21:07:43Z
+# Command:  bash docs-src/site-checks/run-all.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== scenario 1: clean install and build
+1   npm ci, then node docs-src/build.js site             PASS (site: docs/site: 13 article sections, 90 headings, 7 guide pages, 36 code pages, 44 learning path pages, 1 evi)
+== scenario 2: reproducible build and checksums
+2   two builds identical, checksums generate and verify  PASS (10 checked, 0 failed, 0 skipped)
+== scenario 3: text unchanged
+3   text-compare                                         PASS (compared 13 article sections (1 figures, 28 code blocks compared exactly) and 7 guide pages; differences: 0)
+== scenario 4: links
+4   links (site) and the existing link check             PASS (pages=25 local links checked=844 problems=0 external=18)
+== scenario 5: offline
+5   offline                                              PASS (pages: 89; local requests: 323; outside requests attempted: 0; pages with problems: 0)
+== scenario 6: no horizontal scroll
+6   overflow at 320/375/768/1280 px, both themes         PASS (checked 712 page/width/theme combinations; failures: 0)
+== scenario 7: keyboard
+7   keyboard (6 actions and edge cases)                  PASS (failures: 0)
+== scenario 8: search
+8   search and contents clicks                           PASS (failures: 0)
+== scenario 9: look review
+9   look review against the reference post               PASS (Not copied on purpose: the reference text, images, logo, author photo, cookie banner and brand colours.)
+== scenario 10: secret scan and checksums
+10  secret scan and checksum verify                      PASS (10 checked, 0 failed, 0 skipped)
+== extras from the plan
+11  contrast and page structure                          PASS (failures: 0)
+12  print style                                          PASS (failures: 0)
+13  size budgets                                         PASS (whole docs/site folder: 18092.4 KB)
+14  build the JAR and inspect it (Maven in a container)  PASS (ok: no JUnit classes (org/junit/) are packaged)
+== learning path (specs/003-end-to-end-learning-path/quickstart.md)
+15  path lint, evidence, diagrams, java, values          PASS (items found in the repository: 93; table entries: 46; items covered: 93; problems: 0)
+16  existing pages unchanged                             PASS (compared 45 pages, 134 hashed parts; differences: 0)
+17  progress (marks, counts, blocked storage)            PASS (path-progress: all passed)
+
+SUMMARY: 17 scenarios, 0 failed, 314 s
+
+# exit code: 0

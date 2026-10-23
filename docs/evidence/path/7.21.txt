@@ -1,0 +1,13 @@
+# Captured: 2026-10-23T20:37:01Z
+# Lesson:   7.21
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step in-lab-jar
+$ unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep -c 'META-INF/maven/.*/pom.xml'
+1
+# exit 0, 0.1 s
+
+## step lines
+$ wc -l sybase-cdc-connector/pom.xml
+63 sybase-cdc-connector/pom.xml
+# exit 0, 0.1 s

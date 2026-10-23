@@ -1,0 +1,30 @@
+# Captured: 2026-10-23T20:36:22Z
+# Lesson:   2.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step port-busy
+$ bash lab/path/demo/port-busy.sh
+the first container holds port 18083
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint cdc-path-port-demo-2 (16169599e894a0903cf5e3e160a7de37c95833f6be9da8c324963c7e5fb960b1): Bind for 127.0.0.1:18083 failed: port is already allocated
+
+Run 'docker run --help' for more information
+exit code of the second container: 125
+# exit 0, 2.9 s
+
+## step start
+$ COMPOSE_PROGRESS=quiet bash lab/env/start.sh
+ok: ASE finished first-boot init (READY)
+ok: Kafka healthy
+ok: Kafka Connect REST answers
+ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+Lab is up. Next: lab/env/register-connector.sh, then lab/env/changes.sh
+# exit 0, 48.3 s
+
+## step containers
+$ docker ps --format 'table {{.Names}}\t{{.Ports}}'
+NAMES              PORTS
+cdc-lab-connect    127.0.0.1:8083->8083/tcp
+cdc-lab-kafka-ui   127.0.0.1:8080->8080/tcp
+cdc-lab-kafka      127.0.0.1:29092->29092/tcp
+cdc-lab-sybase     127.0.0.1:5000->5000/tcp
+# exit 0, 0.4 s

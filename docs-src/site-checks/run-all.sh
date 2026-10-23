@@ -48,6 +48,11 @@ else
   result 14 "build the JAR and inspect it" "NOT RUN (Docker is not available)"
 fi
 
+echo "== learning path (specs/003-end-to-end-learning-path/quickstart.md)"
+run 15 "path lint, evidence, diagrams, java, values" bash -c 'node docs-src/site-checks/path-lint.js && node docs-src/site-checks/path-evidence.js && node docs-src/site-checks/path-diagrams.js && node docs-src/site-checks/path-java.js && node docs-src/site-checks/path-env.js'
+run 16 "existing pages unchanged" node docs-src/site-checks/site-unchanged.js
+run 17 "progress (marks, counts, blocked storage)" node docs-src/site-checks/path-progress.js
+
 echo
-echo "SUMMARY: 14 scenarios, $fails failed, $(( $(date +%s) - t0 )) s"
+echo "SUMMARY: 17 scenarios, $fails failed, $(( $(date +%s) - t0 )) s"
 exit $(( fails > 0 ))

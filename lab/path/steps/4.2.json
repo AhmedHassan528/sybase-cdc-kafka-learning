@@ -1,0 +1,10 @@
+{
+  "lesson": "4.2",
+  "steps": [
+    { "id": "logins", "run": "bash lab/path/ase.sh sa \"select name from master..syslogins where name like 'cdc%' or name = 'sa' order by name\"" },
+    { "id": "app-ok", "run": "bash lab/path/ase.sh app \"select count(*) as payments from payment\"" },
+    { "id": "admin-denied", "run": "bash lab/path/ase.sh admin \"select count(*) from payment\"" },
+    { "id": "app-denied", "run": "bash lab/path/ase.sh app \"sp_help_rep_agent phoenix_test, 'process'\" | head -n 4" },
+    { "id": "admin-ok", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=\\b[0-9]{1,5}\\b(?= +\\()"] }
+  ]
+}

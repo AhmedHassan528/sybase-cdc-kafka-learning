@@ -1,0 +1,48 @@
+# Captured: 2026-10-23T20:36:44Z
+# Lesson:   5.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step rs-name
+$ bash lab/path/ase.sh admin "sp_config_rep_agent phoenix_test, 'rs servername'"
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ rs servername  n/a           CDC_RS       CDC_RS
+(1 row affected)
+(return status = 0)
+# exit 0, 0.7 s
+
+## step rs-user
+$ bash lab/path/ase.sh admin "sp_config_rep_agent phoenix_test, 'rs username'"
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ rs username    n/a           rs_user      rs_user
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s
+
+## step retry
+$ bash lab/path/ase.sh admin "sp_config_rep_agent phoenix_test, 'retry timeout'"
+ Parameter_Name Default_Value Config_Value Run_Value
+ -------------- ------------- ------------ ---------
+ retry timeout  60            60           60
+(1 row affected)
+(return status = 0)
+# exit 0, 0.7 s
+
+## step process
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname spid start_marker end_marker current_marker sleep_status state retry_count last_error
+ ------ ---- ------------ ---------- -------------- ------------ ----- ----------- ----------
+(1 row affected)
+(return status = 0)
+# exit 0, 0.7 s
+
+## step scan
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'scan'"
+Replication Agent Scan Status
+ dbname pathname scanner_spid start_marker end_marker current_marker log_recs_scanned oldest_transaction
+ ------ -------- ------------ ------------ ---------- -------------- ---------------- ------------------
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s

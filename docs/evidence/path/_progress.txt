@@ -1,0 +1,21 @@
+# Captured: 2026-10-23T20:49:37Z
+# Command:  node docs-src/site-checks/path-progress.js
+path-progress: marks, counts, prerequisites, blocked storage (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+ok   the overview lists 42 lessons
+ok   nothing is complete at first
+ok   lesson 1.1: the button shows the lesson as complete
+ok   lesson 1.2: the button shows the lesson as complete
+ok   lesson 2.1: the button shows the lesson as complete
+ok   after a reload the overview marks exactly 1.1, 1.2, 2.1 (found 1.1, 1.2, 2.1)
+ok   the overall count says 3 of 42
+ok   the bar is 7.1 % wide (expected 7.1 %)
+ok   a stage count shows the completed lessons: 2 of 2 | 1 of 2 | 0 of 2 | 0 of 2 | 0 of 2 | 0 of 3 | 0 of 22 | 0 of 3 | 0 of 4
+ok   the continue link goes to the first unfinished lesson (2.2): "Continue with lesson 2.2"
+ok   lesson 4.2 shows a status for each prerequisite: [{"id":"4.1","status":"open"}]
+ok   the lesson opened directly can be read
+ok   no script error on the overview with storage blocked
+ok   the lesson says progress cannot be remembered: This browser does not let the page remember your progress, so lessons cannot be marked complete. Every lesson can still be read.
+ok   the lesson still reads with storage blocked
+ok   clicking "Mark this lesson complete" with storage blocked raises no error
+path-progress: all passed
+# exit code: 0

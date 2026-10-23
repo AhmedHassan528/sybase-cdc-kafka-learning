@@ -1,0 +1,10 @@
+{
+  "lesson": "7.22",
+  "steps": [
+    { "id": "markers-before", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'scan'\"", "mask": ["row=phoenix_test n/a.*[(]-1,0[)]"] },
+    { "id": "insert", "run": "bash lab/path/ase.sh app \"insert into payment (account_no, amount, currency) values ('LESSON-7', 7.00, 'EUR')\"", "state": "changes-state" },
+    { "id": "event", "run": "bash lab/env/await-event.sh sybase.phoenix_test.payment LESSON-7 90", "mask": ["id=\"payment_id\":\"[0-9]+\"", "created=\"created_at\":\"[0-9T:.-]+\"", "ts=\"ts_ms\":[0-9]+"] },
+    { "id": "markers-after", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'scan'\"", "mask": ["row=phoenix_test n/a.*[(]-1,0[)]"] },
+    { "id": "stored-position", "run": "docker exec cdc-lab-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic _connect-offsets --from-beginning --timeout-ms 6000 --property print.key=true --property key.separator=' | ' 2>/dev/null | grep phoenix_test | tail -n 1", "mask": ["position=\"commit_oqid\":\"[0-9a-f]+\""] }
+  ]
+}

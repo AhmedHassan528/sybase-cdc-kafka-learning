@@ -1,0 +1,7 @@
+{
+  "lesson": "7.1",
+  "steps": [
+    { "id": "classes", "run": "unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep '\\.class$' | grep -v '\\$' | sed 's#com/phoenix/cdc/sybase/##' | sort" },
+    { "id": "lines", "run": "find sybase-cdc-connector/src/main/java -name '*.java' | xargs wc -l | tail -n 1" }
+  ]
+}

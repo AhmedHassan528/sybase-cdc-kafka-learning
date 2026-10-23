@@ -1,0 +1,47 @@
+# Captured: 2026-10-23T20:38:53Z
+# Lesson:   9.3
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step offsets
+$ docker exec cdc-lab-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic _connect-offsets --from-beginning --timeout-ms 6000 --property print.key=true --property key.separator=' | ' 2>/dev/null | grep phoenix_test | tail -n 1
+["sybase-cdc-phoenix",{"database":"phoenix_test","server":"MYSYBASE"}] | {"commit_oqid":"00000000000015b000010009004e00010009004c0000b4ec0154067400000000"}
+# exit 0, 9.1 s
+
+## step markers
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ----------
+ phoenix_test   42 (65545,75)   (65545,78) (65545,78)     not sleeping sleeping           0          0
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s
+
+## step restart
+$ curl -s -X POST 'localhost:8083/connectors/sybase-cdc-phoenix/restart?includeTasks=true' -w 'HTTP %{http_code}\n'
+{"name":"sybase-cdc-phoenix","connector":{"state":"RESTARTING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RESTARTING","worker_id":"connect:8083"}],"type":"source"}HTTP 202
+# exit 0, 0.4 s
+
+## step running
+$ curl -s localhost:8083/connectors/sybase-cdc-phoenix/status
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"connect:8083"}],"type":"source"}
+# exit 0, 0.3 s
+
+## step change-again
+$ bash lab/path/demo/change-records.sh PATH-DEMO-2
+> insert into payment (account_no, amount, currency) values ('PATH-DEMO-2', 10.00, 'EUR')
+(1 row affected)
+> update payment set amount = 25.50 where account_no = 'PATH-DEMO-2'
+(1 row affected)
+> delete from payment where account_no = 'PATH-DEMO-2'
+(1 row affected)
+# exit 0, 1.8 s
+
+## step check-again
+$ bash lab/path/demo/check-topic.sh PATH-DEMO-2 240
+op  key                      before.amount  after.amount
+c   {"payment_id":"4"}       -              10
+u   {"payment_id":"4"}       10             25.5
+d   {"payment_id":"4"}       25.5           -
+PASS: 3 events for PATH-DEMO-2 on sybase.phoenix_test.payment: c, u, d with the same key and the amounts as written (10, then 25.5)
+# exit 0, 19.4 s

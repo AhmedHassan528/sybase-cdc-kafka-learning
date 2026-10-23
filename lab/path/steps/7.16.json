@@ -1,0 +1,13 @@
+{
+  "lesson": "7.16",
+  "steps": [
+    {
+      "id": "in-lab-jar",
+      "run": "unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep '/ChangeEventMapper[.$]' | sed 's#com/phoenix/cdc/sybase/##'"
+    },
+    {
+      "id": "lines",
+      "run": "wc -l sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java"
+    }
+  ]
+}

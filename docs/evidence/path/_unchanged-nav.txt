@@ -1,0 +1,8 @@
+# Captured: 2026-10-23T19:57:03Z
+# Command:  node docs-src/site-checks/site-unchanged.js
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+site-unchanged: body text of the pages that existed before the learning path
+compared 45 pages, 134 hashed parts; differences: 0
+
+# exit code: 0

@@ -1,0 +1,10 @@
+{
+  "lesson": "5.2",
+  "steps": [
+    { "id": "rs-name", "run": "bash lab/path/ase.sh admin \"sp_config_rep_agent phoenix_test, 'rs servername'\"" },
+    { "id": "rs-user", "run": "bash lab/path/ase.sh admin \"sp_config_rep_agent phoenix_test, 'rs username'\"" },
+    { "id": "retry", "run": "bash lab/path/ase.sh admin \"sp_config_rep_agent phoenix_test, 'retry timeout'\"" },
+    { "id": "process", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=phoenix_test) +[0-9]+"] },
+    { "id": "scan", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'scan'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=n/a) +[0-9]+", "count=(?<=\\)) +[0-9]+(?= \\()"] }
+  ]
+}

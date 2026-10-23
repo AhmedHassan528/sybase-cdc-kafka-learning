@@ -1,0 +1,7 @@
+# Captured: 2026-10-23T21:07:42Z
+# Hand check of story 1 (task T026): NOT done by a person following the page with a mouse.
+# What was done instead, and what it proves:
+#  1. bash lab/path/run-path.sh reset the lab (lab/env/reset.sh) and ran every command of stages 1 to 9 in order (docs/evidence/path/_run.txt: 41 lessons, 111 steps, 228 s, no failing step).
+#  2. node docs-src/site-checks/path-evidence.js (docs/evidence/path/_evidence-check.txt) proves the command shown on each built page equals the command that was run (111 of 111) and each output block equals the recorded output.
+#  3. bash lab/path/verify-path.sh ran everything again on the running lab (docs/evidence/path/_verify.txt): 111 steps, differences: 2 (a changing counter in lesson 7.22, then masked), 0 after the fix (7.22 re-recorded).
+# Not proven: that a person who has never seen the lab can follow the wording without help (no such reader was available).

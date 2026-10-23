@@ -1,0 +1,9 @@
+{
+  "lesson": "6.2",
+  "steps": [
+    { "id": "before", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=phoenix_test) +[0-9]+"] },
+    { "id": "register", "run": "bash lab/env/register-connector.sh", "state": "changes-state", "mask": ["worker=\"worker_id\":\"[^\"]+\""] },
+    { "id": "status", "run": "curl -s localhost:8083/connectors/sybase-cdc-phoenix/status", "mask": ["worker=\"worker_id\":\"[^\"]+\""] },
+    { "id": "after", "run": "bash lab/path/ase.sh admin \"sp_help_rep_agent phoenix_test, 'process'\"", "wait": { "until": "sleeping|active|not sleeping", "timeoutSeconds": 60 }, "mask": ["marker=\\([0-9]+,[0-9]+\\)", "spid=(?<=phoenix_test) +[0-9]+"] }
+  ]
+}

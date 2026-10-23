@@ -1,0 +1,6 @@
+{
+  "lesson": "9.4",
+  "steps": [
+    { "id": "values-check", "run": "node docs-src/site-checks/path-env.js" }
+  ]
+}

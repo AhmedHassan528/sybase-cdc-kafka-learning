@@ -1,0 +1,48 @@
+# Captured: 2026-10-23T20:36:30Z
+# Lesson:   3.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step containers
+$ docker inspect --format '{{.Name}}: {{.State.Status}}{{if .State.Health}}, health {{.State.Health.Status}}{{end}}' cdc-lab-sybase cdc-lab-kafka cdc-lab-connect cdc-lab-kafka-ui | sed 's#^/##'
+cdc-lab-sybase: running
+cdc-lab-kafka: running, health healthy
+cdc-lab-connect: running
+cdc-lab-kafka-ui: running
+# exit 0, 0.5 s
+
+## step kafka
+$ docker exec cdc-lab-kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 | head -n 1
+kafka:9092 (id: 1 rack: null) -> (
+# exit 0, 3.1 s
+
+## step connect
+$ curl -s localhost:8083/
+{"version":"3.8.0","commit":"771b9576b00ecf5b","kafka_cluster_id":"5L6g3nShT-eMCtK--X86sw"}
+# exit 0, 0.4 s
+
+## step plugin
+$ curl -s localhost:8083/connector-plugins | grep -o 'com.phoenix[A-Za-z.]*'
+com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector
+# exit 0, 0.4 s
+
+## step ui
+$ curl -s -w '\nHTTP %{http_code}\n' http://localhost:8080/ | tail -n 1
+HTTP 200
+# exit 0, 0.6 s
+
+## step ase
+$ bash lab/path/ase.sh admin "select @@servername as server, db_name() as database_name"
+ server                         database_name
+ ------------------------------ ------------------------------
+ MYSYBASE                       phoenix_test
+(1 row affected)
+# exit 0, 0.7 s
+
+## step memory
+$ docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}'
+NAME               MEM USAGE / LIMIT
+cdc-lab-connect    297.2MiB / 7.627GiB
+cdc-lab-kafka-ui   263MiB / 7.627GiB
+cdc-lab-kafka      307.4MiB / 7.627GiB
+cdc-lab-sybase     235.5MiB / 7.627GiB
+# exit 0, 2.5 s

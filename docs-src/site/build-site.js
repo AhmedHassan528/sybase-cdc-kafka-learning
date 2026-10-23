@@ -86,7 +86,7 @@ function main() {
   }];
   let entries = art.entries.slice();
   const extra = [];
-  for (const name of ['build-guide', 'build-code', 'build-evidence']) {
+  for (const name of ['build-guide', 'build-code', 'build-path', 'build-evidence']) {
     const file = path.join(__dirname, name + '.js');
     if (fs.existsSync(file)) extra.push(require(file).build({ ROOT, OUT, cfg, problem }));
   }
@@ -96,6 +96,7 @@ function main() {
   for (const p of pages) write(p.path, page({ ...p, root: depth(p.path), siteName: cfg.name, searchIndex: entries }));
   write('assets/search-index.json', JSON.stringify(entries));
   fs.copyFileSync(path.join(__dirname, 'client', 'site.js'), path.join(OUT, 'assets', 'site.js'));
+  fs.copyFileSync(path.join(__dirname, 'client', 'path.js'), path.join(OUT, 'assets', 'path.js'));
 
   // Duplicate ids on the article page would break anchors.
   const html = fs.readFileSync(path.join(OUT, 'index.html'), 'utf8');
@@ -120,6 +121,7 @@ function main() {
   const guide = pages.filter(p => p.path.startsWith('guide/')).length;
   const ev = pages.filter(p => p.path.startsWith('evidence/')).length;
   const code = pages.filter(p => p.path.startsWith('code/')).length;
-  console.log(`site: docs/site: ${art.sections.length} article sections, ${art.items.length} headings, ${guide} guide pages, ${code} code pages, ${ev} evidence index, ${entries.length} search entries, ${art.minutes} min read`);
+  const lp = pages.filter(p => p.path.startsWith('path/')).length;
+  console.log(`site: docs/site: ${art.sections.length} article sections, ${art.items.length} headings, ${guide} guide pages, ${code} code pages, ${lp} learning path pages, ${ev} evidence index, ${entries.length} search entries, ${art.minutes} min read`);
 }
 main();

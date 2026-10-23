@@ -1,0 +1,34 @@
+# Captured: 2026-10-23T20:35:28Z
+# Lesson:   1.2
+# Images:   
+
+## step files
+$ ls -1 lab/env/start.sh lab/env/docker-compose.yml lab/env/reset.sh
+lab/env/docker-compose.yml
+lab/env/reset.sh
+lab/env/start.sh
+# exit 0, 0.1 s
+
+## step images
+$ docker image ls --format '{{.Repository}}:{{.Tag}}   {{.Size}}' | grep -E '^(datagrip/sybase:|apache/kafka:3.8.0|provectuslabs/kafka-ui:|sybase-cdc-connect:|maven:3.9)' | sort
+apache/kafka:3.8.0   594MB
+datagrip/sybase:latest   9.26GB
+maven:3.9-eclipse-temurin-17   775MB
+provectuslabs/kafka-ui:latest   449MB
+sybase-cdc-connect:0.1.0   594MB
+# exit 0, 0.8 s
+
+## step disk
+$ df -h . | tail -n 2
+Filesystem      Size  Used Avail Use% Mounted on
+E:              101G   71G   30G  71% /e
+# exit 0, 0.2 s
+
+## step ports
+$ bash lab/path/check-ports.sh 5000 8080 8083 29092 11752
+port 5000: free
+port 8080: free
+port 8083: free
+port 29092: free
+port 11752: free
+# exit 0, 10.4 s

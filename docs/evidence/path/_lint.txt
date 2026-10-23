@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T20:59:45Z
+# Command:  node docs-src/site-checks/path-lint.js
+path-lint: lesson parts, ids, order, prerequisites, steps, troubleshooting, example rule
+lessons checked: 42; stages: 9; problems: 0
+# exit code: 0

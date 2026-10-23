@@ -1,0 +1,14 @@
+# Captured: 2026-10-23T20:36:53Z
+# Lesson:   7.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step in-lab-jar
+$ unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep '/TdsChannel[.$]' | sed 's#com/phoenix/cdc/sybase/##'
+tds/TdsChannel$Message.class
+tds/TdsChannel.class
+# exit 0, 0.1 s
+
+## step lines
+$ wc -l sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsChannel.java
+97 sybase-cdc-connector/src/main/java/com/phoenix/cdc/sybase/tds/TdsChannel.java
+# exit 0, 0.1 s

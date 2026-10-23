@@ -121,3 +121,11 @@ Added after review ("I can't see the part with the Java code that creates the JA
 - PASS: `lab/experiments/build-jar.sh` ran the JAR build (Maven in a container, exit 0, 15 s): 60,281 bytes, 31 class files (7 cdc, 8 connect, 10 ltl, 6 tds), the connector and task classes present, no Kafka Connect API, slf4j or JUnit classes packaged (evidence 52).
 - PASS: all 35 code pages equal their source files exactly, 3,628 lines (evidence 39); the website now has 45 pages and 14 quickstart scenarios pass (evidence 50); the Edge run repeats offline, overflow (360 combinations), search, keyboard and print on all 45 pages (evidence 51).
 - The code pages show plain text, without syntax colouring. The code is the reference solution of increment 6; the finished connector in `sybase-cdc-connector/` is a separate module whose differences are in evidence 38.
+
+## Update: end-to-end learning path (2026-10-24)
+Added as a separate part of the website (`docs/site/path/`); the existing pages are unchanged (`site-unchanged.js`: 45 pages, 0 differences).
+- 9 stages from Docker to a verified event in Kafka. The commands of every lesson were run in the lab and the page shows the recorded output (`docs/evidence/path/`, 111 steps). The only invented content is the labelled certificate example (lesson 3.2).
+- Java: all 20 files shown on their own page, equal to the repository files; every class and method has a note; 46 environment-dependent values in one table.
+- Demonstration: insert, update, delete of one row; the check `lab/path/demo/check-topic.sh` passes only if the three events (c, u, d) with the same key and the amounts 10 and 25.5 are in `sybase.phoenix_test.payment`; repeated after a connector restart.
+- Progress marks work offline in the browser (Chrome and Edge, and with storage blocked).
+- Not run: TLS and SASL, production security, deployment outside this lab, provoking a duplicate in the path (earlier evidence 25 and 26 is cited), Firefox and Safari.

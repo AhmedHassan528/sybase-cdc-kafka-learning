@@ -1,0 +1,12 @@
+{
+  "lesson": "3.1",
+  "steps": [
+    { "id": "containers", "run": "docker inspect --format '{{.Name}}: {{.State.Status}}{{if .State.Health}}, health {{.State.Health.Status}}{{end}}' cdc-lab-sybase cdc-lab-kafka cdc-lab-connect cdc-lab-kafka-ui | sed 's#^/##'" },
+    { "id": "kafka", "run": "docker exec cdc-lab-kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:9092 | head -n 1" },
+    { "id": "connect", "run": "curl -s localhost:8083/", "wait": { "until": "\"version\"", "timeoutSeconds": 60 }, "mask": ["commit-id=\"commit\":\"[0-9a-f]+\"", "cluster-id=\"kafka_cluster_id\":\"[A-Za-z0-9_-]+\""] },
+    { "id": "plugin", "run": "curl -s localhost:8083/connector-plugins | grep -o 'com.phoenix[A-Za-z.]*'" },
+    { "id": "ui", "run": "curl -s -w '\\nHTTP %{http_code}\\n' http://localhost:8080/ | tail -n 1" },
+    { "id": "ase", "run": "bash lab/path/ase.sh admin \"select @@servername as server, db_name() as database_name\"" },
+    { "id": "memory", "run": "docker stats --no-stream --format 'table {{.Name}}\\t{{.MemUsage}}'", "mask": ["mem=[0-9.]+(KiB|MiB|GiB)"] }
+  ]
+}

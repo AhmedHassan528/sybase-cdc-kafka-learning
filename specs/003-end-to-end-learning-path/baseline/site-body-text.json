@@ -1,0 +1,314 @@
+{
+ "code/index.html": {
+  "article": "4b0afbb01b0d5a77"
+ },
+ "code/solution/01-listener/LtlServer.html": {
+  "markers": {
+   "lab/solutions/01-listener/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java": "dba614d4a34363e8"
+  }
+ },
+ "code/solution/01-listener/LtlSession.html": {
+  "markers": {
+   "lab/solutions/01-listener/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java": "392d320fc79c83d9"
+  }
+ },
+ "code/solution/02-ltl-parser/LtlParser.html": {
+  "markers": {
+   "lab/solutions/02-ltl-parser/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java": "54640d040b2cb68b"
+  }
+ },
+ "code/solution/02-ltl-parser/LtlValues.html": {
+  "markers": {
+   "lab/solutions/02-ltl-parser/src/main/java/com/phoenix/cdc/sybase/ltl/LtlValues.java": "aed944a629ff5d62"
+  }
+ },
+ "code/solution/03-transaction-buffer/TransactionBuffer.html": {
+  "markers": {
+   "lab/solutions/03-transaction-buffer/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java": "7c610640f3be4f1b"
+  }
+ },
+ "code/solution/04-connect-records/ChangeEventMapper.html": {
+  "markers": {
+   "lab/solutions/04-connect-records/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java": "61f9e144ccfff107"
+  }
+ },
+ "code/solution/05-acks-and-offsets/AckTracker.html": {
+  "markers": {
+   "lab/solutions/05-acks-and-offsets/src/main/java/com/phoenix/cdc/sybase/cdc/AckTracker.java": "a09d20b7edc08c2f"
+  }
+ },
+ "code/solution/06-package-and-run/SybaseCdcSourceTask.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java": "8c6039eeaf65cf71"
+  }
+ },
+ "code/src/AckTracker.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/cdc/AckTracker.java": "a09d20b7edc08c2f"
+  }
+ },
+ "code/src/ChangeEventMapper.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java": "61f9e144ccfff107"
+  }
+ },
+ "code/src/CommittedTransaction.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/cdc/CommittedTransaction.java": "c5d5549229b2e9d1"
+  }
+ },
+ "code/src/LtlCommand.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlCommand.java": "00a8de4ce0a70414"
+  }
+ },
+ "code/src/LtlLexer.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlLexer.java": "cf9ad988942686be"
+  }
+ },
+ "code/src/LtlListener.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlListener.java": "166a0d8710830ab8"
+  }
+ },
+ "code/src/LtlParser.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java": "54640d040b2cb68b"
+  }
+ },
+ "code/src/LtlServer.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java": "dba614d4a34363e8"
+  }
+ },
+ "code/src/LtlSession.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java": "34e73179a61ae2ba"
+  }
+ },
+ "code/src/LtlValues.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/ltl/LtlValues.java": "aed944a629ff5d62"
+  }
+ },
+ "code/src/Oqid.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/cdc/Oqid.java": "6cb47e73b48bd51c"
+  }
+ },
+ "code/src/pom.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/pom.xml": "ff3d967af7f8f741"
+  }
+ },
+ "code/src/SybaseCdcConfig.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcConfig.java": "dca6d9a7ae0dd26c"
+  }
+ },
+ "code/src/SybaseCdcSourceConnector.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceConnector.java": "bfd47b5ecf82e9a7"
+  }
+ },
+ "code/src/SybaseCdcSourceTask.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java": "8c6039eeaf65cf71"
+  }
+ },
+ "code/src/TdsChannel.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/tds/TdsChannel.java": "cb0d31097b22e542"
+  }
+ },
+ "code/src/TdsLogin.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/tds/TdsLogin.java": "5ef15654f10fbf9e"
+  }
+ },
+ "code/src/TdsTokens.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/tds/TdsTokens.java": "c77e33c688eef9c9"
+  }
+ },
+ "code/src/TransactionBuffer.html": {
+  "markers": {
+   "lab/solutions/06-package-and-run/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java": "7c610640f3be4f1b"
+  }
+ },
+ "code/starter/01-listener/LtlServer.html": {
+  "markers": {
+   "lab/increments/01-listener/starter/src/main/java/com/phoenix/cdc/sybase/ltl/LtlServer.java": "85256095f1467610"
+  }
+ },
+ "code/starter/01-listener/LtlSession.html": {
+  "markers": {
+   "lab/increments/01-listener/starter/src/main/java/com/phoenix/cdc/sybase/ltl/LtlSession.java": "ef7c2e690ae519f4"
+  }
+ },
+ "code/starter/02-ltl-parser/LtlParser.html": {
+  "markers": {
+   "lab/increments/02-ltl-parser/starter/src/main/java/com/phoenix/cdc/sybase/ltl/LtlParser.java": "05c946ab7dbf3f0f"
+  }
+ },
+ "code/starter/02-ltl-parser/LtlValues.html": {
+  "markers": {
+   "lab/increments/02-ltl-parser/starter/src/main/java/com/phoenix/cdc/sybase/ltl/LtlValues.java": "46d512fa046fdc27"
+  }
+ },
+ "code/starter/03-transaction-buffer/TransactionBuffer.html": {
+  "markers": {
+   "lab/increments/03-transaction-buffer/starter/src/main/java/com/phoenix/cdc/sybase/cdc/TransactionBuffer.java": "98f086fb5f7d83d7"
+  }
+ },
+ "code/starter/04-connect-records/ChangeEventMapper.html": {
+  "markers": {
+   "lab/increments/04-connect-records/starter/src/main/java/com/phoenix/cdc/sybase/connect/ChangeEventMapper.java": "9a5bfe94355a6333"
+  }
+ },
+ "code/starter/05-acks-and-offsets/AckTracker.html": {
+  "markers": {
+   "lab/increments/05-acks-and-offsets/starter/src/main/java/com/phoenix/cdc/sybase/cdc/AckTracker.java": "fd0d770431a4777a"
+  }
+ },
+ "code/starter/06-package-and-run/SybaseCdcSourceTask.html": {
+  "markers": {
+   "lab/increments/06-package-and-run/starter/src/main/java/com/phoenix/cdc/sybase/connect/SybaseCdcSourceTask.java": "2f65d564f261951c"
+  }
+ },
+ "evidence/index.html": {
+  "rows": {
+   "ev-01-tooling-txt": "c99232bc320e8345",
+   "ev-02-images-txt": "dd3677166152d454",
+   "ev-03-containers-txt": "ef5a121368a25039",
+   "ev-04-kafka-java-txt": "698f1963d1b74a93",
+   "ev-05-maven-txt": "f9c4f4addf3ac8a9",
+   "ev-06-connect-rest-txt": "e6754df8acf874e1",
+   "ev-07-network-txt": "685b334b90d854d6",
+   "ev-08-ase-facts-txt": "9d8a9e4aa47c14ea",
+   "ev-09-ase-interfaces-txt": "b27e0f88493a4f40",
+   "ev-10-custom-image-plugin-discovery-txt": "c9ebd8b2613c93c1",
+   "ev-11-openshift-yaml-syntax-txt": "e4eaea498ddf74c8",
+   "ev-12-ase-privilege-test-txt": "cd766b448141ee74",
+   "ev-13-connect-api-signatures-txt": "3a0f899df0533deb",
+   "ev-14-lab-first-event-txt": "2bbbeb08318fcb1d",
+   "ev-15-data-types-txt": "98a761cce95ebd4c",
+   "ev-16-no-data-table-not-included-txt": "06e7435fde812ac8",
+   "ev-17-no-data-connector-paused-txt": "11ebe6961f85b201",
+   "ev-18-multi-table-transaction-txt": "06fd4450fd726436",
+   "ev-19-section2-dry-run-txt": "7c85236d6565072d",
+   "ev-20-image-versions-txt": "bae6d04f8e26cb67",
+   "ev-21-lab-security-txt": "c9e84b22178effcc",
+   "ev-22-powershell-path-txt": "90b584a8b00df771",
+   "ev-23-rollback-txt": "ff20182853392445",
+   "ev-24-multi-row-transaction-txt": "00cfd71abba8ce0d",
+   "ev-25-restart-connector-txt": "4f19cf46b88ca6e8",
+   "ev-26-crash-duplicates-txt": "ba55c1244a87e9e7",
+   "ev-27-key-change-update-txt": "7caf7c5bacafca4d",
+   "ev-28-source-restart-txt": "9b5a365b412b2632",
+   "ev-29-run-twice-txt": "d19e6987df22292a",
+   "ev-30-article-script-audit-txt": "f5291c8f544025b3",
+   "ev-31-checksums-txt": "47689fb3d57a0a67",
+   "ev-32-topics-txt": "1eda20314ae675cf",
+   "ev-33-verify-images-failure-paths-txt": "6df14df3407db8b2",
+   "ev-34-live-check-feasibility-txt": "ef15be4c0077dda4",
+   "ev-35-increments-verify-txt": "4785ab5f80605a2c",
+   "ev-36-quickstart-validation-txt": "ddfb0413d07ccd45",
+   "ev-37-offsets-txt": "4c7b7b2b486f396a",
+   "ev-38-final-solution-comparison-txt": "7ee2b4aaf0a4a45e",
+   "ev-39-site-text-compare-txt": "7905c9c5669cf58f",
+   "ev-40-site-links-txt": "ad970e31e19f6716",
+   "ev-41-site-overflow-txt": "ba7984ccae353991",
+   "ev-42-site-search-txt": "70b4e720c0da1d1e",
+   "ev-43-site-offline-txt": "7c3cc418af18662c",
+   "ev-44-site-keyboard-txt": "cb045716d1da11af",
+   "ev-45-site-contrast-txt": "d002763257666043",
+   "ev-46-site-print-txt": "88a7b8652fc73dc5",
+   "ev-47-site-reproducible-txt": "f6900e6e7db1ef70",
+   "ev-48-site-sizes-txt": "5d315f72d3f58378",
+   "ev-49-site-look-review-txt": "d9247be3caf714e7",
+   "ev-50-site-quickstart-txt": "1ff0256c290ce8de",
+   "ev-51-site-edge-txt": "e81eccc8ccdf873a",
+   "ev-52-build-jar-txt": "ec463168421c6f50",
+   "ev-logs-ase-crash-ra-free-mempool-txt": "288bab31d61d63a9",
+   "ev-logs-ase-crash-snap-validate-txt": "2f0ac4f5eba11b75",
+   "ev-logs-ase-errorlog-excerpts-txt": "5be65959b6e7fda3",
+   "ev-logs-connect-offsets-topic-txt": "902082bdc43ce141",
+   "ev-logs-connect-worker-excerpts-txt": "3657bdfa0883e836",
+   "ev-logs-repagent-trace-9202-sample-txt": "79a62ba4d8296899",
+   "ev-ltl-capture-1-first-session-txt": "ecaa592abd81c477",
+   "ev-ltl-payment-insert-bin": "4c575945b9dfb7ed",
+   "ev-ltl-payment-insert-od-txt": "64ba2f93d84bc8d6",
+   "ev-queries-ase-facts-sql": "1ae69eceba5e455f",
+   "ev-queries-privilege-test-app-sql": "a103a83fd2493992",
+   "ev-queries-privilege-test-cleanup-sql": "f36eb8d3cd108a8c",
+   "ev-queries-privilege-test-repl-sql": "86211bce36dc8d6b",
+   "ev-queries-privilege-test-setup-sql": "b809b23c1ea3a15f",
+   "ev-site-look-site-1280-png": "7e6a90858acf07b8",
+   "ev-site-look-site-375-png": "3428726f5ccf91f0",
+   "ev-tests-small-scenarios-kafka-records-txt": "7cfe102b9a5c3828",
+   "ev-tests-t6-run1-monitor-txt": "3ac2fbb1da529dd1",
+   "ev-tests-t6-run2-monitor-csv": "6518169028b7d54c",
+   "ev-tests-t6-run3-monitor-ase-csv": "86ee1b26949f2b49",
+   "ev-tests-t6-run3-monitor-connector-csv": "8721eff39792e962",
+   "ev-tests-t6-run3-monitor-kafka-csv": "3f26ab8e17e6d34e",
+   "ev-tests-t6-run3-monitor-repagent-csv": "3cefa2bc82d57f2d",
+   "ev-tests-t6-run3-monitor-stats-csv": "bcfc6f991a6949f8",
+   "ev-tests-t7-log-growth-txt": "8de06cc8413fa6b7",
+   "ev-tests-unit-tests-txt": "6decd838d3a1ee7b"
+  }
+ },
+ "guide/01-listener.html": {
+  "markers": {
+   "lab/increments/01-listener/README.md": "540d7e88d4587248"
+  }
+ },
+ "guide/02-ltl-parser.html": {
+  "markers": {
+   "lab/increments/02-ltl-parser/README.md": "e455c14f342af5ae"
+  }
+ },
+ "guide/03-transaction-buffer.html": {
+  "markers": {
+   "lab/increments/03-transaction-buffer/README.md": "25c36e309a5d7db8"
+  }
+ },
+ "guide/04-connect-records.html": {
+  "markers": {
+   "lab/increments/04-connect-records/README.md": "b2b5512298cb33a8"
+  }
+ },
+ "guide/05-acks-and-offsets.html": {
+  "markers": {
+   "lab/increments/05-acks-and-offsets/README.md": "88c26334be692d3c"
+  }
+ },
+ "guide/06-package-and-run.html": {
+  "markers": {
+   "lab/increments/06-package-and-run/README.md": "f8b41cd5d672e5a8"
+  }
+ },
+ "guide/index.html": {
+  "markers": {
+   "lab/increments/README.md": "cb2f7017e8e30675"
+  }
+ },
+ "index.html": {
+  "markers": {
+   "01-introduction.html": "f953c3f9dddb5c92",
+   "02-try-it-at-home.html": "530aa39c8220abfc",
+   "03-source-prerequisites.html": "da099776c53d299c",
+   "04-choosing-what-to-capture.html": "f4c85d93021eaaff",
+   "05-build-along.html": "a9e868abeaf39015",
+   "06-why-no-data.html": "4309e13976338e45",
+   "07-reset-and-restart.html": "a5f0fc0b8922b38f",
+   "08-keys-and-topics.html": "e76b66c4633348ed",
+   "09-data-types.html": "8042cb7b48696b0e",
+   "10-multiple-tables.html": "95454bf8d9f33015",
+   "11-reliability.html": "8fb3fbdcc435ff19",
+   "11a-source-code.html": "ad69077f44bfed89",
+   "12-where-next.html": "61fa7d0ac5a2ec05"
+  }
+ }
+}

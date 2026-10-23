@@ -1,0 +1,7 @@
+{
+ "name": "kafka-ui-topics",
+ "file": "kafka-ui-topics.png",
+ "alt": "The topic list of the Kafka web UI: the connector's internal topics and the topic sybase.phoenix_test.payment",
+ "command": "the first change reached Kafka",
+ "capturedAt": "2026-10-23"
+}

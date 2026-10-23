@@ -1,0 +1,8 @@
+{
+  "lesson": "1.1",
+  "steps": [
+    { "id": "version", "run": "docker --version" },
+    { "id": "compose", "run": "docker compose version" },
+    { "id": "engine", "run": "docker info --format 'Engine {{.ServerVersion}} on {{.OperatingSystem}}, {{.NCPU}} CPUs, {{.MemTotal}} bytes of memory'" }
+  ]
+}

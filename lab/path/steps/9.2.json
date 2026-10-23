@@ -1,0 +1,8 @@
+{
+  "lesson": "9.2",
+  "steps": [
+    { "id": "check", "run": "bash lab/path/demo/check-topic.sh PATH-DEMO 90", "mask": ["id=\"payment_id\":\"[0-9]+\""] },
+    { "id": "events", "run": "bash lab/env/await-event.sh sybase.phoenix_test.payment PATH-DEMO 60", "mask": ["id=\"payment_id\":\"[0-9]+\"", "created=\"created_at\":\"[0-9T:.-]+\"", "ts=\"ts_ms\":[0-9]+"] },
+    { "id": "screenshot", "run": "node docs-src/site-checks/path-screenshots.js messages", "mask": ["size=\\([0-9]+ bytes\\)"] }
+  ]
+}

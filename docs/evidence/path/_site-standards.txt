@@ -1,0 +1,73 @@
+# Captured: 2026-10-23T20:59:51Z
+
+## overflow (chrome)
+overflow: page-level horizontal scroll at 320, 375, 768, 1280 px, themes: light, dark (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+checked 712 page/width/theme combinations; failures: 0
+# exit 0
+
+## offline (chrome)
+offline: loading every page with outside requests blocked (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+pages: 89; local requests: 323; outside requests attempted: 0; pages with problems: 0
+# exit 0
+
+## keyboard (chrome)
+keyboard: six actions with keys only, plus edge cases (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+failures: 0
+# exit 0
+
+## search (chrome)
+search: results, empty result and contents clicks (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+failures: 0
+# exit 0
+
+## contrast (chrome)
+contrast: text colour pairs from docs-src/site/styles/site.css (minimum 4.5:1)
+structure: every page
+failures: 0
+# exit 0
+
+## print (chrome)
+print: print media at A4 width (browser C:/Program Files/Google/Chrome/Application/chrome.exe)
+failures: 0
+# exit 0
+
+## links (chrome)
+links: every local link and anchor in docs/site
+pages=89 local links checked=4541 problems=0 external=4
+# exit 0
+
+## overflow (edge)
+overflow: page-level horizontal scroll at 320, 375, 768, 1280 px, themes: light, dark (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+checked 712 page/width/theme combinations; failures: 0
+# exit 0
+
+## offline (edge)
+offline: loading every page with outside requests blocked (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+pages: 89; local requests: 323; outside requests attempted: 0; pages with problems: 0
+# exit 0
+
+## keyboard (edge)
+keyboard: six actions with keys only, plus edge cases (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+failures: 0
+# exit 0
+
+## search (edge)
+search: results, empty result and contents clicks (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+failures: 0
+# exit 0
+
+## contrast (edge)
+contrast: text colour pairs from docs-src/site/styles/site.css (minimum 4.5:1)
+structure: every page
+failures: 0
+# exit 0
+
+## print (edge)
+print: print media at A4 width (browser C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe)
+failures: 0
+# exit 0
+
+## links (edge)
+links: every local link and anchor in docs/site
+pages=89 local links checked=4541 problems=0 external=4
+# exit 0

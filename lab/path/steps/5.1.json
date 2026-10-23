@@ -1,0 +1,7 @@
+{
+  "lesson": "5.1",
+  "steps": [
+    { "id": "log-size", "run": "bash lab/path/ase.sh sa \"sp_spaceused syslogs\"", "mask": ["pages=(?<=32768 +)[0-9]+ +[0-9]+"] },
+    { "id": "growth", "run": "bash lab/path/demo/log-growth.sh", "state": "changes-state", "mask": ["count=(?<=the insert: +)[0-9]+"] }
+  ]
+}

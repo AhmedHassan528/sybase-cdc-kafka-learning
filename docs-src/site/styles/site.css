@@ -144,6 +144,70 @@ html.dark {
   .guide-head .meta { color: var(--mute); font-size: .9rem; margin: .5rem 0 0; }
   .evidence-table td, .evidence-table th { white-space: normal; }
 
+  /* Learning path: stage strip, progress, lesson boxes, recorded commands and output */
+  .stage-strip { margin: 1.25rem 0 0; }
+  .stage-strip ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+  .stage-strip a { display: flex; align-items: center; gap: .4rem; text-decoration: none; color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: .15rem .7rem .15rem .2rem; font-size: .8rem; }
+  .stage-strip .no { display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; border-radius: 999px; background: var(--panel); font-weight: 700; color: var(--ink); }
+  .stage-strip li.on a { color: var(--ink); border-color: var(--accent); background: var(--soft); }
+  .stage-strip li.on .no { background: var(--accent); color: var(--page); }
+  .stage-strip .nm { display: none; }
+  @media (min-width: 1024px) { .stage-strip .nm { display: inline; } }
+  .stage-strip li.on .nm { display: inline; }
+  .path-progress { display: flex; align-items: center; gap: .75rem; margin: 1rem 0 0; font-size: .85rem; color: var(--mute); }
+  .path-progress .bar { flex: 1; max-width: 18rem; height: .5rem; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
+  .path-progress .bar > span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .lesson-box { border: 1px solid var(--line); background: var(--panel); border-radius: .5rem; padding: .25rem 1.1rem; margin: 1.25rem 0; }
+  .lesson-box .box-title { font-weight: 700; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin: .7rem 0 0; }
+  .lesson-box ul { margin: .5rem 0 .8rem; }
+  .pstatus { font-size: .78rem; font-weight: 700; padding: .05rem .5rem; border-radius: 999px; border: 1px solid var(--line); }
+  .pstatus:empty { display: none; }
+  .pstatus.done { color: var(--ink); background: var(--soft); border-color: var(--accent); }
+  .pstatus.open { color: var(--mute); }
+  .step-cmd, .step-out { margin: 1rem 0; }
+  .step-cmd pre { border-left: 4px solid var(--accent); margin-bottom: 0; }
+  .step-out pre { margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; max-height: 28rem; overflow: auto; }
+  .step-meta { font-size: .8rem; color: var(--mute); margin: .35rem 0 0; }
+  .step-missing { border: 1px solid var(--warn-line); background: var(--warn-bg); border-radius: .5rem; padding: .6rem 1rem; margin: 1rem 0; }
+  .ph { background: var(--soft); color: var(--ink); border: 1px dashed var(--accent); border-radius: .25rem; padding: 0 .2rem; font-style: normal; }
+  .file-block { margin: 1.5rem 0; }
+  .file-block figcaption { font-size: .85rem; color: var(--mute); margin-bottom: .35rem; }
+  .shot img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: .5rem; }
+  .example-box { border: 2px dashed var(--warn-line); background: var(--warn-bg); border-radius: .5rem; padding: .25rem 1.1rem; margin: 1.5rem 0; }
+  .example-box > p:first-child { font-weight: 700; }
+  .env-ref { font-family: theme('fontFamily.mono'); font-size: .86em; background: var(--soft); border: 1px solid var(--line); border-radius: .25rem; padding: .05em .35em; text-decoration: none; }
+  .evidence-line { font-size: .9rem; color: var(--mute); margin-top: 2rem; }
+  .complete-line { margin: 1.5rem 0 .5rem; }
+  .complete-btn[aria-pressed="true"] { background: var(--accent); color: var(--page); border-color: var(--accent); }
+  .stage-card { margin: 2.25rem 0; }
+  .stage-card h2 { margin-top: 0; }
+  .stage-count { font-size: .8rem; font-weight: 600; color: var(--mute); margin-left: .5rem; letter-spacing: 0; }
+  .lesson-list { list-style: none; margin: .5rem 0; padding: 0; }
+  .lesson-list li { display: flex; gap: .6rem; align-items: baseline; padding: .15rem 0; }
+  .lesson-list .lid { display: inline-block; min-width: 2.3rem; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .lesson-list .lstatus::before { content: "\25CB"; color: var(--mute); }
+  .lesson-list li.done .lstatus::before { content: "\2713"; color: var(--accent); font-weight: 700; }
+  .continue-line { margin: 1.25rem 0 0; }
+
+  /* Java lessons: the unchanged file with line numbers and note markers (numbers and markers are CSS, not text) */
+  .code-lines { counter-reset: line; font-size: .8rem; line-height: 1.55; }
+  .code-lines .ln { position: relative; counter-increment: line; }
+  .code-lines .ln::before { content: counter(line); display: inline-block; width: 6ch; padding-right: 1.2ch; text-align: right; color: var(--mute); user-select: none; }
+  .code-lines .nm { position: absolute; left: 3.4ch; top: .05em; width: 2.4ch; height: 2.4ch; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--accent); color: var(--page); font: 700 .65rem/1 theme('fontFamily.sans'); text-decoration: none; user-select: none; }
+  .code-lines .nm::after { content: attr(data-n); }
+  .code-lines .ln:target { background: var(--soft); }
+  .note-list { list-style: none; padding: 0; margin: 1rem 0; }
+  .note-item { display: flex; gap: .8rem; margin: 1rem 0; scroll-margin-top: 5rem; }
+  .note-item:target { background: var(--soft); border-radius: .5rem; }
+  .note-item .nnum { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 999px; background: var(--accent); color: var(--page); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; }
+  .note-item > div { min-width: 0; overflow-wrap: anywhere; }
+  .note-item p { margin: .2rem 0; }
+  .note-item .nhead { font-size: .9rem; color: var(--mute); }
+  .note-item .nk { font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .06em; }
+  .note-item .nback { margin-left: .5rem; font-size: .8rem; }
+  .fits-list { margin: .5rem 0 1rem; }
+  .java-file { color: var(--mute); }
+
   .site-footer { border-top: 1px solid var(--line); background: var(--panel); }
 }
 

@@ -1,0 +1,6 @@
+{
+  "lesson": "8.1",
+  "steps": [
+    { "id": "build", "run": "bash lab/path/build-connector.sh", "mask": ["secs=[0-9]+ s"] }
+  ]
+}

@@ -1,0 +1,13 @@
+# Captured: 2026-10-23T20:38:00Z
+# Lesson:   9.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step change
+$ bash lab/path/demo/change-records.sh PATH-DEMO
+> insert into payment (account_no, amount, currency) values ('PATH-DEMO', 10.00, 'EUR')
+(1 row affected)
+> update payment set amount = 25.50 where account_no = 'PATH-DEMO'
+(1 row affected)
+> delete from payment where account_no = 'PATH-DEMO'
+(1 row affected)
+# exit 0, 2.0 s

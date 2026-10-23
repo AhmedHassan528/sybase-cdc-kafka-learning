@@ -1,0 +1,13 @@
+{
+  "lesson": "7.21",
+  "steps": [
+    {
+      "id": "in-lab-jar",
+      "run": "unzip -Z1 plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar | grep -c 'META-INF/maven/.*/pom.xml'"
+    },
+    {
+      "id": "lines",
+      "run": "wc -l sybase-cdc-connector/pom.xml"
+    }
+  ]
+}

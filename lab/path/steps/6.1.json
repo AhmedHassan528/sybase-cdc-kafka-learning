@@ -1,0 +1,8 @@
+{
+  "lesson": "6.1",
+  "steps": [
+    { "id": "interfaces", "run": "MSYS_NO_PATHCONV=1 docker exec cdc-lab-sybase grep -A3 '^CDC_RS' /opt/sybase/interfaces" },
+    { "id": "rs-name", "run": "bash lab/path/ase.sh admin \"sp_config_rep_agent phoenix_test, 'rs servername'\"" },
+    { "id": "reptable", "run": "bash lab/path/ase.sh sa \"sp_setreptable payment\"", "mask": ["object-id=[0-9]{9,}"] }
+  ]
+}

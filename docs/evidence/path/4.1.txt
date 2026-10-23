@@ -1,0 +1,56 @@
+# Captured: 2026-10-23T20:36:33Z
+# Lesson:   4.1
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step scripts
+$ ls -1 sybase/*.sql
+sybase/00_database.sql
+sybase/01_setup.sql
+sybase/02_repagent.sql
+sybase/03_log_threshold.sql
+# exit 0, 0.1 s
+
+## step database
+$ bash lab/path/ase.sh sa "sp_helpdb phoenix_test"
+ name         db_size       owner dbid created      durability lobcomplvl inrowlen status
+ ------------ ------------- ----- ---- ------------ ---------- ---------- -------- -------------------------------------------------------------
+ phoenix_test     1536.0 MB sa       4 Oct 23, 2026 full                0     NULL select into/bulkcopy/pllsort, trunc log on chkpt, ddl in tran
+(1 row affected)
+ device_fragments size          usage     created             free_kbytes
+ ---------------- ------------- --------- ------------------- ----------------
+ phoenix_data         1024.0 MB data only Oct 23 2026  8:35PM          1030848
+ phoenix_log           512.0 MB log only  Oct 23 2026  8:35PM not applicable
+ --------------------------------------------------------------------------------------------------------------
+ log only free kbytes = 522064
+ device       segment
+ ------------ ----------
+ phoenix_data default
+ phoenix_data system
+ phoenix_log  logsegment
+(return status = 0)
+# exit 0, 0.9 s
+
+## step table
+$ bash lab/path/ase.sh app "sp_help payment" | head -n 15
+ Name    Owner Object_type Object_status        Create_date
+ ------- ----- ----------- -------------------- -------------------
+ payment dbo   user table  keep first text page Oct 23 2026  8:36PM
+(1 row affected)
+ Column_name Type     Length Prec Scale Nulls Not_compressed Default_name             Rule_name Access_Rule_name Computed_Column_object Identity
+ ----------- -------- ------ ---- ----- ----- -------------- ------------------------ --------- ---------------- ---------------------- ----------
+ payment_id  numeric       9   18     0     0              0 NULL                     NULL      NULL             NULL                            1
+ account_no  varchar      30 NULL  NULL     0              0 NULL                     NULL      NULL             NULL                            0
+ amount      numeric       9   18     2     0              0 NULL                     NULL      NULL             NULL                            0
+ currency    char          3 NULL  NULL     0              0 NULL                     NULL      NULL             NULL                            0
+ created_at  datetime      8 NULL  NULL     0              0 payment_create_608002166 NULL      NULL             NULL                            0
+Object has the following indexes
+ index_name                index_keys  index_description index_max_rows_per_page index_fillfactor index_reservepagegap index_created       index_local
+ ------------------------- ----------- ----------------- ----------------------- ---------------- -------------------- ------------------- ------------
+ payment_paymen_5920021091  payment_id clustered, unique                       0                0                    0 Oct 23 2026  8:36PM Global Index
+# exit 0, 1.0 s
+
+## step replicated
+$ bash lab/path/ase.sh sa "sp_setreptable payment"
+The replication status for 'payment' is currently true, owner_off, primary key = 'payment_paymen_5920021091'.
+(return status = 0)
+# exit 0, 0.7 s

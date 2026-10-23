@@ -1,0 +1,28 @@
+# Captured: 2026-10-23T20:37:47Z
+# Lesson:   8.2
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step jar
+$ ls -1 plugins/sybase-cdc
+sybase-cdc-connector-0.1.0.jar
+# exit 0, 0.1 s
+
+## step in-container
+$ MSYS_NO_PATHCONV=1 docker exec cdc-lab-connect ls /opt/connectors/sybase-cdc
+sybase-cdc-connector-0.1.0.jar
+# exit 0, 0.5 s
+
+## step connectors
+$ curl -s localhost:8083/connectors
+["sybase-cdc-phoenix"]
+# exit 0, 0.3 s
+
+## step config
+$ curl -s localhost:8083/connectors/sybase-cdc-phoenix/config
+{"connector.class":"com.phoenix.cdc.sybase.connect.SybaseCdcSourceConnector","ltl.password":"rs_password","ltl.username":"rs_user","tasks.max":"1","database.name":"phoenix_test","database.server.name":"MYSYBASE","key.converter.schemas.enable":"false","topic.prefix":"sybase","ltl.listen.port":"11752","value.converter.schemas.enable":"false","name":"sybase-cdc-phoenix","errors.tolerance":"none","table.include.list":"payment","value.converter":"org.apache.kafka.connect.json.JsonConverter","key.converter":"org.apache.kafka.connect.json.JsonConverter"}
+# exit 0, 0.3 s
+
+## step status
+$ curl -s localhost:8083/connectors/sybase-cdc-phoenix/status
+{"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"connect:8083"}],"type":"source"}
+# exit 0, 0.3 s

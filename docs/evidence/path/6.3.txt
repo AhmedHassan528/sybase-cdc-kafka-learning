@@ -1,0 +1,22 @@
+# Captured: 2026-10-23T20:36:51Z
+# Lesson:   6.3
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step connector-log
+$ docker logs cdc-lab-connect 2>&1 | grep -E 'Starting Sybase CDC task|LTL server listening|RepAgent connected|TDS login|proposed LTL' | cut -c1-300
+[2026-10-23 20:36:48,384] INFO [sybase-cdc-phoenix|task-0] Starting Sybase CDC task for MYSYBASE.phoenix_test; last committed OQID in Kafka: none (first start) (com.phoenix.cdc.sybase.connect.SybaseCdcSourceTask:90)
+[2026-10-23 20:36:48,387] INFO [sybase-cdc-phoenix|task-0] LTL server listening on 0.0.0.0:11752 (com.phoenix.cdc.sybase.ltl.LtlServer:47)
+[2026-10-23 20:36:48,952] INFO [sybase-cdc-phoenix|task-0] RepAgent connected from /172.21.0.2:43910 (com.phoenix.cdc.sybase.ltl.LtlSession:80)
+[2026-10-23 20:36:48,965] INFO [sybase-cdc-phoenix|task-0] TDS login: TdsLogin{host=, user=rs_user, app=Replication Agent, server=CDC_RS, prog=CT-Library, charset=iso_1, packetSize=2048, order=LITTLE_ENDIAN, capability=35B} -> using charset ISO-8859-1 (com.phoenix.cdc.sybase.ltl.LtlSession:115)
+[2026-10-23 20:36:48,972] INFO [sybase-cdc-phoenix|task-0] connect source MYSYBASE.phoenix_test proposed LTL 760 -> using 760 (com.phoenix.cdc.sybase.ltl.LtlSession:192)
+# exit 0, 0.5 s
+
+## step process
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'process'"
+Replication Agent Process Status
+ dbname       spid start_marker end_marker current_marker sleep_status state    retry_count last_error
+ ------------ ---- ------------ ---------- -------------- ------------ -------- ----------- ----------
+ phoenix_test   42 (65541,0)    (65545,47) (65545,47)     not sleeping sleeping           0          0
+(1 row affected)
+(return status = 0)
+# exit 0, 0.8 s

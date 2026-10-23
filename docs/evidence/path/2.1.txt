@@ -1,0 +1,31 @@
+# Captured: 2026-10-23T20:35:30Z
+# Lesson:   2.1
+# Images:   
+
+## step services
+$ docker compose -f lab/env/docker-compose.yml config --services | sort
+connect
+kafka
+kafka-ui
+sybase
+# exit 0, 0.7 s
+
+## step ports
+$ docker compose -f lab/env/docker-compose.yml config | grep -E '^  [a-z-]+:$|container_name:|hostname:|published:'
+  connect:
+    container_name: cdc-lab-connect
+    hostname: connect
+        published: "8083"
+  kafka:
+    container_name: cdc-lab-kafka
+    hostname: kafka
+        published: "29092"
+  kafka-ui:
+    container_name: cdc-lab-kafka-ui
+        published: "8080"
+  sybase:
+    container_name: cdc-lab-sybase
+    hostname: sybase
+        published: "5000"
+  default:
+# exit 0, 0.7 s

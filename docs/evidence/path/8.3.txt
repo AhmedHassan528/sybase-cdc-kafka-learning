@@ -1,0 +1,23 @@
+# Captured: 2026-10-23T20:37:57Z
+# Lesson:   8.3
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step topics
+$ docker exec cdc-lab-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list | sort
+__consumer_offsets
+_connect-configs
+_connect-offsets
+_connect-status
+sybase.phoenix_test.payment
+# exit 0, 2.6 s
+
+## step describe
+$ docker exec cdc-lab-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic sybase.phoenix_test.payment
+Topic: sybase.phoenix_test.payment	TopicId: iWk-r24_Snq-Xvg0s7n4jA	PartitionCount: 1	ReplicationFactor: 1	Configs:
+	Topic: sybase.phoenix_test.payment	Partition: 0	Leader: 1	Replicas: 1	Isr: 1	Elr: 	LastKnownElr:
+# exit 0, 2.3 s
+
+## step screenshot
+$ node docs-src/site-checks/path-screenshots.js topics
+saved docs-src/path/screenshots/kafka-ui-topics.png (60183 bytes) from http://localhost:8080/ui/clusters/local/all-topics
+# exit 0, 5.7 s

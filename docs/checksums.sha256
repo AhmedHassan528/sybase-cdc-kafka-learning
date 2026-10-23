@@ -1,8 +1,10 @@
 7e1e5bc225e035a79c925612c22ca2fb3cc34172e1c9a8a301566f0726b3f61b  plugins/sybase-cdc/sybase-cdc-connector-0.1.0.jar
 56b163a23020c6cdab8c83ad19ae43767b88eeb71031e8c71014246b08eb3176  docs/index.html
 efa508db893b73ff445e3a00116fcffd0278afedefcf90775334b07741601f85  docs/article.html
-3da909d69e6e1eb65cd50c942b0f61251d5ada78fde582dffa85713ffdfe0e19  docs/site/index.html
-084c8ee962338d60d04f6f08850808d00c8fa09e2c218a534786ee208b64f39a  docs/site/assets/site.css
+c0d8733f36b27cd18fcebd1c4f6e2f89c4c3738252fe3927f0526f1efe1c5478  docs/site/index.html
+0635bd164268bed9005f148a6f16280a309b1bbee85b05beba4fd0074fe15d4e  docs/site/assets/site.css
 b33d3a2b34f67481deb586d3a725425e8b4141de7741c555e430065120183420  docs/site/assets/site.js
-7e94b07b5481281dd85c4148d8f8208826907d7744be7f56de5a1e739dea6b18  lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar
+16093de1b2d8304c14f3b91c2894f96260125d702e4249ac83f43727467582b2  docs/site/path/index.html
+ec7471c9d6d07eb8f559ebbffe76288d404859416cef248bbfb71a24a5835533  docs/site/assets/path.js
+ab9be0167900226b38b1e009b05abeadb4e5596da116378482f00dde1936af07  lab/solutions/06-package-and-run/target/cdc-lab-06-package-and-run-0.1.0.jar
 e46c77a494fa2e9583f704456cb89cb69a9b598d98c8e052281e965d24fe3e8b  deliverables/images/sybase-cdc-connect-0.1.0.tar.gz

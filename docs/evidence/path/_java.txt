@@ -1,0 +1,5 @@
+# Captured: 2026-10-23T20:59:46Z
+# Command:  node docs-src/site-checks/path-java.js
+path-java: Java lessons, exact code, a note for every class and method
+Java lessons compared with their files: 20 (1928 lines); notes: 292; members that need a note: 200; problems: 0
+# exit code: 0

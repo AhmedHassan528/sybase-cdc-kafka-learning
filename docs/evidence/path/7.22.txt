@@ -1,0 +1,39 @@
+# Captured: 2026-10-23T20:47:58Z
+# Lesson:   7.22
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326
+
+## step markers-before
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'scan'"
+Replication Agent Scan Status
+ dbname       pathname scanner_spid start_marker end_marker current_marker log_recs_scanned oldest_transaction
+ ------------ -------- ------------ ------------ ---------- -------------- ---------------- ------------------
+ phoenix_test n/a                42 (65545,76)   (65545,91) (65545,91)                   16 (-1,0)
+(1 row affected)
+(return status = 0)
+# exit 0, 0.9 s
+
+## step insert
+$ bash lab/path/ase.sh app "insert into payment (account_no, amount, currency) values ('LESSON-7', 7.00, 'EUR')"
+(1 row affected)
+# exit 0, 1.1 s
+
+## step event
+$ bash lab/env/await-event.sh sybase.phoenix_test.payment LESSON-7 90
+{"payment_id":"2"} | {"op":"c","before":null,"after":{"payment_id":"2","account_no":"LESSON-7","amount":"7","currency":"EUR","created_at":"2026-10-23T20:44:47.983"},"ts_ms":1792788287995}
+{"payment_id":"5"} | {"op":"c","before":null,"after":{"payment_id":"5","account_no":"LESSON-7","amount":"7","currency":"EUR","created_at":"2026-10-23T20:47:24.733"},"ts_ms":1792788444749}
+# exit 0, 15.3 s
+
+## step markers-after
+$ bash lab/path/ase.sh admin "sp_help_rep_agent phoenix_test, 'scan'"
+Replication Agent Scan Status
+ dbname       pathname scanner_spid start_marker end_marker current_marker log_recs_scanned oldest_transaction
+ ------------ -------- ------------ ------------ ---------- -------------- ---------------- ------------------
+ phoenix_test n/a                42 (65545,94)   (65545,97) (65545,97)                   24 (-1,0)
+(1 row affected)
+(return status = 0)
+# exit 0, 1.0 s
+
+## step stored-position
+$ docker exec cdc-lab-kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic _connect-offsets --from-beginning --timeout-ms 6000 --property print.key=true --property key.separator=' | ' 2>/dev/null | grep phoenix_test | tail -n 1
+["sybase-cdc-phoenix",{"database":"phoenix_test","server":"MYSYBASE"}] | {"commit_oqid":"00000000000015b000010009005e00010009005c0000b4ec01569c0500000000"}
+# exit 0, 17.0 s

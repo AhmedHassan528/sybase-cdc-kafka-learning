@@ -1,0 +1,8 @@
+{
+  "lesson": "2.2",
+  "steps": [
+    { "id": "port-busy", "run": "bash lab/path/demo/port-busy.sh", "mask": ["container-id=[0-9a-f]{64}"] },
+    { "id": "start", "run": "COMPOSE_PROGRESS=quiet bash lab/env/start.sh", "state": "changes-state" },
+    { "id": "containers", "run": "docker ps --format 'table {{.Names}}\\t{{.Ports}}'" }
+  ]
+}

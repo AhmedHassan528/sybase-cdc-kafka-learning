@@ -1,0 +1,9 @@
+{
+  "lesson": "1.2",
+  "steps": [
+    { "id": "files", "run": "ls -1 lab/env/start.sh lab/env/docker-compose.yml lab/env/reset.sh" },
+    { "id": "images", "run": "docker image ls --format '{{.Repository}}:{{.Tag}}   {{.Size}}' | grep -E '^(datagrip/sybase:|apache/kafka:3.8.0|provectuslabs/kafka-ui:|sybase-cdc-connect:|maven:3.9)' | sort" },
+    { "id": "disk", "run": "df -h . | tail -n 2" },
+    { "id": "ports", "run": "bash lab/path/check-ports.sh 5000 8080 8083 29092 11752" }
+  ]
+}
