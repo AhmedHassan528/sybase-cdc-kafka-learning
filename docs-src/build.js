@@ -97,5 +97,9 @@ ${html}
 </body>
 </html>
 `;
-fs.writeFileSync(OUT, page);
+// Windows can report a transient "UNKNOWN" error while another program (a viewer, a scanner) holds the file: retry a few times.
+for (let attempt = 1; ; attempt++) {
+  try { fs.writeFileSync(OUT, page); break; }
+  catch (e) { if (attempt >= 5) throw e; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000); }
+}
 console.log(`${path.relative(ROOT, OUT)}: ${chapter} chapters, ${toc.length} TOC entries, ${(page.length / 1024).toFixed(0)} KB`);

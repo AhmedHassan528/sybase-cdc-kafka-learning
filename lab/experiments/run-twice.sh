@@ -18,7 +18,7 @@ run() {   # run <name> <idempotent: yes|no> <command...>
   local out1 rc1 out2 rc2
   out1=$("$@" 2>&1); rc1=$?
   out2=$("$@" 2>&1); rc2=$?
-  local err2; err2=$(grep -ciE 'error|already exists|duplicate|cannot|failed|Msg [0-9]+, Level 1[1-9]' <<<"$out2")
+  local err2; err2=$(grep -iE 'error|already exists|duplicate|cannot|failed|Msg [0-9]+, Level 1[1-9]' <<<"$out2" | grep -vciE '(^|[^0-9])0 (failed|duplicate)')
   local verdict
   if [ "$rc1" -ne 0 ] || [ "$rc2" -ne 0 ]; then verdict="FAILED (exit codes $rc1 then $rc2)"
   elif [ "$err2" -gt 0 ] && [ "$idem" = yes ]; then verdict="CHECK: the second run printed $err2 line(s) that look like errors"

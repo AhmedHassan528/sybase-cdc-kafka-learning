@@ -14,7 +14,7 @@ OLD=$(( $(date +%s) % 90000 + 1000 ))
 NEW=$(( OLD + 1 ))
 
 # the table (created by types.sql, which also grants cdc_app) and its topic
-if ! printf 'select count(*) from ltl_types\ngo\n' | ase_app >/dev/null 2>&1; then ase_sql < "$LAB_ENV_DIR/types.sql" >/dev/null; fi
+if printf 'select count(*) from ltl_types\ngo\n' | ase_app 2>&1 | grep -q 'Msg [0-9]'; then ase_sql < "$LAB_ENV_DIR/types.sql" >/dev/null; fi   # isql exits 0 on an SQL error, so look at its answer
 cur=$(curl -fsS "$CONNECT_URL/connectors/$CONNECTOR_NAME/config" | sed -E 's/.*"table.include.list":"([^"]*)".*/\1/')
 case ",$cur," in
   *,ltl_types,*) ;;                                                   # already captured

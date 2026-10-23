@@ -95,7 +95,7 @@ check "the RepAgent is running after the stop/start test" bash -c "grep -q sleep
 echo "-- where sa is used by the scripts (must be setup only):"
 sa_users=$(grep -lE '\base_sql\b' lab/env/*.sh lab/experiments/*.sh 2>/dev/null | grep -v -e '_common.sh' -e 'verify-security.sh' | xargs -n1 basename | sort | tr '\n' ' ')
 info "scripts calling ase_sql (sa): $sa_users"
-check "sa is used only by setup scripts" test "$sa_users" = "create-accounts.sh data-types.sh sample-data.sh "
+check "sa is used only by setup scripts" test "$sa_users" = "create-accounts.sh data-types.sh key-change-update.sh sample-data.sh "
 
 echo; echo "### C. Credentials"
 check "lab/env/.lab-secrets exists"                          test -s lab/env/.lab-secrets

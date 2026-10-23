@@ -88,10 +88,10 @@ if [ -n "$wait_text" ]; then
 fi
 sleep "$settle"
 echo "== listener output (tag $TAG), first lines:"
-docker exec "$CONNECT" sh -c 'head -n 12 /tmp/live-listener.log' | cut -c1-200
+docker exec "$CONNECT" sh -c 'head -n 12 /tmp/live-listener.log' | cut -c1-1500
 echo "== lines that mention $TAG:"
 docker exec -e TAG="$TAG" "$CONNECT" sh -c 'grep -F -- "$TAG" /tmp/live-listener.log | head -n 10' | cut -c1-1500
 echo "== output from the first mention of $TAG onward (up to 40 lines):"
-docker exec -e TAG="$TAG" "$CONNECT" sh -c 'sed -n "/$TAG/,\$p" /tmp/live-listener.log | head -n 40' | cut -c1-400
+docker exec -e TAG="$TAG" "$CONNECT" sh -c 'sed -n "/$TAG/,\$p" /tmp/live-listener.log | head -n 40' | cut -c1-1500
 [ "$found" -eq 1 ] || { echo "== TIMEOUT: '$wait_text' never appeared in the listener output"; exit 1; }
 exit 0

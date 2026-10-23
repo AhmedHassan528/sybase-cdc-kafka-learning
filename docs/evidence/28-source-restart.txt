@@ -1,0 +1,19 @@
+# Captured: 2026-10-23T07:31:38Z
+# Command:  bash lab/experiments/source-restart.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== 1. a row before the restart (SR103139-1) and wait for it
+ok: SR103139-1 reached Kafka
+== 2. start a wait for the NEXT row (SR103139-2, not written yet), limit 300s, in the background
+== 3. restart ASE while that wait is running
+ASE container restarted; waiting for it to accept logins
+ASE accepts logins again 6 s after the wait started
+== 4. write the row after the restart (SR103139-2)
+-- the wait started before the restart ended after 15 s with: rc=0 1 matching line(s); 
+== 5. counts for tag SR103139
+ASE holds:   2 rows
+Kafka holds: 2 events (TAG-1 and TAG-2 expected once each)
+-- RepAgent after the restart (sp_help_rep_agent):  phoenix_test 12 (65546,128) (65546,132) (65546,132) not sleeping sleeping 0 0 
+-- connector: "state":"RUNNING" "state":"RUNNING" 
+
+# exit code: 0
