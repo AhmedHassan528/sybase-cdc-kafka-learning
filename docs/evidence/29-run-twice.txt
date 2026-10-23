@@ -1,0 +1,30 @@
+# Captured: 2026-10-23T08:52:59Z
+# Command:  bash lab/experiments/run-twice.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+start.sh                           exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: Lab is up. Next: lab/env/register-connector.sh, then lab/env/changes.sh
+register-connector.sh              exit 0 then 0   idempotent by design: yes  -> CHECK: the second run printed 3 line(s) that look like errors
+      last line of run 2: {"name":"sybase-cdc-phoenix","connector":{"state":"RUNNING","worker_id":"connect:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"conn
+create-accounts.sh                 exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: ok: lab accounts cdc_admin (replication_role) and cdc_app (DML on sample tables) exist
+sample-data.sh                     exit 1 then 1   idempotent by design: yes  -> FAILED (exit codes 1 then 1)
+      last line of run 2: 
+set-tables.sh (same list)          exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: table.include.list is already payment,ltl_types; nothing to do
+changes.sh                         exit 0 then 0   idempotent by design: no   -> ok
+      last line of run 2: (8 rows affected)
+      payment rows before/after two runs of changes.sh: 6 / 8 (inserts then deletes of the same rows leave the count unchanged by design; each run still wrote events)
+verify-security.sh                 exit 0 then 0   idempotent by design: yes  -> CHECK: the second run printed 1 line(s) that look like errors
+      last line of run 2: RESULT: 78 passed, 0 failed
+verify-images.sh                   exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2:    tag v0.7.2 still points at this digest
+secret-scan.sh                     exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: secret scan: no findings (allowed local test values: rs_user/rs_password, myPassword)
+audit-article-scripts.sh           exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: checked 44 script and path references, 0 missing
+checksums.sh verify                exit 0 then 0   idempotent by design: yes  -> ok
+      last line of run 2: 5 checked, 0 failed, 0 skipped
+-- connector after all runs: "state":"RUNNING" "state":"RUNNING" 
+
+# exit code: 0

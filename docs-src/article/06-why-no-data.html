@@ -37,7 +37,20 @@
 
 <h3 id="nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</h3>
 <p><b>Cause:</b> a config change restarts the task, which closes the connection from RepAgent. ASE notices only when it next has something to send. In the connector log you see <code>LTL server on port 11752 stopped</code> and then <code>LTL server listening</code>, and the line <code>RepAgent connected</code> appears only after the next change. In the ASE error log the same moment shows <code>RepAgent(4): Received the following communications error message ... network packet layer</code>, which is ASE finding the old connection dead.</p>
+<p>I saw these log lines in the container logs while running the experiments; I did not save them as an evidence file, so treat them as an observation, not a record.</p>
 <p><b>Fix:</b> none needed; it is expected. The lab sets <code>retry timeout</code> to 10 seconds so the wait is short (the original project saw minutes with the default). In scripts, write a change and wait for it with <code>await-event.sh</code> instead of waiting for a reconnect that will not happen on its own.</p>
+
+<h3 id="nodata-asestart">Symptom: nothing arrives right after ASE itself was restarted</h3>
+<p><b>Cause:</b> the source database was down or starting. The pipeline is fine; it is waiting for ASE.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/source-restart.sh</code> (bash only) writes a row, starts a wait for the next row, restarts the ASE container with <code>docker restart</code> (a normal stop and start; I did not kill ASE, <em>not run</em>), and then writes the next row. Output: <a href="evidence/28-source-restart.txt">evidence/28</a>.</p>
+<p><b>What I saw:</b></p>
+<ul>
+<li>ASE accepted logins again 6 seconds after the restart began.</li>
+<li>The wait that was already running when ASE restarted ended after 15 seconds, successfully, with the row written after the restart. It neither hung nor timed out.</li>
+<li>Both rows (before and after the restart) are in Kafka exactly once, and ASE holds the same two rows.</li>
+<li>ASE's RepAgent was running again without anyone starting it (<code>sp_help_rep_agent</code> showed it <code>sleeping</code>, its idle state), and the connector stayed <code>RUNNING</code>.</li>
+</ul>
+<p><b>What to do:</b> wait; do not restart the connector or start the RepAgent by hand. Keep your own waits bounded, as <code>await-event.sh</code> does: it stops with its own <code>TIMEOUT</code> message instead of waiting forever. A long ASE outage, an ASE crash and a restart of the whole Docker host were not tested (<em>not run</em>).</p>
 
 <h3 id="nodata-others">Other symptoms (from the original project; not re-run in this lab)</h3>
 <div class="tbl"><table>

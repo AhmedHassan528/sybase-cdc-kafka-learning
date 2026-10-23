@@ -1,14 +1,3 @@
-<!--
-Sync Impact Report (temporary; remove before commit)
-- Version change: 1.0.0 → 1.0.1 (PATCH: factual correction, no rule changed)
-- Modified principles: none. Principle V rationale sentence corrected (stale fact: "no Git history").
-- Modified sections: Development Workflow & Quality Gates, last bullet (stale fact: "no Git repository").
-- Added sections: none. Removed sections: none.
-- Unchanged on purpose: all principles and MUST/SHOULD rules, Technical Constraints, Governance, and the
-  Principle IV TLS/SASL requirement.
-- Reason: the workspace is now a Git repository (branch main, remote origin on GitHub).
-- Deferred TODOs: none.
--->
 # Sybase CDC Connector Constitution
 
 ## Core Principles

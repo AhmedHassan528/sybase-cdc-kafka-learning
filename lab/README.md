@@ -43,3 +43,15 @@ makes no claim to meet production security requirements.
 | Input handling | Scripts that take arguments reject anything outside a strict character set; SQL in scripts is fixed text, with only generated values (timestamps, generated passwords) interpolated. | No general-purpose sanitising: the scripts are not meant to take untrusted input. |
 
 `lab/env/verify-security.sh` tests the rows above and writes its output to `docs/evidence/21-lab-security.txt`.
+
+## Known limits when you run a script twice
+
+`lab/experiments/run-twice.sh` runs each setup script twice in a row on a running lab (`docs/evidence/29-run-twice.txt`).
+Results: `start.sh`, `create-accounts.sh` and `set-tables.sh` pass both times. Two do not:
+
+- `register-connector.sh` exits 0 the second time and the connector stays `RUNNING`, but it prints 3 lines that look like
+  errors (the RepAgent is already running). They are harmless; I did not change the script.
+- `sample-data.sh` (the second sample table) exits 1 both times in that run. The `customer` table existed already, and
+  `sp_setreptable` returns a nonzero status on a table that is already marked. Run it once on a fresh lab. I did not
+  change the script.
+- `changes.sh` is not idempotent by design: every run writes new events.

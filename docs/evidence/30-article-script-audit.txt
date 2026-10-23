@@ -1,0 +1,16 @@
+# Article script audit (lab/env/audit-article-scripts.sh), 2026-10-23T08:52:07Z
+
+## 1. The finished article
+INLINE   07-reset-and-restart.html: 5 inline command line(s); the chapter's own scripts: lab/env/reset.sh lab/experiments/offsets.sh 
+checked 41 script and path references, 0 missing
+exit code: 0
+
+## 2. Negative test: lab/env/consume.sh hidden for the duration of the run
+MISSING  02-try-it-at-home.html:39  lab/env/consume.sh
+INLINE   07-reset-and-restart.html: 5 inline command line(s); the chapter's own scripts: lab/env/reset.sh lab/experiments/offsets.sh 
+checked 41 script and path references, 1 missing
+exit code: 1
+
+## 3. Restored: lab/env/consume.sh exists: yes
+
+## Note: examples that are inline commands (curl, docker) rather than scripts are listed as INLINE with the chapter's own scripts; Section 7's inline commands are reproduced by lab/experiments/offsets.sh.

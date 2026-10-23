@@ -49,3 +49,28 @@ Date: 2026-10-21
 - Log growth when the connector is down; the emergency procedure is destructive and needs DBA sign-off.
 - Memory for large transactions (heap reached 1,954 MiB in the 1M-row test).
 - Verdict: not production-ready; see the readiness and security chapters.
+
+---
+
+# Update: from-scratch connector learning project (2026-10-23)
+
+## What was added
+| Item | Location |
+|---|---|
+| Article "Kafka Connect Deep Dive, Sybase CDC" (12 sections, first person, real outputs) | `docs/article.html`, sources in `docs-src/article/` |
+| Build-along: six steps ("increments") with starter, tests, live check and reference solution | `lab/increments/`, `lab/solutions/`; entry point `lab/increments/README.md` |
+| Lab environment (Docker only, digest-pinned images, local only) | `lab/env/`, `lab/README.md` |
+| Experiments behind the article's claims | `lab/experiments/` |
+| Evidence 14 to 38 | `docs/evidence/` |
+| Checksums of the deliverables | `docs/checksums.sha256` (`lab/env/checksums.sh generate` / `verify`) |
+
+## Test status (all executed in this session, output in `docs/evidence/`)
+- PASS: quickstart walkthrough 11 of 11 scenarios (evidence 36); six increments, starters fail and solutions pass, unit and live: 24 of 24 checks (35); lab security 78 of 78 (21); article script audit 0 of 41 references missing (30); links 25 pages, 812 local links, 0 problems; secret scan; image pins (33); PowerShell path (22).
+- Experiments run: offsets, restart, duplicates after a crash (26), rollback, multi-row and multi-table transactions, data types, "no data" causes (16 to 18), key-changing update (27), ASE graceful restart (28), run each setup script twice (29).
+- PARTIAL: run-twice (29): `start`, `create-accounts`, `set-tables` pass twice; `register-connector.sh` exits 0 but prints 3 error-looking lines on the second run; `sample-data.sh` exits 1 on a second run. Documented in `lab/README.md`; the scripts were left as they are.
+- NOT RUN: TLS and SASL (documented exception, Principle IV); ASE crash or long outage; OpenShift and IBM Event Streams; very large transactions; Windows-only run of the bash experiments; learner timing; interrupting a live check with Ctrl+C.
+- The log lines quoted in article Section 6 ("LTL server on port 11752 stopped" and the ASE error log) were observed but not saved as evidence; the article says so.
+
+## Found and corrected while writing
+- Walkthrough scenario 7 failed three times because of the script, not the article: the links-file path `/tmp/...` was read by Node as `E:\tmp\...`. Fixed in `lab/experiments/quickstart-walkthrough.sh`; the final run passed 11 of 11.
+- Earlier fixes (wrong article claims, false-pass image check, capture-evidence exit code, crash-duplicates measurement) are listed in `docs/PROGRESS.md`.

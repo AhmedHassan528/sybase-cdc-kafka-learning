@@ -49,6 +49,7 @@
 <li class="sub" data-keywords=""><a href="#nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-paused">Symptom: nothing arrives while the connector is not running</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-asestart">Symptom: nothing arrives right after ASE itself was restarted</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-others">Other symptoms (from the original project; not re-run in this lab)</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-check">Check yourself</a></li>
 <li data-keywords="reset restart offsets _connect-offsets commit_oqid rewind replay tombstone stop resume position"><a href="#reset-and-restart"><span class="num">7</span>Resetting and restarting from a chosen point</a></li>
@@ -63,6 +64,7 @@
 <li class="sub" data-keywords=""><a href="#keys-topic">Topic: one per table</a></li>
 <li class="sub" data-keywords=""><a href="#keys-key">Key: the primary key columns</a></li>
 <li class="sub" data-keywords=""><a href="#keys-delete">A delete is an event, not a tombstone</a></li>
+<li class="sub" data-keywords=""><a href="#keys-change">Changing a primary key is one update event</a></li>
 <li class="sub" data-keywords=""><a href="#keys-check">Check yourself</a></li>
 <li data-keywords="data types numeric decimal money datetime binary base64 null json string precision"><a href="#data-types"><span class="num">9</span>Data types</a></li>
 <li class="sub" data-keywords=""><a href="#types-table">What each type becomes</a></li>
@@ -136,6 +138,7 @@
 <li class="sub" data-keywords=""><a href="#nodata-filter">Symptom: the row is in ASE, the topic exists, but this row is missing</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-paused">Symptom: nothing arrives while the connector is not running</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</a></li>
+<li class="sub" data-keywords=""><a href="#nodata-asestart">Symptom: nothing arrives right after ASE itself was restarted</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-others">Other symptoms (from the original project; not re-run in this lab)</a></li>
 <li class="sub" data-keywords=""><a href="#nodata-check">Check yourself</a></li>
 <li data-keywords="reset restart offsets _connect-offsets commit_oqid rewind replay tombstone stop resume position"><a href="#reset-and-restart"><span class="num">7</span>Resetting and restarting from a chosen point</a></li>
@@ -150,6 +153,7 @@
 <li class="sub" data-keywords=""><a href="#keys-topic">Topic: one per table</a></li>
 <li class="sub" data-keywords=""><a href="#keys-key">Key: the primary key columns</a></li>
 <li class="sub" data-keywords=""><a href="#keys-delete">A delete is an event, not a tombstone</a></li>
+<li class="sub" data-keywords=""><a href="#keys-change">Changing a primary key is one update event</a></li>
 <li class="sub" data-keywords=""><a href="#keys-check">Check yourself</a></li>
 <li data-keywords="data types numeric decimal money datetime binary base64 null json string precision"><a href="#data-types"><span class="num">9</span>Data types</a></li>
 <li class="sub" data-keywords=""><a href="#types-table">What each type becomes</a></li>
@@ -505,7 +509,20 @@ PASS  06-package-and-run (solution): your packaged connector delivered the real 
 
 <h3 id="nodata-reconnect">Symptom: after changing the connector config, the next change is slow to arrive</h3>
 <p><b>Cause:</b> a config change restarts the task, which closes the connection from RepAgent. ASE notices only when it next has something to send. In the connector log you see <code>LTL server on port 11752 stopped</code> and then <code>LTL server listening</code>, and the line <code>RepAgent connected</code> appears only after the next change. In the ASE error log the same moment shows <code>RepAgent(4): Received the following communications error message ... network packet layer</code>, which is ASE finding the old connection dead.</p>
+<p>I saw these log lines in the container logs while running the experiments; I did not save them as an evidence file, so treat them as an observation, not a record.</p>
 <p><b>Fix:</b> none needed; it is expected. The lab sets <code>retry timeout</code> to 10 seconds so the wait is short (the original project saw minutes with the default). In scripts, write a change and wait for it with <code>await-event.sh</code> instead of waiting for a reconnect that will not happen on its own.</p>
+
+<h3 id="nodata-asestart">Symptom: nothing arrives right after ASE itself was restarted</h3>
+<p><b>Cause:</b> the source database was down or starting. The pipeline is fine; it is waiting for ASE.</p>
+<p><b>Reproduce:</b> <code>lab/experiments/source-restart.sh</code> (bash only) writes a row, starts a wait for the next row, restarts the ASE container with <code>docker restart</code> (a normal stop and start; I did not kill ASE, <em>not run</em>), and then writes the next row. Output: <a href="evidence/28-source-restart.txt">evidence/28</a>.</p>
+<p><b>What I saw:</b></p>
+<ul>
+<li>ASE accepted logins again 6 seconds after the restart began.</li>
+<li>The wait that was already running when ASE restarted ended after 15 seconds, successfully, with the row written after the restart. It neither hung nor timed out.</li>
+<li>Both rows (before and after the restart) are in Kafka exactly once, and ASE holds the same two rows.</li>
+<li>ASE's RepAgent was running again without anyone starting it (<code>sp_help_rep_agent</code> showed it <code>sleeping</code>, its idle state), and the connector stayed <code>RUNNING</code>.</li>
+</ul>
+<p><b>What to do:</b> wait; do not restart the connector or start the RepAgent by hand. Keep your own waits bounded, as <code>await-event.sh</code> does: it stops with its own <code>TIMEOUT</code> message instead of waiting forever. A long ASE outage, an ASE crash and a restart of the whole Docker host were not tested (<em>not run</em>).</p>
 
 <h3 id="nodata-others">Other symptoms (from the original project; not re-run in this lab)</h3>
 <div class="tbl"><table>
@@ -613,6 +630,10 @@ sybase.phoenix_test.payment</code></pre>
 
 <h3 id="keys-delete">A delete is an event, not a tombstone</h3>
 <p>A delete produces a normal record with <code>"op":"d"</code>, the old row in <code>before</code>, and <code>after</code> set to <code>null</code>. It does not produce a Kafka tombstone (a record with a null value). A consumer that builds a table from a topic must handle <code>d</code> itself.</p>
+
+<h3 id="keys-change">Changing a primary key is one update event</h3>
+<p>I inserted a row with id 36544 and then ran an <code>UPDATE</code> that changed its id to 36545 (<code>lab/experiments/key-change-update.sh</code>, <a href="evidence/27-key-change-update.txt">evidence/27</a>). The topic received one <code>c</code> event for the insert and then <b>one</b> <code>u</code> event: <code>before.id</code> is 36544, <code>after.id</code> is 36545, and the message key is <code>{"id":36545}</code>, taken from the new row. There is no delete of the old key and no insert of the new one.</p>
+<p>What follows for a consumer: the key changed, so the update may land in a different partition than the insert (I ran one partition, so I did not observe that). A consumer that keeps a table by key must remove <code>before</code>'s key and add <code>after</code>'s key when it sees <code>u</code>.</p>
 
 <h3 id="keys-check">Check yourself</h3>
 <details class="check"><summary>1. Two updates to the same row land in a topic with several partitions. Can a consumer see them out of order?</summary>

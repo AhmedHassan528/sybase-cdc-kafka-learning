@@ -1,0 +1,28 @@
+# Captured: 2026-10-23T09:34:53Z
+# Command:  bash lab/experiments/quickstart-walkthrough.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+== scenarios 1, 2 and 6: environment, first event, reset and repeat
+1    environment: four containers up, Connect answers PASS
+2    first event: c c u d for the scripted changes  PASS ("op":"c" "op":"c" "op":"u" "op":"d" )
+6    reset, then scenario 2 again: same result      PASS
+== scenario 3: the six increments, unit checkpoints
+3    increments: solutions pass, starters fail      PASS
+== scenario 4: restart the connector while writing (no row lost)
+4    restart mid-stream: 30 of 30 rows delivered    PASS (duplicated events: 0)
+== scenario 5: rolled-back transaction
+5    rollback: no event for the rolled-back row     PASS
+== scenario 7: article build and link check
+7    article builds, links resolve (problems=0)     PASS (pages=25 local links checked=812 problems=0 external=18)
+== scenario 8: secret scan
+8    secret scan                                    PASS
+== scenario 9: image pins
+9    image pins                                     PASS
+== scenario 10: lab security
+10   lab security (RESULT: 78 passed, 0 failed)     PASS
+== scenario 11: PowerShell scripts (resets the lab)
+11   PowerShell path (RESULT: all checks passed)    PASS
+
+SUMMARY: 11 scenarios, 0 failed, 476 s
+
+# exit code: 0

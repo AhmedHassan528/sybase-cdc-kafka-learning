@@ -1,0 +1,18 @@
+# Captured: 2026-10-23T08:52:23Z
+# Command:  bash lab/experiments/key-change-update.sh
+# Images:   cdc-lab-connect=sybase-cdc-connect:0.1.0 cdc-lab-kafka-ui=provectuslabs/kafka-ui:v0.7.2 cdc-lab-kafka=apache/kafka:3.8.0 cdc-lab-sybase=72f1e825d326 
+
+ok: new task listening
+table.include.list = payment,ltl_types
+== insert id=36544, then change its primary key to 36545 (tag KC115224)
+-- ASE now holds:
+ id          c_vchar                                                                                                                                                                                                  
+ ----------- -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 
+       36545 KC115224-after                                                                                                                                                                                           
+(1 row affected)
+-- events on sybase.phoenix_test.ltl_types for this run (key | op | before.id | after.id):
+{"id":36544} | op=c | before.id=null | after.id=36544
+{"id":36545} | op=u | before.id=36544 | after.id=36545
+-- expected key after the change: {"id":36545}; old id: 36544
+
+# exit code: 0

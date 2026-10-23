@@ -21,6 +21,10 @@ sybase.phoenix_test.payment</code></pre>
 <h3 id="keys-delete">A delete is an event, not a tombstone</h3>
 <p>A delete produces a normal record with <code>"op":"d"</code>, the old row in <code>before</code>, and <code>after</code> set to <code>null</code>. It does not produce a Kafka tombstone (a record with a null value). A consumer that builds a table from a topic must handle <code>d</code> itself.</p>
 
+<h3 id="keys-change">Changing a primary key is one update event</h3>
+<p>I inserted a row with id 36544 and then ran an <code>UPDATE</code> that changed its id to 36545 (<code>lab/experiments/key-change-update.sh</code>, <a href="evidence/27-key-change-update.txt">evidence/27</a>). The topic received one <code>c</code> event for the insert and then <b>one</b> <code>u</code> event: <code>before.id</code> is 36544, <code>after.id</code> is 36545, and the message key is <code>{"id":36545}</code>, taken from the new row. There is no delete of the old key and no insert of the new one.</p>
+<p>What follows for a consumer: the key changed, so the update may land in a different partition than the insert (I ran one partition, so I did not observe that). A consumer that keeps a table by key must remove <code>before</code>'s key and add <code>after</code>'s key when it sees <code>u</code>.</p>
+
 <h3 id="keys-check">Check yourself</h3>
 <details class="check"><summary>1. Two updates to the same row land in a topic with several partitions. Can a consumer see them out of order?</summary>
 <p>No. Both carry the same key, so they go to the same partition, and a partition keeps its order.</p></details>

@@ -39,3 +39,11 @@ node docs-src/publish-variant.js <out.html>                            # page bo
 
 ## Phase G: Deliver  [done]
 - [x] Completion report: `docs/COMPLETION.md`
+
+## Learning project (from-scratch connector)  [2026-10-23]
+- [x] Article, 12 sections, `docs/article.html`
+- [x] Build-along, six increments with starters, tests, live checks, solutions; 24 of 24 checks pass (evidence 35)
+- [x] Experiments: key-changing update (27), ASE restart (28), run-twice (29), article script audit (30)
+- [x] Quickstart walkthrough 11 of 11 (36), after fixing a path bug in the walkthrough script
+- [x] Known gaps recorded in `lab/README.md`: `register-connector.sh` and `sample-data.sh` second run
+- [ ] Not run: TLS/SASL, ASE crash, OpenShift/Event Streams (see COMPLETION.md)

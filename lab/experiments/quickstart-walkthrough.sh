@@ -42,7 +42,8 @@ out=$(bash "$HERE/rollback.sh" 2>&1)
 result 5 "rollback: no event for the rolled-back row" "$( grep -q 'events for the rolled-back row: 0' <<<"$out" && grep -q 'COMMITTED' <<<"$out" && echo PASS || echo "FAIL")"
 
 echo "== scenario 7: article build and link check"
-b=$(cd "$LAB_ROOT" && node docs-src/build.js article 2>&1 | tail -n 1); l=$(node docs-src/linkcheck.js docs /tmp/qs-links.txt 2>&1 | tail -n 1)
+REPO="$(cd "$HERE/../.." && pwd)"
+b=$(cd "$REPO" && node docs-src/build.js article 2>&1 | tail -n 1); l=$(cd "$REPO" && node docs-src/linkcheck.js docs "$(cygpath -m /tmp)/qs-links.txt" 2>&1 | tail -n 1)
 result 7 "article builds, links resolve (problems=0)" "$( grep -q 'problems=0' <<<"$l" && echo "PASS ($l)" || echo "FAIL ($l)")"
 
 echo "== scenario 8: secret scan"
